@@ -2,10 +2,16 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createClient } from "@supabase/supabase-js";
 import { compare } from "bcrypt";
+import { z } from "zod";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+const credentialsSchema = z.object({
+  email: z.string().email("Invalid email format"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
 
 const handler = NextAuth({
   providers: [
@@ -17,34 +23,42 @@ const handler = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Email and password required");
+        try {
+          const validatedCredentials = credentialsSchema.parse(credentials);
+
+          const { data: user, error } = await supabase
+            .from("users")
+            .select("*")
+            .eq("email", validatedCredentials.email)
+            .single();
+
+          if (error || !user) {
+            throw new Error("Email not found");
+          }
+
+          const isPasswordValid = await compare(
+            validatedCredentials.password,
+            user.password
+          );
+
+          if (!isPasswordValid) {
+            throw new Error("Invalid password");
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+          };
+        } catch (error) {
+          if (error instanceof z.ZodError) {
+            const errorMessage = error.errors
+              .map((err) => err.message)
+              .join(", ");
+            throw new Error(errorMessage);
+          }
+          throw error;
         }
-
-        const { data: user, error } = await supabase
-          .from("users")
-          .select("*")
-          .eq("email", credentials.email)
-          .single();
-
-        if (error || !user) {
-          throw new Error("Email not found");
-        }
-
-        const isPasswordValid = await compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          throw new Error("Invalid password");
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-        };
       },
     }),
   ],
