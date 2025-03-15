@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -19,7 +19,7 @@ const errorMessages: Record<string, string> = {
   sessionrequired: "You must be signed in to access this page.",
 };
 
-export default function AuthError() {
+function AuthErrorContent() {
   const searchParams = useSearchParams();
   const [error, setError] = useState<string>("default");
   const [errorDescription, setErrorDescription] = useState<string | null>(null);
@@ -90,5 +90,23 @@ export default function AuthError() {
         </div>
       </div>
     </div>
+  );
+}
+
+function Loading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function AuthError() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <AuthErrorContent />
+    </Suspense>
   );
 }
