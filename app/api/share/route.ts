@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession();
@@ -15,7 +15,7 @@ export async function PATCH(
     const { data: content } = await supabase
       .from("content")
       .select("is_shared")
-      .eq("id", params.id)
+      .eq("id", (await params).id)
       .eq("user_id", session.user.id)
       .single();
 
@@ -27,7 +27,7 @@ export async function PATCH(
         is_shared: newIsShared,
         share_id: newIsShared ? crypto.randomUUID() : null,
       })
-      .eq("id", params.id)
+      .eq("id", (await params).id)
       .eq("user_id", session.user.id)
       .select("id, is_shared, share_id")
       .single();

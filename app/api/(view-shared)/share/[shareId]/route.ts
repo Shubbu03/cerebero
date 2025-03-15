@@ -3,13 +3,13 @@ import { NextResponse } from "next/server";
 
 export async function GET(
   request: Request,
-  { params }: { params: { shareId: string } }
+  { params }: { params: Promise<{ shareId: string }> }
 ) {
   try {
     const { data, error } = await supabase
       .from("content")
       .select("id, title, type, url, body, created_at")
-      .eq("share_id", params.shareId)
+      .eq("share_id", (await params).shareId)
       .eq("is_shared", true)
       .single();
 
