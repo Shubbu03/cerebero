@@ -14,7 +14,7 @@ interface ContentTag {
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession();
@@ -24,7 +24,7 @@ export async function PUT(
     }
 
     const userId = session.user.id;
-    const contentId = params.id;
+    const contentId = (await params).id;
     const { tags } = await request.json();
 
     if (!Array.isArray(tags)) {
@@ -122,10 +122,10 @@ export async function PUT(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const contentId = params.id;
+    const contentId = (await params).id;
 
     const { data: content, error: contentError } = await supabase
       .from("content")

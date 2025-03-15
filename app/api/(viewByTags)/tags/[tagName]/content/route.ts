@@ -15,7 +15,7 @@ interface ContentItems {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { tagName: string } }
+  { params }: { params: Promise<{ tagName: string }> }
 ) {
   try {
     const session = await getServerSession();
@@ -25,7 +25,7 @@ export async function GET(
     }
 
     const userId = session.user.id;
-    const tagName = params.tagName;
+    const tagName = (await params).tagName;
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get("limit") || "10");
     const offset = parseInt(searchParams.get("offset") || "0");
