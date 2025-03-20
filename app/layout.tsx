@@ -1,20 +1,21 @@
-"use client"
-
+import { Metadata } from "next";
 import "./globals.css";
-import { SessionProvider } from "next-auth/react"; 
+
+export const metadata: Metadata = {
+  title: "Cerebero",
+  description: "Your second brain for saving important web links.",
+  keywords:
+    "second-brain, notes, knowledge-management, data-storage, personal-wiki, information-organization, digital-memory ,PKM",
+};
 
 export default function RootLayout({
   children,
-  session,
 }: {
   children: React.ReactNode;
-  session: never;
 }) {
   return (
     <html lang="en">
-      <body>
-        <SessionProvider session={session}>{children}</SessionProvider>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
