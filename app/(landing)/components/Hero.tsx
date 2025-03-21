@@ -385,6 +385,46 @@ export default function Hero() {
       onMouseLeave={handleMouseLeave}
     >
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+
+      <div className="relative z-10 flex flex-col items-center justify-center h-full text-white px-4">
+        <motion.div
+          className="text-center"
+          initial={{ opacity: 0, y: 20 }}
+          animate={textControls}
+        >
+          <h1
+            className="text-6xl md:text-8xl font-bold tracking-tight mb-2 bg-clip-text text-transparent bg-gradient-to-r from-silver-400 to-cardinal-500 "
+            style={{
+              backgroundImage: `linear-gradient(135deg, ${COLORS.silver} 30%, ${COLORS.cardinal} 60%)`,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            Cerebero
+          </h1>
+          <p
+            className="text-xl md:text-3xl font-light text-silver-300 max-w-2xl mx-auto mb-10"
+            style={{ color: COLORS.silver, letterSpacing: "0.02em" }}
+          >
+            Your digital cerebrum. Think better.
+          </p>
+        </motion.div>
+        <motion.div
+          className="flex flex-col sm:flex-row gap-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={buttonControls}
+        >
+          <Button
+            size="lg"
+            className="text-white px-8 py-6 text-lg rounded-xl cursor-pointer"
+            style={{
+              background: `linear-gradient(135deg, ${COLORS.cardinal}, #A01F37)`,
+              borderColor: COLORS.cardinal,
+            }}
+          >
+            Get Started
+          </Button>
+        </motion.div>
+      </div>
     </div>
   );
 }
