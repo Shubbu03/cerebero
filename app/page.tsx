@@ -1,3 +1,9 @@
+import Hero from "./(landing)/components/Hero";
+
 export default function Home() {
-  return <div>hii</div>;
+  return (
+    <>
+      <Hero />
+    </>
+  );
 }
