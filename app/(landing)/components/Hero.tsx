@@ -393,9 +393,9 @@ export default function Hero() {
           animate={textControls}
         >
           <h1
-            className="text-6xl md:text-8xl font-bold tracking-tight mb-2 bg-clip-text text-transparent bg-gradient-to-r from-silver-400 to-cardinal-500 "
+            className="text-6xl md:text-8xl font-bold tracking-tight mb-2 bg-clip-text text-transparent bg-gradient-to-r from-silver-400 to-cardinal-500"
             style={{
-              backgroundImage: `linear-gradient(135deg, ${COLORS.silver} 30%, ${COLORS.cardinal} 60%)`,
+              backgroundImage: `linear-gradient(150deg, ${COLORS.silver} 45%, ${COLORS.cardinal} 55%)`,
               letterSpacing: "-0.02em",
             }}
           >
