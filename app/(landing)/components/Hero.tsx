@@ -3,7 +3,6 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { motion, useAnimation } from "framer-motion";
-import { Button } from "@/components/ui/button";
 
 const COLORS = {
   raisinBlack: "#1D1D27",
@@ -413,16 +412,50 @@ export default function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={buttonControls}
         >
-          <Button
-            size="lg"
-            className="text-white px-8 py-6 text-lg rounded-xl cursor-pointer"
-            style={{
-              background: `linear-gradient(135deg, ${COLORS.cardinal}, #A01F37)`,
-              borderColor: COLORS.cardinal,
-            }}
-          >
-            Get Started
-          </Button>
+          <div className="relative">
+            <motion.div
+              className="absolute inset-0 rounded-xl"
+              initial={{ opacity: 0 }}
+              whileHover={{
+                opacity: 1,
+                scale: 1.05,
+              }}
+              style={{
+                border: `2px solid ${COLORS.cardinal}`,
+              }}
+            />
+
+            <motion.div
+              className="absolute bottom-0 left-0 right-0 h-1/2 rounded-b-xl"
+              initial={{ opacity: 0 }}
+              whileHover={{
+                opacity: 0.6,
+              }}
+              style={{
+                background: `radial-gradient(ellipse at center bottom, ${COLORS.cardinal}, transparent 70%)`,
+                filter: "blur(8px)",
+                transform: "translateY(40%)",
+                zIndex: 0,
+              }}
+            />
+            <motion.button
+              className="text-white px-6 py-3 text-lg rounded-xl cursor-pointer relative z-10"
+              whileHover={{
+                scale: 1.02,
+              }}
+              whileTap={{
+                scale: 0.98,
+                boxShadow: "inset 0px 2px 6px rgba(0, 0, 0, 0.3)",
+              }}
+              style={{
+                background: `linear-gradient(135deg, ${COLORS.cardinal}, #A01F37)`,
+                borderColor: "transparent",
+                transform: "translateZ(0)",
+              }}
+            >
+              Get Started
+            </motion.button>
+          </div>
         </motion.div>
       </div>
     </div>
