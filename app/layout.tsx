@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import "./globals.css";
+import { GeistSans } from "geist/font/sans";
 
 export const metadata: Metadata = {
   title: "Cerebero",
@@ -15,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={`${GeistSans} antialiased`}>{children}</body>
     </html>
   );
 }
