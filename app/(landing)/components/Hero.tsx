@@ -3,6 +3,8 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { motion, useAnimation } from "framer-motion";
+// import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const COLORS = {
   raisinBlack: "#1D1D27",
@@ -38,6 +40,7 @@ export default function Hero() {
   const requestRef = useRef<number | undefined>(undefined);
   const previousTimeRef = useRef<number | undefined>(undefined);
 
+  //   const router = useRouter();
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
 
@@ -438,23 +441,26 @@ export default function Hero() {
                 zIndex: 0,
               }}
             />
-            <motion.button
-              className="text-white px-6 py-3 text-lg rounded-xl cursor-pointer relative z-10"
-              whileHover={{
-                scale: 1.02,
-              }}
-              whileTap={{
-                scale: 0.98,
-                boxShadow: "inset 0px 2px 6px rgba(0, 0, 0, 0.3)",
-              }}
-              style={{
-                background: `linear-gradient(135deg, ${COLORS.cardinal}, #A01F37)`,
-                borderColor: "transparent",
-                transform: "translateZ(0)",
-              }}
-            >
-              Get Started
-            </motion.button>
+            <Link href="/signup">
+              <motion.button
+                className="text-white px-6 py-3 text-lg rounded-xl cursor-pointer relative z-10"
+                whileHover={{
+                  scale: 1.02,
+                }}
+                whileTap={{
+                  scale: 0.98,
+                  boxShadow: "inset 0px 2px 6px rgba(0, 0, 0, 0.3)",
+                }}
+                style={{
+                  background: `linear-gradient(135deg, ${COLORS.cardinal}, #A01F37)`,
+                  borderColor: "transparent",
+                  transform: "translateZ(0)",
+                }}
+                //   onClick={() => router.push("/signup")}
+              >
+                Get Started
+              </motion.button>
+            </Link>
           </div>
         </motion.div>
       </div>
