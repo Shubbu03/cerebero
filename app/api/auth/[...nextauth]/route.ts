@@ -64,6 +64,32 @@ const handler = NextAuth({
     }),
   ],
   callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider === "google") {
+        const { data: existingUser } = await supabase
+          .from("users")
+          .select("*")
+          .eq("email", user.email)
+          .single();
+
+        if (!existingUser) {
+          const { error } = await supabase.from("users").insert([
+            {
+              email: user.email,
+              name: user.name,
+              password: "",
+              provider: "google",
+              provider_id: account.providerAccountId,
+            },
+          ]);
+          if (error) {
+            console.error("Error saving Google user to Supabase:", error);
+            return false;
+          }
+        }
+      }
+      return true;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
