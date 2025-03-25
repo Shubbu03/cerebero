@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { motion, useAnimation } from "framer-motion";
 import Link from "next/link";
-import Background, { COLORS } from "@/components/Background";
+import Background, { COLORS } from "@/components/background/Background";
 
 export default function Hero() {
   const textControls = useAnimation();
