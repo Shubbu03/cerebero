@@ -32,7 +32,6 @@ export function TexturedBackground({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Set canvas dimensions to match display size
     const updateCanvasSize = () => {
       const { width, height } = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
@@ -46,7 +45,6 @@ export function TexturedBackground({
     updateCanvasSize();
     window.addEventListener("resize", updateCanvasSize);
 
-    // Generate noise texture
     const generateNoise = () => {
       const { width, height } = canvas;
 
@@ -56,17 +54,15 @@ export function TexturedBackground({
       const imageData = ctx.getImageData(0, 0, width, height);
       const data = imageData.data;
 
-      // Apply noise
       for (let i = 0; i < data.length; i += 4) {
         const noise = Math.random() * intensity - intensity / 2;
-        data[i] = Math.max(0, Math.min(255, data[i] + noise * 255)); // R
-        data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + noise * 255)); // G
-        data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + noise * 255)); // B
+        data[i] = Math.max(0, Math.min(255, data[i] + noise * 255));
+        data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + noise * 255));
+        data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + noise * 255));
       }
 
       ctx.putImageData(imageData, 0, 0);
 
-      // Add dot pattern if enabled
       if (dotPattern) {
         drawDotPattern(ctx, width, height);
       }
@@ -79,7 +75,7 @@ export function TexturedBackground({
     ) => {
       const dotSize = 1;
       const spacing = 20;
-      const dotColor = "rgba(255, 230, 0, 0.2)"; // Yellow dots like in motion.dev
+      const dotColor = "rgba(255, 230, 0, 0.2)";
 
       ctx.fillStyle = dotColor;
 
@@ -94,7 +90,6 @@ export function TexturedBackground({
 
     generateNoise();
 
-    // Animate the noise if enabled
     let animationFrame: number;
     if (animated) {
       const animateNoise = () => {
