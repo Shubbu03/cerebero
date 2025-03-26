@@ -1,3 +1,5 @@
+"use client"
+
 import { cn } from "@/lib/utils";
 import { IconLayoutNavbarCollapse } from "@tabler/icons-react";
 import {
@@ -11,7 +13,7 @@ import {
 import Link from "next/link";
 import { useRef, useState } from "react";
 
-export const FloatingDock = ({
+export const FloatingDockComponent = ({
   items,
   desktopClassName,
   mobileClassName,
