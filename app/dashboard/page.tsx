@@ -6,9 +6,7 @@ export default function Dashboard() {
     <>
       <TexturedBackground className="min-h-screen" dotPattern>
         <h2 className="text-white">dashboard</h2>
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-10">
-          <FloatingDock />
-        </div>
+        <FloatingDock />
       </TexturedBackground>
     </>
   );
