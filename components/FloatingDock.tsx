@@ -27,10 +27,10 @@ export function FloatingDock() {
     },
   ];
   return (
-    <div className="flex items-center justify-center h-[35rem] w-full">
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-10">
       <FloatingDockComponent
-        desktopClassName="bottom"
-        mobileClassName="translate-y-20"
+        desktopClassName=""
+        mobileClassName=""
         items={links}
       />
     </div>
