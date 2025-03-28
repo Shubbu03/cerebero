@@ -5,14 +5,14 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { z } from "zod";
 import {
-  Eye,
-  EyeOff,
-  Mail,
-  Lock,
-  User,
-  Loader2,
-  ArrowRight,
-} from "lucide-react";
+  IconEye,
+  IconEyeOff,
+  IconMail,
+  IconLock,
+  IconUser,
+  IconLoader2,
+  IconArrowRight,
+} from "@tabler/icons-react";
 import { motion } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import Background from "../Background";
+import Background from "../background/Background";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -220,7 +220,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
                   transition={{ type: "spring", stiffness: 400, damping: 10 }}
                 >
                   {mode === "login" ? "Sign up" : "Sign in"}
-                  <ArrowRight className="ml-1 h-3 w-3" />
+                  <IconArrowRight className="ml-1 h-3 w-3" />
                 </motion.span>
               </Link>
             </p>
@@ -254,7 +254,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
                     Name
                   </Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-black" />
+                    <IconUser className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-black" />
                     <motion.div whileFocus="focus" variants={inputAnimation}>
                       <Input
                         id="name"
@@ -287,7 +287,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
                   Email address
                 </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-black" />
+                  <IconMail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-black" />
                   <motion.div whileFocus="focus" variants={inputAnimation}>
                     <Input
                       id="email"
@@ -339,7 +339,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
                   )}
                 </div>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-black" />
+                  <IconLock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-black" />
                   <motion.div whileFocus="focus" variants={inputAnimation}>
                     <Input
                       id="password"
@@ -361,9 +361,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
+                      <IconEyeOff className="h-4 w-4" />
                     ) : (
-                      <Eye className="h-4 w-4" />
+                      <IconEye className="h-4 w-4" />
                     )}
                   </button>
                   {errors.password && (
@@ -385,7 +385,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
                     Confirm Password
                   </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-black" />
+                    <IconLock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-black" />
                     <motion.div whileFocus="focus" variants={inputAnimation}>
                       <Input
                         id="confirmPassword"
@@ -428,7 +428,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
                 >
                   {isLoading ? (
                     <span className="flex items-center">
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
                       Loading...
                     </span>
                   ) : (
