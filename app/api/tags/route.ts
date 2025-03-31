@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { supabase } from "@/lib/supabaseClient";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 const tagSchema = z.object({
   name: z
@@ -12,13 +13,43 @@ const tagSchema = z.object({
 
 export async function GET() {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    let userId = session.user.id;
+
+    if (!userId && session.user.email) {
+      const { data: user, error } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", session.user.email)
+        .single();
+
+      if (error) {
+        console.error("Error fetching user ID from Supabase:", error);
+        return NextResponse.json(
+          { message: "Failed to identify user" },
+          { status: 500 }
+        );
+      }
+
+      if (user) {
+        userId = user.id;
+      }
+    }
+
+    if (!userId) {
+      console.error(
+        "User ID is missing from session and could not be retrieved"
+      );
+      return NextResponse.json(
+        { message: "User ID not found" },
+        { status: 400 }
+      );
+    }
 
     const { data: tags, error } = await supabase
       .from("tags")
@@ -46,13 +77,44 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    let userId = session.user.id;
+
+    if (!userId && session.user.email) {
+      const { data: user, error } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", session.user.email)
+        .single();
+
+      if (error) {
+        console.error("Error fetching user ID from Supabase:", error);
+        return NextResponse.json(
+          { message: "Failed to identify user" },
+          { status: 500 }
+        );
+      }
+
+      if (user) {
+        userId = user.id;
+      }
+    }
+
+    if (!userId) {
+      console.error(
+        "User ID is missing from session and could not be retrieved"
+      );
+      return NextResponse.json(
+        { message: "User ID not found" },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
 
     const validationResult = tagSchema.safeParse(body);
