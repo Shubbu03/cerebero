@@ -4,13 +4,14 @@ import { compare } from "bcrypt";
 import { z } from "zod";
 import Google from "next-auth/providers/google";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import type { NextAuthOptions } from "next-auth";
 
 const credentialsSchema = z.object({
   email: z.string().email("Invalid email format"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
-const handler = NextAuth({
+export const authOptions: NextAuthOptions = {
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -132,11 +133,25 @@ const handler = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+      } else if (!token.id && token.email) {
+        try {
+          const { data: dbUser, error } = await supabaseAdmin
+            .from("users")
+            .select("id")
+            .eq("email", token.email)
+            .single();
+
+          if (dbUser && !error) {
+            token.id = dbUser.id;
+          }
+        } catch (error) {
+          console.error("Error fetching user ID:", error);
+        }
       }
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
+      if (session.user && token) {
         session.user.id = token.id as string;
       }
       return session;
@@ -148,7 +163,11 @@ const handler = NextAuth({
   },
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60,
   },
-});
+  debug: process.env.NODE_ENV === "development",
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
