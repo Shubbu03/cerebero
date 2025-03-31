@@ -3,7 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcrypt";
 import { z } from "zod";
 import Google from "next-auth/providers/google";
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 const credentialsSchema = z.object({
   email: z.string().email("Invalid email format"),
@@ -27,7 +27,7 @@ const handler = NextAuth({
         try {
           const validatedCredentials = credentialsSchema.parse(credentials);
 
-          const { data: user, error } = await supabase
+          const { data: user, error } = await supabaseAdmin
             .from("users")
             .select("*")
             .eq("email", validatedCredentials.email)
@@ -66,26 +66,65 @@ const handler = NextAuth({
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === "google") {
-        const { data: existingUser } = await supabase
-          .from("users")
-          .select("*")
-          .eq("email", user.email)
-          .single();
+        try {
+          const { data: existingUser, error: findError } = await supabaseAdmin
+            .from("users")
+            .select("*")
+            .eq("email", user.email)
+            .single();
 
-        if (!existingUser) {
-          const { error } = await supabase.from("users").insert([
-            {
-              email: user.email,
-              name: user.name,
-              password: "",
-              provider: "google",
-              provider_id: account.providerAccountId,
-            },
-          ]);
-          if (error) {
-            console.error("Error saving Google user to Supabase:", error);
+          if (findError && findError.code !== "PGRST116") {
+            console.error("Error checking for existing user:", findError);
             return false;
           }
+
+          if (existingUser) {
+            user.id = existingUser.id;
+            const { error: updateError } = await supabaseAdmin
+              .from("users")
+              .update({
+                provider: "google",
+                provider_id: account.providerAccountId,
+              })
+              .eq("id", existingUser.id);
+
+            if (updateError) {
+              console.error("Error updating user provider:", updateError);
+            }
+
+            return true;
+          } else {
+            const { data: newUser, error: insertError } = await supabaseAdmin
+              .from("users")
+              .insert({
+                email: user.email,
+                name: user.name,
+                password: "",
+                provider: "google",
+                provider_id: account.providerAccountId,
+              })
+              .select()
+              .single();
+
+            if (insertError) {
+              console.error(
+                "Error saving Google user to Supabase:",
+                insertError
+              );
+              return false;
+            }
+
+            if (!newUser) {
+              console.error("No user returned after insert");
+              return false;
+            }
+
+            user.id = newUser.id;
+            return true;
+          }
+        } catch (error) {
+          console.error("Unexpected error during Google sign-in:", error);
+          return false;
         }
       }
       return true;
@@ -104,7 +143,7 @@ const handler = NextAuth({
     },
   },
   pages: {
-    signIn: "/signin",
+    signIn: "/login",
     error: "/auth/error",
   },
   session: {
