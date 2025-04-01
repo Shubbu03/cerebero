@@ -160,7 +160,6 @@ export default function AddContentModal({
         ...values,
         tags: selectedTags.map((tag) => tag.name),
       };
-      console.log("Payload data is ::", payload);
       await axios.post("/api/add-content", payload);
 
       form.reset();
