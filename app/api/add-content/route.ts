@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { authOptions } from "../auth/[...nextauth]/route";
 
 const baseContentSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -31,7 +32,7 @@ const contentSchema = z.discriminatedUnion("type", [
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     const validatedData = validationResult.data;
 
-    const { data: contentData, error: contentError } = await supabase
+    const { data: contentData, error: contentError } = await supabaseAdmin
       .from("content")
       .insert({
         user_id: userId,
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     if (validatedData.tags.length > 0) {
       for (const tagName of validatedData.tags) {
-        const { data: existingTag } = await supabase
+        const { data: existingTag } = await supabaseAdmin
           .from("tags")
           .select("id")
           .eq("name", tagName.toLowerCase())
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
         if (existingTag) {
           tagId = existingTag.id;
         } else {
-          const { data: newTag, error: tagError } = await supabase
+          const { data: newTag, error: tagError } = await supabaseAdmin
             .from("tags")
             .insert({
               name: tagName.toLowerCase(),
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
           tagId = newTag.id;
         }
 
-        await supabase.from("content_tags").insert({
+        await supabaseAdmin.from("content_tags").insert({
           content_id: contentData.id,
           tag_id: tagId,
         });
