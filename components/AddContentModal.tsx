@@ -100,7 +100,7 @@ export default function AddContentModal({
 
   const fetchTags = async () => {
     try {
-      if (!session?.user?.id) return;
+      //   if (!session?.user?.id) return;
 
       const response = await axios.get("/api/tags");
       setTags(response.data || []);
@@ -160,7 +160,7 @@ export default function AddContentModal({
         ...values,
         tags: selectedTags.map((tag) => tag.name),
       };
-
+      console.log("Payload data is ::", payload);
       await axios.post("/api/add-content", payload);
 
       form.reset();
