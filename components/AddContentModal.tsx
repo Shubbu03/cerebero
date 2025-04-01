@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import axios from "axios";
 import {
   IconX,
   IconLink,
   IconFileText,
-  IconPhoto,
-  IconVideo,
-  IconFile,
+  IconBrandTwitter,
+  IconBrandYoutube,
 } from "@tabler/icons-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,18 +45,18 @@ import { Badge } from "@/components/ui/badge";
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  type: z.string().min(1, "Content type is required"),
+  type: z.enum(["document", "tweet", "youtube", "link"], {
+    errorMap: () => ({ message: "Invalid content type" }),
+  }),
   url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-  body: z.string().optional(),
-  is_shared: z.boolean().default(false),
+  body: z.string().optional().or(z.literal("")),
 });
 
 const contentTypes = [
+  { value: "document", label: "Document", icon: IconFileText },
+  { value: "tweet", label: "Tweet", icon: IconBrandTwitter },
+  { value: "youtube", label: "YouTube", icon: IconBrandYoutube },
   { value: "link", label: "Link", icon: IconLink },
-  { value: "note", label: "Note", icon: IconFileText },
-  { value: "image", label: "Image", icon: IconPhoto },
-  { value: "video", label: "Video", icon: IconVideo },
-  { value: "file", label: "File", icon: IconFile },
 ];
 
 type ContentFormValues = z.infer<typeof formSchema>;
@@ -89,7 +89,6 @@ export default function AddContentModal({
       type: "link",
       url: "",
       body: "",
-      is_shared: false,
     },
   });
 
@@ -103,19 +102,8 @@ export default function AddContentModal({
     try {
       if (!session?.user?.id) return;
 
-      const response = await fetch("/api/tags", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch tags");
-      }
-
-      const data = await response.json();
-      setTags(data || []);
+      const response = await axios.get("/api/tags");
+      setTags(response.data || []);
     } catch (error) {
       console.error("Error fetching tags:", error);
     }
@@ -134,21 +122,11 @@ export default function AddContentModal({
           setSelectedTags([...selectedTags, existingTag]);
         }
       } else {
-        const response = await fetch("/api/tags", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: newTag.trim(),
-          }),
+        const response = await axios.post("/api/tags", {
+          name: newTag.trim(),
         });
 
-        if (!response.ok) {
-          throw new Error("Failed to create tag");
-        }
-
-        const data = await response.json();
+        const data = response.data;
         setTags([...tags, data]);
         setSelectedTags([...selectedTags, data]);
       }
@@ -178,20 +156,12 @@ export default function AddContentModal({
         return;
       }
 
-      const response = await fetch("/api/content", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...values,
-          tags: selectedTags.map((tag) => tag.id),
-        }),
-      });
+      const payload = {
+        ...values,
+        tags: selectedTags.map((tag) => tag.name),
+      };
 
-      if (!response.ok) {
-        throw new Error("Failed to create content");
-      }
+      await axios.post("/api/add-content", payload);
 
       form.reset();
       setSelectedTags([]);
@@ -199,7 +169,11 @@ export default function AddContentModal({
 
       router.refresh();
     } catch (error) {
-      console.error("Error adding content:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        console.error("API Error:", error.response.data);
+      } else {
+        console.error("Error adding content:", error);
+      }
     }
   };
 
@@ -273,8 +247,8 @@ export default function AddContentModal({
             />
 
             {(contentType === "link" ||
-              contentType === "image" ||
-              contentType === "video") && (
+              contentType === "tweet" ||
+              contentType === "youtube") && (
               <FormField
                 control={form.control}
                 name="url"
@@ -294,7 +268,7 @@ export default function AddContentModal({
               />
             )}
 
-            {(contentType === "note" || contentType === "file") && (
+            {contentType === "document" && (
               <FormField
                 control={form.control}
                 name="body"
@@ -313,26 +287,6 @@ export default function AddContentModal({
                 )}
               />
             )}
-
-            <FormField
-              control={form.control}
-              name="is_shared"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                  <FormControl>
-                    <input
-                      type="checkbox"
-                      checked={field.value}
-                      onChange={field.onChange}
-                      className="h-4 w-4 rounded border-zinc-700 bg-zinc-800"
-                    />
-                  </FormControl>
-                  <FormLabel className="text-sm font-normal">
-                    Make this content shareable
-                  </FormLabel>
-                </FormItem>
-              )}
-            />
 
             <div className="space-y-4">
               <div className="flex flex-col gap-2">
