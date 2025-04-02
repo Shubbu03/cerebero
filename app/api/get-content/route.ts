@@ -1,16 +1,17 @@
-import { supabase } from "@/lib/supabaseClient";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+import { authOptions } from "../auth/[...nextauth]/route";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function GET() {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const userId = session.user.id;
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("content")
       .select()
       .eq("user_id", userId);
