@@ -100,8 +100,6 @@ export default function AddContentModal({
 
   const fetchTags = async () => {
     try {
-      //   if (!session?.user?.id) return;
-
       const response = await axios.get("/api/tags");
       setTags(response.data || []);
     } catch (error) {
