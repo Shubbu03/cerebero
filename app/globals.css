@@ -74,7 +74,7 @@
   --color-foreground: var(--foreground);
   --font-sans: Geist, sans-serif;
   --font-mono: var(--font-geist-mono);
-  --card: var(--card);
+  /* --card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
@@ -91,10 +91,11 @@
   --border: var(--border);
   --input: var(--input);
   --ring: var(--ring);
-  --radius: var(--radius);
+  --radius: var(--radius); */
   --color-raisin-black: var(--raisin-black);
   --color-cardinal: var(--cardinal);
   --color-silver: var(--silver);
+  --color-accent-foreground: var(--accent-foreground);
 }
 
 @layer base {
