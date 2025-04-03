@@ -3,13 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const ParamSchema = z.object({
-  contentId: z.string().uuid("Invalid content ID format"),
+  contentID: z.string().uuid("Invalid content ID format"),
 });
-
-// type Tag = {
-//   id: string;
-//   name: string;
-// };
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,7 +20,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { contentId } = validatedParams.data;
+    const { contentID: contentId } = validatedParams.data;
 
     const { data, error } = await supabaseAdmin
       .from("content_tags")
@@ -47,11 +42,6 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    // const tags : Tag[] = data?.map((item) => ({
-    //   id: item.tag_id,
-    //   name: item.tags.name,
-    // }));
 
     return NextResponse.json({ data }, { status: 200 });
   } catch (error) {
