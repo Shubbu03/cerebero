@@ -1,40 +1,48 @@
-import { useEffect, useState } from "react";
+import React from "react";
 
-export default function ArrowPointer() {
-  const [isVisible, setIsVisible] = useState(true);
+const PointingArrowIcon = () => (
+  <svg
+    width="48"
+    height="48"
+    viewBox="0 0 48 48"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className="animate-spring-bounce"
+    style={{ overflow: "visible" }}
+  >
+    <defs>
+      <marker
+        id="arrowhead"
+        viewBox="0 0 10 10"
+        refX="5"
+        refY="5"
+        markerWidth="6"
+        markerHeight="6"
+        orient="auto-start-reverse"
+      >
+        <path d="M 0 0 L 5 5 L 0 10" stroke="white" strokeWidth="2" />
+      </marker>
+    </defs>
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsVisible(false);
-    }, 10000);
+    <path
+      d="M12 10 Q 24 12, 34 34"
+      stroke="white"
+      strokeWidth="2"
+      strokeLinecap="round"
+      markerEnd="url(#arrowhead)"
+    />
+  </svg>
+);
 
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (!isVisible) return null;
-
+const AddHintArrow = () => {
   return (
-    <div className="fixed bottom-20 right-8 flex items-center gap-2 animate-pulse">
-      <div className="bg-white/90 text-black px-4 py-2 rounded-lg shadow-lg font-medium">
+    <div className="fixed bottom-[80px] right-[70px] flex items-center gap-2 z-10 pointer-events-none">
+      <span className="text-white text-sm font-medium bg-black/30 px-2 py-1 rounded">
         Add something here...
-      </div>
-      <div className="relative">
-        <svg
-          width="60"
-          height="40"
-          viewBox="0 0 60 40"
-          className="text-white animate-bounce"
-        >
-          <path
-            d="M5 20 L45 20 L35 10 M45 20 L35 30"
-            stroke="currentColor"
-            strokeWidth="3"
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </div>
+      </span>
+      <PointingArrowIcon />
     </div>
   );
-}
+};
+
+export default AddHintArrow;
