@@ -51,7 +51,7 @@ export function RecentsCard({
     .slice(0, 5);
 
   return (
-    <div className="mt-8 p-4 md:p-6 rounded-lg">
+    <div className="mt-4 p-4 md:p-6 rounded-lg">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-1">
           <IconClock className="h-5 w-5" />

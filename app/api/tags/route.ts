@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 const tagSchema = z.object({
@@ -22,7 +22,7 @@ export async function GET() {
     let userId = session.user.id;
 
     if (!userId && session.user.email) {
-      const { data: user, error } = await supabase
+      const { data: user, error } = await supabaseAdmin
         .from("users")
         .select("id")
         .eq("email", session.user.email)
@@ -51,7 +51,7 @@ export async function GET() {
       );
     }
 
-    const { data: tags, error } = await supabase
+    const { data: tags, error } = await supabaseAdmin
       .from("tags")
       .select("id, name, user_id")
       .eq("user_id", userId)
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     let userId = session.user.id;
 
     if (!userId && session.user.email) {
-      const { data: user, error } = await supabase
+      const { data: user, error } = await supabaseAdmin
         .from("users")
         .select("id")
         .eq("email", session.user.email)
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
 
     const tagName = validationResult.data.name.toLowerCase();
 
-    const { data: existingTag } = await supabase
+    const { data: existingTag } = await supabaseAdmin
       .from("tags")
       .select("id, name, user_id")
       .eq("name", tagName)
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(existingTag);
     }
 
-    const { data: newTag, error } = await supabase
+    const { data: newTag, error } = await supabaseAdmin
       .from("tags")
       .insert({
         name: tagName,
