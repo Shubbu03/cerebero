@@ -9,7 +9,7 @@ interface DynamicHeaderProps {
 const getGreeting = (username: string): string => {
   const currentHour = new Date().getHours();
   if (currentHour < 12) {
-    return `Good morning ${username}!`;
+    return `Good morning, ${username}!`;
   } else if (currentHour < 18) {
     return `What's good ${username}?`;
   } else {
