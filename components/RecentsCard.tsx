@@ -8,6 +8,7 @@ import {
   IconBrandTwitter,
   IconBrandYoutube,
   IconLink,
+  IconCircleArrowUpRight,
 } from "@tabler/icons-react";
 import { UserContent } from "@/app/dashboard/page";
 
@@ -86,9 +87,18 @@ export function RecentsCard({
                 key={item.id}
                 className="bg-[#27272A] p-4 rounded-2xl border border-transparent hover:border-gray-600/80 transition-all duration-200 ease-in-out cursor-pointer flex flex-col min-h-[150px] shadow-sm"
               >
-                <div className="mb-3">
-                  {" "}
+                <div className="flex justify-between mb-3">
                   <IconComponent size={24} className="text-gray-400" />
+                  <Link
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <IconCircleArrowUpRight
+                      size={18}
+                      className="text-gray-400 transition-transform duration-200 hover:scale-125"
+                    />
+                  </Link>
                 </div>
 
                 <div className="flex-grow mb-2">
