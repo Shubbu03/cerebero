@@ -27,6 +27,7 @@ export interface UserContent {
   type: string;
   url: string;
   user_id: string;
+  is_favourite: string;
 }
 
 const COLORS = {
@@ -148,7 +149,11 @@ export default function Dashboard() {
           <div className="flex justify-center">
             <DynamicHeader userName={firstName || ""} />
           </div>
-          <RecentsCard content={userContent} isLoading={isLoading} username={firstName}/>
+          <RecentsCard
+            content={userContent}
+            isLoading={isLoading}
+            username={firstName}
+          />
         </main>
 
         {modalOpen && (
@@ -157,7 +162,7 @@ export default function Dashboard() {
 
         <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
           <CommandInput placeholder="Search content..." />
-          <CommandList>{/* Command items will go here */}</CommandList>
+          <CommandList></CommandList>
         </CommandDialog>
       </TexturedBackground>
     </>
