@@ -1,4 +1,5 @@
-import { supabase } from "@/lib/supabaseClient";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -14,13 +15,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const userId = session.user.id;
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("content")
       .select("*")
       .eq("id", contentId)
