@@ -133,6 +133,25 @@ body {
   }
 }
 
+@keyframes spring-bounce {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+
+  40% {
+    transform: translate(-10px, 10px) rotate(-8deg);
+  }
+
+  70% {
+    transform: translate(3px, -3px) rotate(3deg);
+  }
+
+  85% {
+    transform: translate(-2px, 2px) rotate(-2deg);
+  }
+}
+
 .bg-gradient-to-r {
   background-size: 200% auto;
   animation: gradient-shift 8s ease infinite;
@@ -172,4 +191,8 @@ body {
 
 .border-silver {
   border-color: #bfbfbf;
+}
+
+.animate-spring-bounce {
+  animation: spring-bounce 2s ease-in-out infinite;
 }
