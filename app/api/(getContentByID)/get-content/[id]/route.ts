@@ -3,10 +3,12 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const contentId = searchParams.get("id");
+    const contentId = (await params).id;
 
     if (!contentId) {
       return NextResponse.json(
@@ -21,11 +23,14 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.user.id;
+
+    console.log(`Fetching content with ID: ${contentId} for user: ${userId}`);
     const { data, error } = await supabaseAdmin
       .from("content")
       .select("*")
       .eq("id", contentId)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .single();
 
     if (error) {
       console.error("Error fetching content:", error);
@@ -45,7 +50,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         message: "Content fetched successfully",
-        data: data[0],
+        data: data,
       },
       { status: 200 }
     );
