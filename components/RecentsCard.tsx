@@ -159,12 +159,13 @@ export function RecentsCard({
           </p>
         )}
       </div>
-
-      <ContentDetailsModal
-        contentId={selectedContentId}
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-      />
+      {modalOpen && (
+        <ContentDetailsModal
+          contentId={selectedContentId}
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+        />
+      )}
     </>
   );
 }
