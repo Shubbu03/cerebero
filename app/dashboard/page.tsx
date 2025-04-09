@@ -23,7 +23,8 @@ export interface UserContent {
   type: string;
   url: string;
   user_id: string;
-  is_favourite: string;
+  is_favourite: boolean;
+  updated_at: string;
 }
 
 export default function Dashboard() {
