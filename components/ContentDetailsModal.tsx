@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import {
@@ -13,16 +14,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { UserContent } from "@/app/dashboard/page";
 import {
-  IconFileText,
+  IconFile,
   IconBrandTwitter,
   IconBrandYoutube,
   IconLink,
-  IconHeartFilled,
   IconHeart,
-  IconShare3,
+  IconShare,
   IconExternalLink,
   IconCalendar,
-  // IconPencil, // If you decide to show updated_at
+  IconAlertTriangle,
+  IconPencil,
 } from "@tabler/icons-react";
 
 interface ContentDetailsModalProps {
@@ -39,6 +40,7 @@ export function ContentDetailsModal({
   const [content, setContent] = useState<UserContent | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && contentId) {
@@ -47,77 +49,88 @@ export function ContentDetailsModal({
       setContent(null);
       setIsLoading(false);
       setIsFavorite(false);
+      setError(null);
     }
   }, [open, contentId]);
 
   const fetchContentDetails = async (id: string) => {
     setIsLoading(true);
     setContent(null);
+    setError(null);
     try {
       const response = await axios.get<{ data: UserContent }>(
         `/api/get-content/${id}`
       );
-      if (response && response.data && response.data.data) {
+      if (response?.data?.data) {
         setContent(response.data.data);
-        setIsFavorite(response.data.data.is_favourite);
+        setIsFavorite(response.data.data.is_favourite || false);
       } else {
         console.error(
           "Error fetching content details: Invalid response structure",
           response
         );
+        setError("Failed to retrieve content details due to invalid format.");
         setContent(null);
       }
-    } catch (error) {
-      console.error("Error fetching content details:", error);
+    } catch (err: any) {
+      console.error("Error fetching content details:", err);
+      setError(
+        `Failed to load content: ${err.message || "An unknown error occurred."}`
+      );
       setContent(null);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const toggleFavorite = async () => {
+  const toggleFavorite = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!content) return;
+
     const originalFavoriteState = isFavorite;
     setIsFavorite(!isFavorite);
 
     try {
       await axios.post(`/api/toggle-favorite`, { id: content.id });
-      // API call succeeded
     } catch (error) {
       console.error("Error toggling favorite:", error);
       setIsFavorite(originalFavoriteState);
+      alert("Failed to update favorite status. Please try again.");
     }
   };
 
-  const shareContent = async () => {
+  const shareContent = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!content) return;
 
-    try {
-      if (navigator.share && content.url) {
-        await navigator.share({
-          title: content.title,
-          text: `Check out this content: ${content.title}`,
-          url: content.url,
-        });
-      } else if (content.url) {
-        await navigator.clipboard.writeText(content.url);
-        alert("Content link copied to clipboard!");
-      }
-      // else if (content.share_id) {
-      //     // Fallback: Copy dedicated share link if no URL but share_id exists
-      //     const shareUrl = `${window.location.origin}/shared/${content.share_id}`;
-      //     await navigator.clipboard.writeText(shareUrl);
-      //     alert('Share link copied to clipboard!');
-      // }
-      else {
-        alert("Sharing not supported or no link available.");
-      }
+    const shareUrl = content.url;
+    const shareTitle = content.title || "Shared Content";
+    const shareText = `Check out this content: ${shareTitle}`;
 
-      // Optional: Call your API endpoint if it tracks share actions
-      // await axios.post(`/api/share-content`, { id: content.id });
+    try {
+      if (navigator.share && shareUrl) {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        });
+      } else if (shareUrl && navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl);
+        alert("Content link copied to clipboard!");
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(
+          content.body || shareTitle || "No content to copy."
+        );
+        alert("Content text copied to clipboard!");
+      } else {
+        alert(
+          "Sharing/Copying not supported on this browser or no content available."
+        );
+      }
     } catch (error: any) {
-      if (error.name !== "AbortError") {
+      if (error instanceof Error && error.name !== "AbortError") {
         console.error("Error sharing content:", error);
+        alert("Could not share the content.");
       }
     }
   };
@@ -127,7 +140,7 @@ export function ContentDetailsModal({
     try {
       return new Date(dateString).toLocaleDateString("en-US", {
         year: "numeric",
-        month: "long",
+        month: "short",
         day: "numeric",
       });
     } catch (err) {
@@ -137,22 +150,22 @@ export function ContentDetailsModal({
   };
 
   const getContentTypeIcon = (type: string | undefined) => {
-    switch (type) {
+    switch (type?.toLowerCase()) {
       case "document":
-        return <IconFileText className="h-5 w-5" />;
+        return <IconFile size={18} stroke={1.5} />;
       case "tweet":
-        return <IconBrandTwitter className="h-5 w-5" />;
+        return <IconBrandTwitter size={18} stroke={1.5} />;
       case "youtube":
-        return <IconBrandYoutube className="h-5 w-5" />;
+        return <IconBrandYoutube size={18} stroke={1.5} />;
       case "link":
-        return <IconLink className="h-5 w-5" />;
+        return <IconLink size={18} stroke={1.5} />;
       default:
-        return <IconFileText className="h-5 w-5" />;
+        return <IconFile size={18} stroke={1.5} />;
     }
   };
 
   const getContentTypeName = (type: string | undefined) => {
-    switch (type) {
+    switch (type?.toLowerCase()) {
       case "document":
         return "Document";
       case "tweet":
@@ -162,161 +175,231 @@ export function ContentDetailsModal({
       case "link":
         return "Link";
       default:
-        return type || "Content";
+        return type ? type.charAt(0).toUpperCase() + type.slice(1) : "Content";
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#1c1c1f] text-white border-gray-800 sm:max-w-4xl max-h-[90vh] min-h-[60vh] flex flex-col p-0 overflow-hidden">
-        {isLoading ? (
-          <div className="flex-1 flex items-center justify-center p-6">
-            <p className="text-gray-400 text-lg animate-pulse">
-              Loading content...
-            </p>
+  // Function to render document body with proper line breaks
+  const renderDocumentBody = (body: string | null | undefined) => {
+    if (!body) return null;
+
+    return body.split("\n").map((line, index) => (
+      <span key={index}>
+        {line}
+        <br />
+      </span>
+    ));
+  };
+
+  // --- Render Logic ---
+
+  const renderLoading = () => (
+    <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-10 w-10 border-4 border-gray-600 border-t-accent animate-spin rounded-full"></div>
+        <p className="text-gray-300 text-lg font-medium">Loading Content...</p>
+      </div>
+    </div>
+  );
+
+  const renderError = () => (
+    <>
+      <DialogHeader className="p-6 border-b border-gray-700 shrink-0">
+        <DialogTitle className="text-xl font-semibold text-red-400 flex items-center gap-2">
+          <IconAlertTriangle size={20} stroke={1.5} />
+          Error Loading Content
+        </DialogTitle>
+      </DialogHeader>
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+        <p className="text-gray-400">
+          {error || "Content could not be loaded."}
+        </p>
+        <p className="text-sm text-gray-500 mt-2">
+          The content might not exist, or there was an issue retrieving it.
+          Please try again later.
+        </p>
+      </div>
+      <DialogFooter className="p-4 sm:p-6 border-t border-gray-800 bg-[#18181b] shrink-0">
+        <Button
+          variant="outline"
+          onClick={() => onOpenChange(false)}
+          className="w-full sm:w-auto bg-gray-700 hover:bg-gray-600 border-gray-600 text-gray-200"
+        >
+          Close
+        </Button>
+      </DialogFooter>
+    </>
+  );
+
+  const renderContent = () => {
+    if (!content) return renderError();
+
+    const hasUrl = !!content.url;
+    const isDocument = content.type?.toLowerCase() === "document";
+
+    return (
+      <div className="flex flex-col h-full">
+        {/* Header Section */}
+        <DialogHeader className="p-6 border-b border-gray-700 shrink-0 bg-[#1f1f23]">
+          <div className="flex justify-between items-start gap-4">
+            <DialogTitle className="text-2xl font-bold mb-2 text-gray-100">
+              {content.title || "Untitled Content"}
+            </DialogTitle>
           </div>
-        ) : content ? (
-          <>
-            <DialogHeader className="p-6 border-b border-gray-800 shrink-0">
-              <DialogTitle className="text-2xl font-bold mb-3 text-gray-100">
-                {content.title || "Untitled Content"}
-              </DialogTitle>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-400">
-                <Badge
-                  variant="outline"
-                  className="bg-gray-700/50 border-gray-600 text-gray-300 flex items-center gap-1.5 px-2.5 py-1 rounded-md"
-                >
-                  {getContentTypeIcon(content.type)}
-                  <span>{getContentTypeName(content.type)}</span>
-                </Badge>
-                <div className="flex items-center gap-1.5">
-                  <IconCalendar className="h-4 w-4 text-gray-500" />
-                  <span>{formatDate(content.created_at)}</span>
-                </div>
-                {/* Optional: Updated Date - Uncomment if needed
-                 {content.created_at !== content.updated_at && (
-                   <div className="flex items-center gap-1.5">
-                     <IconPencil className="h-4 w-4 text-gray-500" />
-                     <span>Updated: {formatDate(content.updated_at)}</span>
-                   </div>
-                 )} */}
-              </div>
-            </DialogHeader>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {content.url && (
-                <div className="space-y-1.5">
-                  <h3 className="text-xs uppercase font-semibold text-gray-500 tracking-wider">
-                    Source Link
-                  </h3>
-                  <div className="flex items-center gap-2 bg-[#27272A] p-3 rounded-md border border-gray-700">
-                    <IconLink className="h-5 w-5 text-gray-400 shrink-0" />
-                    <a
-                      href={content.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-accent hover:text-accent/80 text-sm flex-grow truncate break-all"
-                      title={content.url}
-                    >
-                      {content.url}
-                    </a>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="p-1 h-auto text-gray-400 hover:text-gray-200 hover:bg-gray-600/50 shrink-0"
-                      onClick={() => window.open(content.url ?? "", "_blank")}
-                      aria-label="Open link in new tab"
-                    >
-                      <IconExternalLink className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {content.body && (
-                <div className="space-y-2">
-                  <h3 className="text-base font-semibold text-gray-200">
-                    Content Body
-                  </h3>
-                  <div className="bg-[#27272A] p-4 rounded-lg border border-gray-700 max-h-[40vh] overflow-y-auto">
-                    <pre className="whitespace-pre-wrap text-sm text-gray-300 font-sans leading-relaxed">
-                      {content.body}
-                    </pre>
-                  </div>
-                </div>
-              )}
-
-              {!content.url && !content.body && (
-                <p className="text-gray-500 text-center py-8">
-                  No content body or URL provided.
-                </p>
-              )}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-400">
+            {/* Content Type Badge */}
+            <Badge className="bg-gray-700/60 border-gray-600 text-gray-300 flex items-center gap-1.5 px-3 py-1 rounded-md">
+              {getContentTypeIcon(content.type)}
+              <span>{getContentTypeName(content.type)}</span>
+            </Badge>
+            {/* Creation Date */}
+            <div
+              className="flex items-center gap-1.5"
+              title={`Created on ${formatDate(content.created_at)}`}
+            >
+              <IconCalendar size={16} stroke={1.5} className="text-gray-500" />
+              <span>{formatDate(content.created_at)}</span>
             </div>
-
-            <DialogFooter className="flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-gray-800 p-4 sm:p-6 bg-[#1c1c1f] shrink-0">
-              <div className="flex gap-2 w-full sm:w-auto justify-start">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-transparent border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300 flex-1 sm:flex-none"
-                  onClick={toggleFavorite}
-                  aria-pressed={isFavorite}
+            {/* Updated Date (only shown if different from creation) */}
+            {content.updated_at &&
+              new Date(content.updated_at) > new Date(content.created_at) && (
+                <div
+                  className="flex items-center gap-1.5"
+                  title={`Last updated on ${formatDate(content.updated_at)}`}
                 >
-                  {isFavorite ? (
-                    <IconHeartFilled className="h-4 w-4 text-red-500 mr-2" />
-                  ) : (
-                    <IconHeart className="h-4 w-4 mr-2 text-gray-400" />
-                  )}
-                  {isFavorite ? "Favorited" : "Favorite"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-transparent border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300 flex-1 sm:flex-none"
-                  onClick={shareContent}
-                >
-                  <IconShare3 className="h-4 w-4 mr-2 text-gray-400" />
-                  Share
-                </Button>
-              </div>
-
-              {content.url && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto"
-                  onClick={() => window.open(content.url ?? "", "_blank")}
-                >
-                  <IconExternalLink className="h-4 w-4 mr-2" />
-                  Open Link
-                </Button>
+                  <IconPencil
+                    size={16}
+                    stroke={1.5}
+                    className="text-gray-500"
+                  />
+                  <span className="text-xs">
+                    Updated: {formatDate(content.updated_at)}
+                  </span>
+                </div>
               )}
-            </DialogFooter>
-          </>
-        ) : (
-          <>
-            <DialogHeader className="p-6 border-b border-gray-800 shrink-0">
-              <DialogTitle className="text-xl font-semibold text-red-400">
-                Error
-              </DialogTitle>
-            </DialogHeader>
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-              <p className="text-gray-400">Content could not be loaded.</p>
-              <p className="text-sm text-gray-500 mt-1">
-                The content might not exist or there was an issue retrieving it.
+          </div>
+        </DialogHeader>
+
+        {/* Scrollable Content Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#1c1c1f]">
+          {/* Source Link Section (only if URL exists) */}
+          {hasUrl && (
+            <div className="space-y-2">
+              <h3 className="text-xs uppercase font-semibold text-gray-500 tracking-wider">
+                Source Link
+              </h3>
+              <a
+                href={content.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 bg-[#27272A]/70 p-3 rounded-lg border border-gray-700 hover:border-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-[#1c1c1f]"
+                title={`Open link: ${content.url}`}
+              >
+                <IconLink
+                  size={18}
+                  stroke={1.5}
+                  className="text-gray-400 shrink-0"
+                />
+                <span className="text-accent hover:underline text-sm flex-grow truncate break-all">
+                  {content.url}
+                </span>
+                <IconExternalLink
+                  size={16}
+                  stroke={1.5}
+                  className="text-gray-500 shrink-0"
+                />
+              </a>
+            </div>
+          )}
+
+          {/* Content Body/Text Section */}
+          {(content.body || (isDocument && content.url)) && (
+            <div className="space-y-2">
+              <h3 className="text-xs uppercase font-semibold text-gray-500 tracking-wider">
+                {isDocument ? "Document Content" : "Text Content"}
+              </h3>
+              <div className="bg-[#27272A]/70 p-5 rounded-lg border border-gray-700 max-h-[45vh] overflow-y-auto text-gray-300 text-sm leading-relaxed">
+                {isDocument ? (
+                  <div className="font-serif whitespace-pre-line">
+                    {renderDocumentBody(content.body)}
+                    {!content.body && content.url && (
+                      <p className="text-gray-400 italic">
+                        This document is available at the source link above.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <pre className="whitespace-pre-wrap font-sans">
+                    {content.body}
+                  </pre>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Placeholder if no URL and no Body */}
+          {!hasUrl && !content.body && (
+            <div className="flex items-center justify-center h-full text-center py-10">
+              <p className="text-gray-500 italic">
+                No content body or source link provided for this item.
               </p>
             </div>
-            <DialogFooter className="p-4 sm:p-6 border-t border-gray-800 bg-[#1c1c1f] shrink-0">
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                className="w-full sm:w-auto"
-              >
-                Close
-              </Button>
-            </DialogFooter>
-          </>
-        )}
+          )}
+        </div>
+
+        {/* Footer Actions */}
+        <DialogFooter className="flex justify-between items-center gap-3 border-t border-gray-700 p-4 sm:p-6 bg-[#1f1f23] shrink-0">
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-transparent border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300 focus:ring-accent"
+              onClick={toggleFavorite}
+              aria-pressed={isFavorite}
+            >
+              <IconHeart
+                size={16}
+                stroke={1.5}
+                className={`mr-2 transition-all duration-200 ${
+                  isFavorite ? "fill-rose-500 text-rose-500" : "text-gray-400"
+                }`}
+                aria-hidden="true"
+              />
+              {isFavorite ? "Favorited" : "Favorite"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-transparent border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300 focus:ring-accent"
+              onClick={shareContent}
+            >
+              <IconShare
+                size={16}
+                stroke={1.5}
+                className="mr-2 text-gray-400"
+                aria-hidden="true"
+              />
+              Share
+            </Button>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            className="text-gray-400 hover:text-gray-300"
+          >
+            Close
+          </Button>
+        </DialogFooter>
+      </div>
+    );
+  };
+
+  // Main Return
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-[#1c1c1f] text-white border border-gray-700 shadow-xl sm:max-w-3xl max-h-[90vh] min-h-[50vh] flex flex-col p-0 overflow-hidden rounded-lg">
+        {isLoading ? renderLoading() : error ? renderError() : renderContent()}
       </DialogContent>
     </Dialog>
   );
