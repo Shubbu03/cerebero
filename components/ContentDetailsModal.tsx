@@ -3,6 +3,9 @@
 import type React from "react";
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +16,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
@@ -45,6 +56,13 @@ interface ContentDetailsModalProps {
 
 const CONTENT_TYPES = ["document", "tweet", "youtube", "link"];
 
+const formSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  type: z.string().min(1, "Content type is required"),
+  url: z.string().optional(),
+  body: z.string().optional(),
+});
+
 export function ContentDetailsModal({
   contentId,
   open,
@@ -55,26 +73,38 @@ export function ContentDetailsModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [isEditing, setIsEditing] = useState(false);
-  const [editedTitle, setEditedTitle] = useState("");
-  const [editedType, setEditedType] = useState("");
-  const [editedUrl, setEditedUrl] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: "",
+      type: "",
+      url: "",
+      body: "",
+    },
+  });
 
   const resetEditState = useCallback(() => {
     setIsEditing(false);
     setIsSaving(false);
     if (content) {
-      setEditedTitle(content.title || "");
-      setEditedType(content.type || "");
-      setEditedUrl(content.url || "");
+      form.reset({
+        title: content.title || "",
+        type: content.type || "",
+        url: content.url || "",
+        body: content.body || "",
+      });
     } else {
-      setEditedTitle("");
-      setEditedType("");
-      setEditedUrl("");
+      form.reset({
+        title: "",
+        type: "",
+        url: "",
+        body: "",
+      });
     }
-  }, [content]);
+  }, [content, form]);
 
   useEffect(() => {
     if (open && contentId) {
@@ -106,9 +136,12 @@ export function ContentDetailsModal({
       if (response?.data?.data) {
         setContent(response.data.data);
         setIsFavorite(response.data.data.is_favourite || false);
-        setEditedTitle(response.data.data.title || "");
-        setEditedType(response.data.data.type || "");
-        setEditedUrl(response.data.data.url || "");
+        form.reset({
+          title: response.data.data.title || "",
+          type: response.data.data.type || "",
+          url: response.data.data.url || "",
+          body: response.data.data.body || "",
+        });
       } else {
         console.error(
           "Error fetching content details: Invalid response structure",
@@ -187,25 +220,29 @@ export function ContentDetailsModal({
   const handleEditClick = () => {
     if (!content) return;
     setIsEditing(true);
-    setEditedTitle(content.title || "");
-    setEditedType(content.type || "");
-    setEditedUrl(content.url || "");
+    form.reset({
+      title: content.title || "",
+      type: content.type || "",
+      url: content.url || "",
+      body: content.body || "",
+    });
   };
 
   const handleCancelEdit = () => {
     resetEditState();
   };
 
-  const handleSave = async () => {
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!content || !contentId) return;
     setIsSaving(true);
     setError(null);
 
     try {
       const updatedData = {
-        title: editedTitle,
-        type: editedType,
-        url: editedUrl,
+        title: values.title,
+        type: values.type,
+        url: values.url,
+        body: values.type === "document" ? values.body : content.body,
       };
 
       const response = await axios.patch(
@@ -330,265 +367,325 @@ export function ContentDetailsModal({
   const renderContent = () => {
     if (!content) return renderError();
 
-    const isDocument =
-      (isEditing ? editedType : content.type)?.toLowerCase() === "document";
-    const currentUrl = isEditing ? editedUrl : content.url;
-    const hasUrl = !!currentUrl;
+    const currentType = form.watch("type") || content.type;
+    const isDocument = currentType?.toLowerCase() === "document";
+    const hasUrl = !!content.url;
 
     return (
-      <>
-        <DialogHeader className="p-6 border-b border-gray-700 shrink-0 bg-[#1f1f23]">
-          <div className="flex justify-between items-center gap-4">
-            {isEditing ? (
-              <Input
-                type="text"
-                value={editedTitle}
-                onChange={(e) => setEditedTitle(e.target.value)}
-                placeholder="Enter Title"
-                className="text-2xl font-bold text-gray-100 bg-gray-800 border-gray-600 focus:border-accent focus:ring-accent flex-grow"
-                disabled={isSaving}
-              />
-            ) : (
-              <DialogTitle className="text-2xl font-bold text-gray-100 flex-grow min-w-0 break-words flex items-center gap-2">
-                {content.title || "Untitled Content"}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleEditClick}
-                  className="text-gray-400 hover:text-gray-100 hover:bg-gray-700 shrink-0 h-6 w-6"
-                  aria-label="Edit content details"
-                  title="Edit content details"
-                >
-                  <IconPencil size={16} stroke={1.5} />
-                </Button>
-              </DialogTitle>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-400 mt-2">
-            {isEditing ? (
-              <Select
-                value={editedType}
-                onValueChange={(value) => setEditedType(value)}
-                disabled={isSaving}
-              >
-                <SelectTrigger className="w-[180px] bg-gray-800 border-gray-600 text-gray-300 focus:border-accent focus:ring-accent">
-                  <SelectValue placeholder="Select Type" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-600 text-gray-200">
-                  {CONTENT_TYPES.map((type) => (
-                    <SelectItem
-                      key={type}
-                      value={type}
-                      className="capitalize hover:bg-gray-700 focus:bg-gray-700"
-                    >
-                      <div className="flex items-center gap-2">
-                        {getContentTypeIcon(type)}
-                        {getContentTypeName(type)}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Badge className="bg-gray-700/60 border-gray-600 text-gray-300 flex items-center gap-1.5 px-3 py-1 rounded-md">
-                {getContentTypeIcon(content.type)}
-                <span>{getContentTypeName(content.type)}</span>
-              </Badge>
-            )}
-
-            <div
-              className="flex items-center gap-1.5"
-              title={`Created on ${formatDate(content.created_at)}`}
-            >
-              <IconCalendar size={16} stroke={1.5} className="text-gray-500" />
-              <span>{formatDate(content.created_at)}</span>
-            </div>
-            {content.updated_at &&
-              new Date(content.updated_at) > new Date(content.created_at) && (
-                <div
-                  className="flex items-center gap-1.5"
-                  title={`Last updated on ${formatDate(content.updated_at)}`}
-                >
-                  <IconPencil
-                    size={16}
-                    stroke={1.5}
-                    className="text-gray-500"
-                  />
-                  <span className="text-xs">
-                    Updated: {formatDate(content.updated_at)}
-                  </span>
-                </div>
-              )}
-          </div>
-          {isEditing && error && (
-            <p className="text-red-400 text-sm mt-2">{error}</p>
-          )}
-        </DialogHeader>
-
-        <div className="flex-grow overflow-y-auto p-6 space-y-4 bg-[#1c1c1f]">
-          {(hasUrl || isEditing) && !(isDocument && !hasUrl && !isEditing) && (
-            <div className="space-y-2">
-              <h3 className="text-xs uppercase font-semibold text-gray-500 tracking-wider">
-                Source Link
-              </h3>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+          <DialogHeader className="p-6 border-b border-gray-700 shrink-0 bg-[#1f1f23]">
+            <div className="flex justify-between items-center gap-4">
               {isEditing ? (
-                <Input
-                  type="url"
-                  value={editedUrl}
-                  onChange={(e) => setEditedUrl(e.target.value)}
-                  placeholder="Enter URL (optional)"
-                  className="text-sm text-gray-100 bg-gray-800 border-gray-600 focus:border-accent focus:ring-accent w-full"
-                  disabled={isSaving}
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem className="flex-grow">
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="Enter Title"
+                          className="text-2xl font-bold text-gray-100 bg-gray-800 border-gray-600 focus:border-accent focus:ring-accent"
+                          disabled={isSaving}
+                        />
+                      </FormControl>
+                      <FormMessage className="text-red-400 text-sm" />
+                    </FormItem>
+                  )}
                 />
               ) : (
-                <a
-                  href={content.url || "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 bg-[#27272A]/70 p-3 rounded-lg border border-gray-700 hover:border-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-[#1c1c1f]"
-                  title={`Open link: ${content.url}`}
-                >
-                  <IconLink
-                    size={18}
-                    stroke={1.5}
-                    className="text-gray-400 shrink-0"
-                  />
-                  <span className="text-accent hover:underline text-sm flex-grow truncate break-all">
-                    {content.url}
-                  </span>
-                  <IconExternalLink
-                    size={16}
-                    stroke={1.5}
-                    className="text-gray-500 shrink-0"
-                  />
-                </a>
+                <DialogTitle className="text-2xl font-bold text-gray-100 flex-grow min-w-0 break-words flex items-center gap-2">
+                  {content.title || "Untitled Content"}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleEditClick}
+                    className="text-gray-400 hover:text-gray-100 hover:bg-gray-700 shrink-0 h-6 w-6"
+                    aria-label="Edit content details"
+                    title="Edit content details"
+                  >
+                    <IconPencil size={16} stroke={1.5} />
+                  </Button>
+                </DialogTitle>
               )}
             </div>
-          )}
 
-          {(content.body || (isDocument && content.url)) && (
-            <div className="space-y-2">
-              <h3 className="text-xs uppercase font-semibold text-gray-500 tracking-wider">
-                {isDocument ? "Document Content" : "Text Content"}
-              </h3>
-              <div className="bg-[#27272A]/70 p-5 rounded-lg border border-gray-700 overflow-y-auto text-gray-300 text-sm leading-relaxed">
-                {isDocument ? (
-                  <div className="font-serif whitespace-pre-line">
-                    {renderDocumentBody(content.body)}
-                    {!content.body && content.url && !isEditing && (
-                      <p className="text-gray-400 italic">
-                        This document is available at the source link above.
-                      </p>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-400 mt-2">
+              {isEditing ? (
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem className="w-[180px]">
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        disabled={isSaving}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="bg-gray-800 border-gray-600 text-gray-300 focus:border-accent focus:ring-accent">
+                            <SelectValue placeholder="Select Type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-gray-800 border-gray-600 text-gray-200">
+                          {CONTENT_TYPES.map((type) => (
+                            <SelectItem
+                              key={type}
+                              value={type}
+                              className="capitalize hover:bg-gray-700 focus:bg-gray-700"
+                            >
+                              <div className="flex items-center gap-2">
+                                {getContentTypeIcon(type)}
+                                {getContentTypeName(type)}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage className="text-red-400 text-sm" />
+                    </FormItem>
+                  )}
+                />
+              ) : (
+                <Badge className="bg-gray-700/60 border-gray-600 text-gray-300 flex items-center gap-1.5 px-3 py-1 rounded-md">
+                  {getContentTypeIcon(content.type)}
+                  <span>{getContentTypeName(content.type)}</span>
+                </Badge>
+              )}
+
+              <div
+                className="flex items-center gap-1.5"
+                title={`Created on ${formatDate(content.created_at)}`}
+              >
+                <IconCalendar
+                  size={16}
+                  stroke={1.5}
+                  className="text-gray-500"
+                />
+                <span>{formatDate(content.created_at)}</span>
+              </div>
+              {content.updated_at &&
+                new Date(content.updated_at) > new Date(content.created_at) && (
+                  <div
+                    className="flex items-center gap-1.5"
+                    title={`Last updated on ${formatDate(content.updated_at)}`}
+                  >
+                    <IconPencil
+                      size={16}
+                      stroke={1.5}
+                      className="text-gray-500"
+                    />
+                    <span className="text-xs">
+                      Updated: {formatDate(content.updated_at)}
+                    </span>
+                  </div>
+                )}
+            </div>
+            {isEditing && error && (
+              <p className="text-red-400 text-sm mt-2">{error}</p>
+            )}
+          </DialogHeader>
+
+          <div className="flex-grow overflow-y-auto p-6 space-y-4 bg-[#1c1c1f]">
+            {(hasUrl || isEditing) &&
+              !(isDocument && !hasUrl && !isEditing) && (
+                <div className="space-y-2">
+                  <h3 className="text-xs uppercase font-semibold text-gray-500 tracking-wider">
+                    Source Link
+                  </h3>
+                  {isEditing ? (
+                    <FormField
+                      control={form.control}
+                      name="url"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="url"
+                              placeholder="Enter URL (optional)"
+                              className="text-sm text-gray-100 bg-gray-800 border-gray-600 focus:border-accent focus:ring-accent w-full"
+                              disabled={isSaving}
+                            />
+                          </FormControl>
+                          <FormMessage className="text-red-400 text-sm" />
+                        </FormItem>
+                      )}
+                    />
+                  ) : (
+                    <a
+                      href={content.url || "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 bg-[#27272A]/70 p-3 rounded-lg border border-gray-700 hover:border-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-[#1c1c1f]"
+                      title={`Open link: ${content.url}`}
+                    >
+                      <IconLink
+                        size={18}
+                        stroke={1.5}
+                        className="text-gray-400 shrink-0"
+                      />
+                      <span className="text-accent hover:underline text-sm flex-grow truncate break-all">
+                        {content.url}
+                      </span>
+                      <IconExternalLink
+                        size={16}
+                        stroke={1.5}
+                        className="text-gray-500 shrink-0"
+                      />
+                    </a>
+                  )}
+                </div>
+              )}
+
+            {(content.body || (isDocument && (content.url || isEditing))) && (
+              <div className="space-y-2">
+                <h3 className="text-xs uppercase font-semibold text-gray-500 tracking-wider">
+                  {isDocument ? "Document Content" : "Text Content"}
+                </h3>
+                {isEditing && isDocument ? (
+                  <FormField
+                    control={form.control}
+                    name="body"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Textarea
+                            {...field}
+                            placeholder="Enter document content"
+                            className="min-h-[200px] text-sm text-gray-100 bg-gray-800 border-gray-600 focus:border-accent focus:ring-accent w-full font-serif"
+                            disabled={isSaving}
+                          />
+                        </FormControl>
+                        <FormMessage className="text-red-400 text-sm" />
+                      </FormItem>
                     )}
-                    {isEditing && !editedUrl && !content.body && (
-                      <p className="text-gray-400 italic">
-                        Enter a Source Link or save with body content.
-                      </p>
+                  />
+                ) : (
+                  <div className="bg-[#27272A]/70 p-5 rounded-lg border border-gray-700 overflow-y-auto text-gray-300 text-sm leading-relaxed">
+                    {isDocument ? (
+                      <div className="font-serif whitespace-pre-line">
+                        {renderDocumentBody(content.body)}
+                        {!content.body && content.url && !isEditing && (
+                          <p className="text-gray-400 italic">
+                            This document is available at the source link above.
+                          </p>
+                        )}
+                        {isEditing && !form.watch("url") && !content.body && (
+                          <p className="text-gray-400 italic">
+                            Enter a Source Link or save with body content.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <pre className="whitespace-pre-wrap font-sans">
+                        {content.body}
+                      </pre>
                     )}
                   </div>
-                ) : (
-                  <pre className="whitespace-pre-wrap font-sans">
-                    {content.body}
-                  </pre>
                 )}
               </div>
-            </div>
-          )}
+            )}
 
-          {!hasUrl && !content.body && !isEditing && (
-            <div className="flex items-center justify-center py-6">
-              <p className="text-gray-500 italic">
-                No content body or source link provided for this item.
-              </p>
-            </div>
-          )}
-          {isEditing &&
-            !editedUrl &&
-            !content.body &&
-            !(isDocument && content.body) && (
+            {!hasUrl && !content.body && !isEditing && (
               <div className="flex items-center justify-center py-6">
                 <p className="text-gray-500 italic">
-                  Enter a Title and either a Source Link or ensure body content
-                  exists.
+                  No content body or source link provided for this item.
                 </p>
               </div>
             )}
-        </div>
-
-        <DialogFooter className="border-t border-gray-700 p-4 bg-[#1f1f23] shrink-0">
-          <div className="flex justify-end items-center gap-3 w-full">
-            {isEditing ? (
-              <>
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="bg-accent hover:bg-accent/90 text-black focus:ring-accent"
-                  onClick={handleSave}
-                  disabled={isSaving || !editedTitle}
-                >
-                  <IconDeviceFloppy size={16} stroke={1.5} className="mr-2" />
-                  {isSaving ? "Saving..." : "Save Changes"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-transparent border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300 focus:ring-accent"
-                  onClick={handleCancelEdit}
-                  disabled={isSaving}
-                >
-                  <IconX size={16} stroke={1.5} className="mr-2" />
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-transparent border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300 focus:ring-accent"
-                  onClick={toggleFavorite}
-                  aria-pressed={isFavorite}
-                >
-                  <IconHeart
-                    size={16}
-                    stroke={1.5}
-                    className={`mr-2 transition-all duration-200 ${
-                      isFavorite
-                        ? "fill-rose-500 text-rose-500"
-                        : "text-gray-400"
-                    }`}
-                    aria-hidden="true"
-                  />
-                  {isFavorite ? "Favorited" : "Favorite"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-transparent border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300 focus:ring-accent"
-                  onClick={shareContent}
-                >
-                  <IconShare
-                    size={16}
-                    stroke={1.5}
-                    className="mr-2 text-gray-400"
-                    aria-hidden="true"
-                  />
-                  Share
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onOpenChange(false)}
-                  className="text-gray-400 hover:text-gray-300"
-                >
-                  Close
-                </Button>
-              </>
-            )}
+            {isEditing &&
+              !form.watch("url") &&
+              !content.body &&
+              !(isDocument && content.body) && (
+                <div className="flex items-center justify-center py-6">
+                  <p className="text-gray-500 italic">
+                    Enter a Title and either a Source Link or ensure body
+                    content exists.
+                  </p>
+                </div>
+              )}
           </div>
-        </DialogFooter>
-      </>
+
+          <DialogFooter className="border-t border-gray-700 p-4 bg-[#1f1f23] shrink-0">
+            <div className="flex justify-end items-center gap-3 w-full">
+              {isEditing ? (
+                <>
+                  <Button
+                    type="submit"
+                    variant="default"
+                    size="sm"
+                    className="bg-accent hover:bg-accent/90 text-black focus:ring-accent"
+                    disabled={isSaving || !form.formState.isValid}
+                  >
+                    <IconDeviceFloppy size={16} stroke={1.5} className="mr-2" />
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="bg-transparent border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300 focus:ring-accent"
+                    onClick={handleCancelEdit}
+                    disabled={isSaving}
+                  >
+                    <IconX size={16} stroke={1.5} className="mr-2" />
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="bg-transparent border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300 focus:ring-accent"
+                    onClick={toggleFavorite}
+                    aria-pressed={isFavorite}
+                  >
+                    <IconHeart
+                      size={16}
+                      stroke={1.5}
+                      className={`mr-2 transition-all duration-200 ${
+                        isFavorite
+                          ? "fill-rose-500 text-rose-500"
+                          : "text-gray-400"
+                      }`}
+                      aria-hidden="true"
+                    />
+                    {isFavorite ? "Favorited" : "Favorite"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="bg-transparent border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300 focus:ring-accent"
+                    onClick={shareContent}
+                  >
+                    <IconShare
+                      size={16}
+                      stroke={1.5}
+                      className="mr-2 text-gray-400"
+                      aria-hidden="true"
+                    />
+                    Share
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onOpenChange(false)}
+                    className="text-gray-400 hover:text-gray-300"
+                  >
+                    Close
+                  </Button>
+                </>
+              )}
+            </div>
+          </DialogFooter>
+        </form>
+      </Form>
     );
   };
 
