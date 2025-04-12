@@ -98,9 +98,7 @@ export default function Dashboard() {
           />
         </main>
 
-        {modalOpen && (
-          <AddContentModal open={modalOpen} onOpenChange={setModalOpen} />
-        )}
+        <AddContentModal open={modalOpen} onOpenChange={setModalOpen} />
       </TexturedBackground>
     </>
   );
