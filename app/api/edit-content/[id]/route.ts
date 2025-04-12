@@ -79,10 +79,13 @@ export async function PUT(
       );
     }
 
-    return NextResponse.json({
-      message: "Content updated successfully",
-      content: updatedContent,
-    });
+    return NextResponse.json(
+      {
+        message: "Content updated successfully",
+        content: updatedContent,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Unexpected error:", error);
     return NextResponse.json(
