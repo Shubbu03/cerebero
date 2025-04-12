@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface TexturedBackgroundProps {
@@ -24,30 +24,43 @@ export function TexturedBackground({
   dotPattern = false,
 }: TexturedBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  useEffect(() => {
+    if (!canvasRef.current || !containerRef.current || !mounted) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const updateCanvasSize = () => {
-      const { width, height } = canvas.getBoundingClientRect();
+      if (!containerRef.current || !canvasRef.current) return;
+
+      const container = containerRef.current;
+      const { width, height } = container.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
 
       canvas.width = width * dpr;
       canvas.height = height * dpr;
 
-      ctx.scale(dpr, dpr);
-    };
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
 
-    updateCanvasSize();
-    window.addEventListener("resize", updateCanvasSize);
+      ctx.scale(dpr, dpr);
+
+      generateNoise();
+    };
 
     const generateNoise = () => {
       const { width, height } = canvas;
 
+      ctx.clearRect(0, 0, width, height);
       ctx.fillStyle = color;
       ctx.fillRect(0, 0, width, height);
 
@@ -88,7 +101,17 @@ export function TexturedBackground({
       }
     };
 
-    generateNoise();
+    updateCanvasSize();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateCanvasSize();
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    window.addEventListener("resize", updateCanvasSize);
+
+    document.addEventListener("visibilitychange", updateCanvasSize);
 
     let animationFrame: number;
     if (animated) {
@@ -101,14 +124,19 @@ export function TexturedBackground({
 
     return () => {
       window.removeEventListener("resize", updateCanvasSize);
+      document.removeEventListener("visibilitychange", updateCanvasSize);
+      resizeObserver.disconnect();
       if (animated && animationFrame) {
         cancelAnimationFrame(animationFrame);
       }
     };
-  }, [color, intensity, animated, dotPattern]);
+  }, [color, intensity, animated, dotPattern, mounted]);
 
   return (
-    <Component className={cn("relative overflow-hidden", className)}>
+    <Component
+      ref={containerRef}
+      className={cn("relative overflow-hidden", className)}
+    >
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full object-cover"
