@@ -87,7 +87,6 @@ export default function Dashboard() {
         </Button>
 
         <main className="p-4 md:p-6 text-white">
-          {isLoading && <p>Loading content...</p>}
           <div className="flex justify-center">
             <DynamicHeader userName={firstName || ""} />
           </div>
