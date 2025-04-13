@@ -1,31 +1,36 @@
 import { supabase } from "@/lib/supabaseClient";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+import { authOptions } from "../auth/[...nextauth]/options";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const { data: content } = await supabase
       .from("content")
-      .select("is_shared")
+      .select("is_shared, share_id")
       .eq("id", (await params).id)
       .eq("user_id", session.user.id)
       .single();
 
+    if (!content) {
+      return NextResponse.json({ error: "Content not found" }, { status: 404 });
+    }
+
     const newIsShared = !content?.is_shared;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("content")
       .update({
         is_shared: newIsShared,
-        share_id: newIsShared ? crypto.randomUUID() : null,
       })
       .eq("id", (await params).id)
       .eq("user_id", session.user.id)
@@ -39,7 +44,16 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json(data);
+    const responseData = {
+      ...data,
+      share_url:
+        data.is_shared && data.share_id
+          ? `${process.env.SHARED_BASE_URL}/shared/${data.share_id}`
+          : null,
+    };
+
+    return NextResponse.json(responseData);
+    
   } catch (error) {
     console.error("error", error);
     return NextResponse.json(
