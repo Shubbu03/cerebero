@@ -1,23 +1,29 @@
-import { supabase } from "@/lib/supabaseClient";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "../auth/[...nextauth]/options";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: Request) {
   try {
+    const url = new URL(request.url);
+    const id = url.searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Missing ID parameter" },
+        { status: 400 }
+      );
+    }
+
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: content } = await supabase
+    const { data: content } = await supabaseAdmin
       .from("content")
       .select("is_shared, share_id")
-      .eq("id", (await params).id)
+      .eq("id", id)
       .eq("user_id", session.user.id)
       .single();
 
@@ -32,7 +38,7 @@ export async function PATCH(
       .update({
         is_shared: newIsShared,
       })
-      .eq("id", (await params).id)
+      .eq("id", id)
       .eq("user_id", session.user.id)
       .select("id, is_shared, share_id")
       .single();
@@ -53,7 +59,6 @@ export async function PATCH(
     };
 
     return NextResponse.json(responseData);
-    
   } catch (error) {
     console.error("error", error);
     return NextResponse.json(
