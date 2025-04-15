@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 
 export async function GET(
@@ -6,9 +6,9 @@ export async function GET(
   { params }: { params: Promise<{ shareId: string }> }
 ) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("content")
-      .select("id, title, type, url, body, created_at")
+      .select("id, title, type, url, body, created_at, updated_at")
       .eq("share_id", (await params).shareId)
       .eq("is_shared", true)
       .single();
