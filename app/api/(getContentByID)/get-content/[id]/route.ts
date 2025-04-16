@@ -24,7 +24,6 @@ export async function GET(
 
     const userId = session.user.id;
 
-    console.log(`Fetching content with ID: ${contentId} for user: ${userId}`);
     const { data, error } = await supabaseAdmin
       .from("content")
       .select("*")
