@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { UserContent } from "@/app/dashboard/page";
 import axios from "axios";
+import { TexturedBackground } from "@/components/background/TexturedBackground";
+
+const COLORS = {
+  silver: "#C0C0C0",
+  cardinal: "#C41E3A",
+};
 
 export default function SharedContent() {
   const params = useParams();
@@ -19,7 +25,6 @@ export default function SharedContent() {
 
       try {
         setIsLoading(true);
-        console.log("ID IS::", id);
         const response = await axios.get(`/api/share/${id}`);
 
         if (!response) {
@@ -62,9 +67,20 @@ export default function SharedContent() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">{content.title}</h1>
-      <div className="prose">{content.url}</div>
-    </div>
+    <>
+      <TexturedBackground className="min-h-screen" dotPattern>
+        <header className="w-full p-4 flex justify-between items-center">
+          <h1
+            className="text-2xl md:text-4xl font-bold tracking-tight bg-clip-text text-transparent cursor-pointer"
+            style={{
+              backgroundImage: `linear-gradient(135deg, ${COLORS.silver} 45%, ${COLORS.cardinal} 55%)`,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            Cerebero
+          </h1>
+        </header>
+      </TexturedBackground>
+    </>
   );
 }
