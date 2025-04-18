@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { UserContent } from "@/app/dashboard/page";
 import axios from "axios";
 import { TexturedBackground } from "@/components/background/TexturedBackground";
+import Loading from "@/components/ui/loading";
 
 const COLORS = {
   silver: "#C0C0C0",
@@ -41,14 +42,6 @@ export default function SharedContent() {
     fetchContent();
   }, [id]);
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -66,6 +59,15 @@ export default function SharedContent() {
     );
   }
 
+  const formattedDate = new Date(content.created_at).toLocaleDateString(
+    "en-US",
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }
+  );
+
   return (
     <>
       <TexturedBackground className="min-h-screen" dotPattern>
@@ -80,6 +82,64 @@ export default function SharedContent() {
             Cerebero
           </h1>
         </header>
+        {isLoading ? (
+          <Loading />
+        ) : (
+          <article className="container mx-4 px-4 py-8 max-w-4xl text-white">
+            <div className="flex flex-col gap-6 mb-12">
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
+                {content.title}
+              </h1>
+
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+                <div>
+                  <p className="font-medium">Author</p>
+                  <div className="flex items-center text-gray-600 dark:text-gray-400 text-sm">
+                    <span>{formattedDate}</span>
+                    <span className="mx-2">•</span>
+                    <span className="capitalize">{content.type}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-8 border-b border-gray-200 dark:border-gray-700 pb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                    Last Updated
+                  </p>
+                  <p className="font-medium">
+                    {new Date(content.updated_at).toLocaleDateString()}
+                  </p>
+                </div>
+
+                {content.url && (
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                      Source URL
+                    </p>
+                    <a
+                      href={content.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 dark:text-blue-400 hover:underline break-all"
+                    >
+                      {content.url}
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {content.type === "document" && content.body && (
+              <div className="prose prose-lg dark:prose-invert max-w-none">
+                {content.body}
+              </div>
+            )}
+          </article>
+        )}
       </TexturedBackground>
     </>
   );
