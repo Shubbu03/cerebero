@@ -8,7 +8,7 @@ export async function GET(
   try {
     const { data, error } = await supabaseAdmin
       .from("content")
-      .select("id, title, type, url, body, created_at, updated_at, is_shared")
+      .select("id,user_id, title, type, url, body, created_at, updated_at, is_shared")
       .eq("share_id", (await params).id)
       .eq("is_shared", true)
       .single();
