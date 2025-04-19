@@ -111,7 +111,7 @@ export function RecentsCard({
                   <div className="flex justify-between mb-3 relative z-10">
                     <IconComponent size={24} className="text-gray-400" />
                     <Link
-                      href={item.url}
+                      href={item.url || "#"}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
