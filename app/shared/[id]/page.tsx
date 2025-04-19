@@ -17,6 +17,10 @@ export default function SharedContent() {
   const id = params.id as string;
 
   const [content, setContent] = useState<UserContent | null>(null);
+  const [userDetails, setUserDetails] = useState({
+    email: "",
+    name: "",
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<{
     message: string;
@@ -31,6 +35,12 @@ export default function SharedContent() {
         setIsLoading(true);
         const response = await axios.get(`/api/share/${id}`);
         setContent(response.data);
+        //for fetching user details-
+        const user = await axios.get(`/api/get-user/${response.data.user_id}`);
+        setUserDetails({
+          email: user.data.data.email,
+          name: user.data.data.name,
+        });
       } catch (err) {
         if (axios.isAxiosError(err) && err.response) {
           setError({
@@ -49,6 +59,15 @@ export default function SharedContent() {
 
     fetchContent();
   }, [id]);
+
+  const getUserInitials = () => {
+    if (!userDetails.name) return "";
+    return userDetails.name
+      .split(" ")
+      .map((name) => name[0])
+      .join("")
+      .toUpperCase();
+  };
 
   return (
     <TexturedBackground className="min-h-screen" dotPattern>
@@ -97,9 +116,11 @@ export default function SharedContent() {
               </h1>
 
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+                <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-800 dark:text-gray-200 font-semibold text-lg">
+                  {getUserInitials()}
+                </div>
                 <div>
-                  <p className="font-medium">Author</p>
+                  <p className="font-medium">{userDetails.name}</p>
                   <div className="flex items-center text-gray-500 dark:text-gray-800 text-sm">
                     <span>
                       {new Date(content.created_at).toLocaleDateString(
