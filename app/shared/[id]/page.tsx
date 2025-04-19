@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { UserContent } from "@/app/dashboard/page";
+import type { UserContent } from "@/app/dashboard/page";
 import axios from "axios";
 import { TexturedBackground } from "@/components/background/TexturedBackground";
 import Loading from "@/components/ui/loading";
@@ -18,7 +18,10 @@ export default function SharedContent() {
 
   const [content, setContent] = useState<UserContent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{
+    message: string;
+    status?: number;
+  } | null>(null);
 
   useEffect(() => {
     async function fetchContent() {
@@ -27,13 +30,18 @@ export default function SharedContent() {
       try {
         setIsLoading(true);
         const response = await axios.get(`/api/share/${id}`);
-
-        if (!response) {
-          throw new Error("Failed to fetch content");
-        }
         setContent(response.data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
+        if (axios.isAxiosError(err) && err.response) {
+          setError({
+            message: err.response.data?.message || "An error occurred",
+            status: err.response.status,
+          });
+        } else {
+          setError({
+            message: err instanceof Error ? err.message : "An error occurred",
+          });
+        }
       } finally {
         setIsLoading(false);
       }
@@ -42,50 +50,47 @@ export default function SharedContent() {
     fetchContent();
   }, [id]);
 
-  if (error) {
-    return (
-      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-        <p>Error loading content: {error}</p>
-      </div>
-    );
-  }
-
-  if (!content) {
-    return (
-      <div className="text-center p-4">
-        <h2 className="text-xl font-semibold">Content not found</h2>
-        <p>The requested content could not be found.</p>
-      </div>
-    );
-  }
-
-  const formattedDate = new Date(content.created_at).toLocaleDateString(
-    "en-US",
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }
-  );
-
   return (
-    <>
-      <TexturedBackground className="min-h-screen" dotPattern>
-        <header className="w-full p-4 flex justify-between items-center">
-          <h1
-            className="text-2xl md:text-4xl font-bold tracking-tight bg-clip-text text-transparent cursor-pointer"
-            style={{
-              backgroundImage: `linear-gradient(135deg, ${COLORS.silver} 45%, ${COLORS.cardinal} 55%)`,
-              letterSpacing: "-0.02em",
-            }}
-          >
-            Cerebero
-          </h1>
-        </header>
+    <TexturedBackground className="min-h-screen" dotPattern>
+      <header className="w-full p-4 flex justify-between items-center">
+        <h1
+          className="text-2xl md:text-4xl font-bold tracking-tight bg-clip-text text-transparent cursor-pointer"
+          style={{
+            backgroundImage: `linear-gradient(135deg, ${COLORS.silver} 45%, ${COLORS.cardinal} 55%)`,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Cerebero
+        </h1>
+      </header>
+
+      <main className="container mx-4 px-4 py-8 max-w-3xl text-white">
         {isLoading ? (
-          <Loading />
+          <div className="flex justify-start mt-8">
+            <Loading />
+          </div>
+        ) : error ? (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mt-4 text-left">
+            {error.status === 404 ? (
+              <p>
+                This content is not available. It may have been deleted or is
+                not shared publicly.
+              </p>
+            ) : (
+              <p>Error loading content: {error.message}</p>
+            )}
+          </div>
+        ) : !content ? (
+          <div className="text-left p-4">
+            <h2 className="text-xl font-semibold">Content not found</h2>
+            <p>The requested content could not be found.</p>
+          </div>
+        ) : !content.is_shared ? (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mt-4 text-left">
+            <p>This content is not shared and cannot be viewed.</p>
+          </div>
         ) : (
-          <article className="container mx-4 px-4 py-8 max-w-4xl text-white">
+          <article className="text-left">
             <div className="flex flex-col gap-6 mb-12">
               <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
                 {content.title}
@@ -95,8 +100,17 @@ export default function SharedContent() {
                 <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700"></div>
                 <div>
                   <p className="font-medium">Author</p>
-                  <div className="flex items-center text-gray-600 dark:text-gray-400 text-sm">
-                    <span>{formattedDate}</span>
+                  <div className="flex items-center text-gray-500 dark:text-gray-800 text-sm">
+                    <span>
+                      {new Date(content.created_at).toLocaleDateString(
+                        "en-US",
+                        {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        }
+                      )}
+                    </span>
                     <span className="mx-2">•</span>
                     <span className="capitalize">{content.type}</span>
                   </div>
@@ -140,7 +154,7 @@ export default function SharedContent() {
             )}
           </article>
         )}
-      </TexturedBackground>
-    </>
+      </main>
+    </TexturedBackground>
   );
 }
