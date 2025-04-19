@@ -108,19 +108,21 @@ export function RecentsCard({
                 >
                   <div className="absolute top-0 right-0 w-28 h-28 rounded-full bg-gradient-to-br from-white/20 to-transparent opacity-25 blur-md transform translate-x-4 -translate-y-4"></div>
                   <div className="absolute top-2 right-2 w-12 h-12 rounded-full bg-gradient-to-br from-white/25 to-transparent opacity-20 blur-sm"></div>
-                  <div className="flex justify-between mb-3 relative z-10">
-                    <IconComponent size={24} className="text-gray-400" />
-                    <Link
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <IconCircleArrowUpRight
-                        size={18}
-                        className="text-gray-400 transition-transform duration-200 hover:scale-125"
-                      />
-                    </Link>
-                  </div>
+                  {item.type !== "document" ? (
+                    <div className="flex justify-between mb-3 relative z-10">
+                      <IconComponent size={24} className="text-gray-400" />
+                      <Link
+                        href={item.url || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <IconCircleArrowUpRight
+                          size={18}
+                          className="text-gray-400 transition-transform duration-200 hover:scale-125"
+                        />
+                      </Link>
+                    </div>
+                  ) : null}
 
                   <div className="flex-grow mb-2 relative z-10">
                     {" "}
