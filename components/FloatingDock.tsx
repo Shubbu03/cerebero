@@ -1,6 +1,6 @@
 import React from "react";
 import { FloatingDockComponent } from "@/components/ui/floating-dock";
-import { IconBrandGithub, IconBrandX, IconHome } from "@tabler/icons-react";
+import { IconBrandGithub, IconBrandX, IconHeart, IconHome } from "@tabler/icons-react";
 
 export function FloatingDock() {
   const links = [
@@ -10,6 +10,13 @@ export function FloatingDock() {
         <IconHome className="h-full w-full text-neutral-500 dark:text-neutral-300" />
       ),
       href: "/dashboard",
+    },
+    {
+      title: "Favourites",
+      icon: (
+        <IconHeart className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "/favourites",
     },
     {
       title: "Twitter",
