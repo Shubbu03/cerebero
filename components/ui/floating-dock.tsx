@@ -18,7 +18,12 @@ export const FloatingDockComponent = ({
   desktopClassName,
   mobileClassName,
 }: {
-  items: { title: string; icon: React.ReactNode; href: string }[];
+  items: {
+    title: string;
+    icon: React.ReactNode;
+    href: string;
+    external?: boolean;
+  }[];
   desktopClassName?: string;
   mobileClassName?: string;
 }) => {
@@ -34,7 +39,12 @@ const FloatingDockMobile = ({
   items,
   className,
 }: {
-  items: { title: string; icon: React.ReactNode; href: string }[];
+  items: {
+    title: string;
+    icon: React.ReactNode;
+    href: string;
+    external?: boolean;
+  }[];
   className?: string;
 }) => {
   const [open, setOpen] = useState(false);
@@ -66,6 +76,8 @@ const FloatingDockMobile = ({
                 <Link
                   href={item.href}
                   key={item.title}
+                  target={item.external ? "_blank" : undefined}
+                  rel={item.external ? "noopener noreferrer" : undefined}
                   className="h-10 w-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center"
                 >
                   <div className="h-4 w-4">{item.icon}</div>
@@ -89,7 +101,12 @@ const FloatingDockDesktop = ({
   items,
   className,
 }: {
-  items: { title: string; icon: React.ReactNode; href: string }[];
+  items: {
+    title: string;
+    icon: React.ReactNode;
+    href: string;
+    external?: boolean;
+  }[];
   className?: string;
 }) => {
   const mouseX = useMotionValue(Infinity);
@@ -98,7 +115,7 @@ const FloatingDockDesktop = ({
       onMouseMove={(e) => mouseX.set(e.pageX)}
       onMouseLeave={() => mouseX.set(Infinity)}
       className={cn(
-        "mx-auto hidden md:flex h-16 gap-4 items-end  rounded-full bg-gray-50 dark:bg-neutral-900 px-4 pb-3",
+        "mx-auto hidden md:flex h-16 gap-4 items-end rounded-full bg-gray-50 dark:bg-neutral-900 px-4 pb-3",
         className
       )}
     >
@@ -114,11 +131,13 @@ function IconContainer({
   title,
   icon,
   href,
+  external,
 }: {
   mouseX: MotionValue;
   title: string;
   icon: React.ReactNode;
   href: string;
+  external?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -167,7 +186,11 @@ function IconContainer({
   const [hovered, setHovered] = useState(false);
 
   return (
-    <Link href={href} target="_blank" rel="noopener noreferrer">
+    <Link
+      href={href}
+      target={external ? "_blank" : undefined}
+      rel={external ? "noopener noreferrer" : undefined}
+    >
       <motion.div
         ref={ref}
         style={{ width, height }}
