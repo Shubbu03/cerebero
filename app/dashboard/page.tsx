@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TexturedBackground } from "@/components/background/TexturedBackground";
-import { FloatingDock } from "@/components/FloatingDock";
 import { IconPlus } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import AddContentModal from "@/components/AddContentModal";
@@ -11,7 +9,6 @@ import AddHintArrow from "@/components/background/AddButtonGuide";
 import { useSession } from "next-auth/react";
 import { DynamicHeader } from "@/components/DynamicHeader";
 import { RecentsCard } from "@/components/RecentsCard";
-import { Header } from "@/components/Header";
 
 export interface UserContent {
   body: string;
@@ -69,38 +66,32 @@ export default function Dashboard() {
 
   return (
     <>
-      <TexturedBackground className="min-h-screen" dotPattern>
-        <Header />
+      {showAddHint && <AddHintArrow />}
 
-        <FloatingDock />
+      <Button
+        id="add-content-button"
+        className="fixed bottom-4 right-4 rounded-full w-12 h-12 p-0 bg-accent-foreground text-white cursor-pointer transition-transform duration-300 ease-in-out
+                   hover:scale-125"
+        onClick={() => setModalOpen(true)}
+        aria-label="Add new content"
+      >
+        <IconPlus className="h-6 w-6" />
+      </Button>
 
-        {showAddHint && <AddHintArrow />}
+      <main className="p-4 md:p-6 text-white">
+        <div className="flex justify-center">
+          <DynamicHeader userName={firstName || ""} />
+        </div>
+        <RecentsCard
+          content={userContent}
+          isLoading={isLoading}
+          username={firstName}
+        />
+      </main>
 
-        <Button
-          id="add-content-button"
-          className="fixed bottom-4 right-4 rounded-full w-12 h-12 p-0 bg-accent-foreground text-white cursor-pointer transition-transform duration-300 ease-in-out
-                     hover:scale-125"
-          onClick={() => setModalOpen(true)}
-          aria-label="Add new content"
-        >
-          <IconPlus className="h-6 w-6" />
-        </Button>
-
-        <main className="p-4 md:p-6 text-white">
-          <div className="flex justify-center">
-            <DynamicHeader userName={firstName || ""} />
-          </div>
-          <RecentsCard
-            content={userContent}
-            isLoading={isLoading}
-            username={firstName}
-          />
-        </main>
-
-        {modalOpen && (
-          <AddContentModal open={modalOpen} onOpenChange={setModalOpen} />
-        )}
-      </TexturedBackground>
+      {modalOpen && (
+        <AddContentModal open={modalOpen} onOpenChange={setModalOpen} />
+      )}
     </>
   );
 }
