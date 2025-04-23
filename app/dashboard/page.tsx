@@ -8,7 +8,7 @@ import axios from "axios";
 import AddHintArrow from "@/components/background/AddButtonGuide";
 import { useSession } from "next-auth/react";
 import { DynamicHeader } from "@/components/DynamicHeader";
-import { RecentsCard } from "@/components/RecentsCard";
+import { ContentCard } from "@/components/ContentCard";
 
 export interface UserContent {
   body: string;
@@ -82,10 +82,11 @@ export default function Dashboard() {
         <div className="flex justify-center">
           <DynamicHeader userName={firstName || ""} />
         </div>
-        <RecentsCard
+        <ContentCard
           content={userContent}
           isLoading={isLoading}
           username={firstName}
+          origin="Recents"
         />
       </main>
 

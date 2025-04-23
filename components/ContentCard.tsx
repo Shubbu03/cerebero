@@ -15,10 +15,13 @@ import { UserContent } from "@/app/dashboard/page";
 import { useState } from "react";
 import { ContentDetailsModal } from "./ContentDetailsModal";
 
-interface RecentsCardProps {
+type Origin = "Recents" | "Favourites";
+
+interface ContentCardProps {
   content: UserContent[];
   isLoading: boolean;
   username: string;
+  origin: Origin;
 }
 
 const formatDate = (dateString: string) => {
@@ -34,11 +37,12 @@ const formatDate = (dateString: string) => {
   }
 };
 
-export function RecentsCard({
+export function ContentCard({
   content,
   isLoading,
   username,
-}: RecentsCardProps) {
+  origin,
+}: ContentCardProps) {
   const [selectedContentId, setSelectedContentId] = useState<string | null>(
     null
   );
@@ -71,10 +75,18 @@ export function RecentsCard({
     <>
       <div className="mt-4 p-4 md:p-6 rounded-lg">
         <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-1">
-            <IconClock className="h-5 w-5" />
-            <h3 className="text-xl font-semibold text-white">Recents</h3>
-          </div>
+          {origin === "Recents" ? (
+            <div className="flex items-center gap-1">
+              <IconClock className="h-5 w-5" />
+              <h3 className="text-xl font-semibold text-white">Recents</h3>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <IconHeartFilled className="h-5 w-5" />
+              <h3 className="text-xl font-semibold text-white">Favourites</h3>
+            </div>
+          )}
+
           {content.length > 0 && (
             <Link href="/all-content" passHref>
               <Button
@@ -89,7 +101,7 @@ export function RecentsCard({
 
         {isLoading ? (
           <p className="text-gray-400 text-center py-4">
-            Loading recent items...
+            Loading items...
           </p>
         ) : recentItems.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-5">
