@@ -27,7 +27,7 @@ export interface UserContent {
 export default function Dashboard() {
   const [modalOpen, setModalOpen] = useState(false);
   const [userContent, setUserContent] = useState<UserContent[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const session = useSession();
 
   useEffect(() => {
