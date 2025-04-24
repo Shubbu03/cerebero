@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -21,7 +21,7 @@ export async function DELETE(request: NextRequest) {
 
     const userId = session.user.id;
 
-    const { data: contentData, error: contentError } = await supabase
+    const { data: contentData, error: contentError } = await supabaseAdmin
       .from("content")
       .select("id")
       .eq("id", contentId)
@@ -35,7 +35,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await supabaseAdmin
       .from("content")
       .delete()
       .eq("id", contentId)
