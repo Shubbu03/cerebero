@@ -87,7 +87,7 @@ export function ContentCard({
             </div>
           )}
 
-          {content.length > 0 && (
+          {content.length > 0 && origin == "Recents" && (
             <Link href="/all-content" passHref>
               <Button
                 variant="link"
@@ -170,7 +170,7 @@ export function ContentCard({
           </div>
         ) : (
           <p className="text-gray-400 text-center py-4">
-            No recent items found.
+            No items found.
           </p>
         )}
       </div>
