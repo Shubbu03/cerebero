@@ -5,6 +5,7 @@ import {
   IconBrandX,
   IconHeart,
   IconHome,
+  IconTag,
 } from "@tabler/icons-react";
 
 export function FloatingDock() {
@@ -23,6 +24,14 @@ export function FloatingDock() {
         <IconHeart className="h-full w-full text-neutral-500 dark:text-neutral-300" />
       ),
       href: "/favourites",
+      external: false,
+    },
+    {
+      title: "Tags",
+      icon: (
+        <IconTag className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "/tags",
       external: false,
     },
     {
