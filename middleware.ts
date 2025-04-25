@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/signin", "/signup", "/"],
+  matcher: ["/dashboard/:path*", "/login", "/signup", "/"],
 };
 
 export async function middleware(request: NextRequest) {
