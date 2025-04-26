@@ -26,6 +26,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import Loading from "@/components/ui/loading";
+import TagContentModal from "@/components/TagContentModal";
 
 interface TagData {
   id: string;
@@ -45,6 +46,13 @@ interface TopTagData {
   tagName: string;
   usageCount: number;
   content: ContentItemData[];
+}
+
+interface SelectedTag {
+  tagId: string;
+  tagName: string;
+  content: ContentItemData[];
+  colorClass: string;
 }
 
 const BADGE_COLORS = [
@@ -69,6 +77,10 @@ export default function TagsDashboard() {
   const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
   const [tagToDelete, setTagToDelete] = useState<TagData | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [selectedTagModal, setSelectedTagModal] = useState<SelectedTag | null>(
+    null
+  );
 
   const fetchAllTags = useCallback(async () => {
     setIsLoadingAll(true);
@@ -101,6 +113,19 @@ export default function TagsDashboard() {
       setIsLoadingTop(false);
     }
   }, []);
+
+  const handleTagClick = (tag: TopTagData, colorClass: string) => {
+    setSelectedTagModal({
+      tagId: tag.tagId,
+      tagName: tag.tagName,
+      content: tag.content,
+      colorClass: colorClass,
+    });
+  };
+
+  const closeModal = () => {
+    setSelectedTagModal(null);
+  };
 
   useEffect(() => {
     fetchAllTags();
@@ -181,7 +206,6 @@ export default function TagsDashboard() {
         (tag) => tag.name.toLowerCase() === trimmedName.toLowerCase()
       )
     ) {
-      console.warn("Attempted to create a duplicate tag.");
       setCreateTagName("");
       setIsCreating(false);
       return;
@@ -385,17 +409,32 @@ export default function TagsDashboard() {
               No tags have been used yet.
             </p>
           ) : (
-            topTagsWithContent.map((tag, index) => (
-              <Badge
-                key={tag.tagId}
-                variant="default"
-                className={`px-2.5 py-0.5 ${
-                  BADGE_COLORS[index % BADGE_COLORS.length]
-                } text-white text-sm font-medium transition-colors`}
-              >
-                {tag.tagName}
-              </Badge>
-            ))
+            topTagsWithContent.map((tag, index) => {
+              const colorClass = BADGE_COLORS[index % BADGE_COLORS.length];
+              return (
+                <Badge
+                  key={tag.tagId}
+                  variant="default"
+                  className={`px-2.5 py-0.5 cursor-pointer ${colorClass} text-white text-sm font-medium transition-colors`}
+                  onClick={() => handleTagClick(tag, colorClass)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleTagClick(tag, colorClass);
+                    }
+                  }}
+                >
+                  {tag.tagName}
+                  {tag.usageCount && (
+                    <span className="ml-1.5 text-xs opacity-80">
+                      ({tag.usageCount})
+                    </span>
+                  )}
+                </Badge>
+              );
+            })
           )}
         </div>
       </div>
@@ -405,7 +444,7 @@ export default function TagsDashboard() {
           <div className="flex items-center gap-4">
             <h2 className="text-base font-medium text-neutral-400">All Tags</h2>
             {!isLoadingAll && allTags.length > 0 && (
-              <div className="text-sm text-neutral-500">
+              <div className="text-sm text-neutral-400">
                 Total tags: {allTags.length}
               </div>
             )}
@@ -414,7 +453,7 @@ export default function TagsDashboard() {
             <Button
               variant="outline"
               onClick={() => setIsCreating(true)}
-              className="border-neutral-700 hover:bg-neutral-800 hover:text-neutral-100 text-neutral-300 py-1 px-3 h-8 text-sm"
+              className="border-neutral-700 hover:bg-neutral-800 hover:text-neutral-100 text-neutral-300 py-1 px-3 h-8 text-sm cursor-pointer"
               size="sm"
             >
               <IconCirclePlus className="h-4 w-4 mr-1.5" stroke={1.5} />
@@ -446,6 +485,17 @@ export default function TagsDashboard() {
           )}
         </div>
       </div>
+
+      {selectedTagModal && (
+        <TagContentModal
+          isOpen={!!selectedTagModal}
+          onClose={closeModal}
+          tagName={selectedTagModal.tagName}
+          tagColor={selectedTagModal.colorClass}
+          content={selectedTagModal.content}
+          isLoading={false}
+        />
+      )}
     </div>
   );
 }
