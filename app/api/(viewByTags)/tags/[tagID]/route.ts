@@ -10,7 +10,7 @@ const UpdateTagSchema = z.object({
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { tagId: string } }
+  { params }: { params: Promise<{ tagID: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -18,7 +18,7 @@ export async function PUT(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
     const userId = session.user.id;
-    const { tagId } = params;
+    const tagId = (await params).tagID;
 
     if (!tagId) {
       return NextResponse.json(
@@ -115,7 +115,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { tagId: string } }
+  { params }: { params: Promise<{ tagID: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -123,7 +123,7 @@ export async function DELETE(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
     const userId = session.user.id;
-    const { tagId } = params;
+    const tagId = (await params).tagID;
 
     if (!tagId) {
       return NextResponse.json(
