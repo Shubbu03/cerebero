@@ -363,10 +363,6 @@ export default function TagsDashboard() {
 
   return (
     <div className="p-4 sm:p-6 text-neutral-200 min-h-screen">
-<<<<<<< HEAD
-=======
-      {/* Fixed header with better alignment between icon and text */}
->>>>>>> 1dd7342b7a84bfd505af49b7fcf82c79c22f2477
       <div className="flex items-center mb-6 sm:mb-8">
         <IconTagsFilled className="h-5 w-5 mr-2" />
         <h1 className="text-xl sm:text-2xl font-semibold text-neutral-100">
@@ -404,10 +400,6 @@ export default function TagsDashboard() {
         </div>
       </div>
 
-<<<<<<< HEAD
-=======
-      {/* All Tags Section with total count before new tag button */}
->>>>>>> 1dd7342b7a84bfd505af49b7fcf82c79c22f2477
       <div>
         <div className="flex justify-between items-center mb-3 sm:mb-4">
           <div className="flex items-center gap-4">
