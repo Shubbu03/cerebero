@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 interface ContentItemsData {
   id: string;
   title: string;
+  url: string | null;
   created_at: string;
   updated_at: string;
 }
