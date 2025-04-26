@@ -34,9 +34,10 @@ interface TagData {
   created_at: string;
 }
 
-interface ContentItemData {
+export interface ContentItemData {
   id: string;
   title: string;
+  url: string;
   created_at: string;
   updated_at: string;
 }
