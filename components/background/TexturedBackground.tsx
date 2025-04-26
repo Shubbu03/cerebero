@@ -133,10 +133,7 @@ export function TexturedBackground({
   }, [color, intensity, animated, dotPattern, mounted]);
 
   return (
-    <Component
-      ref={containerRef}
-      className={cn("relative overflow-hidden", className)}
-    >
+    <Component ref={containerRef} className={cn("relative", className)}>
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full object-cover"

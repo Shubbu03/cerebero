@@ -24,10 +24,10 @@ export function AppLayout({ children }: AppLayoutProps) {
   }
 
   return (
-    <TexturedBackground className="min-h-screen" dotPattern>
+    <TexturedBackground className="min-h-screen flex flex-col" dotPattern>
       <Header />
+      <main className="flex-grow w-full">{children}</main>
       <FloatingDock />
-      {children}
     </TexturedBackground>
   );
 }
