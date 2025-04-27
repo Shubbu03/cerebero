@@ -1,10 +1,17 @@
 "use client";
 
-import { IconLogout } from "@tabler/icons-react";
-import { Button } from "@/components/ui/button";
 import { signOut, useSession } from "next-auth/react";
 import { SearchBar } from "./SearchBar";
-import { Avatar, AvatarImage, AvatarFallback } from "@radix-ui/react-avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { User, LogOut } from "lucide-react";
+import Link from "next/link";
 
 const COLORS = {
   silver: "#C0C0C0",
@@ -39,25 +46,38 @@ export function Header({}: HeaderProps) {
       <div className="flex items-center gap-2">
         <SearchBar />
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white hover:bg-white/20 cursor-pointer"
-          onClick={handleLogout}
-        >
-          <IconLogout className="h-8 w-8" />
-          <span className="sr-only">Log out</span>
-        </Button>
-
-        <Avatar className="h-9 w-9 overflow-hidden rounded-full hover:border cursor-pointer">
-          <AvatarImage
-            src={userImage || ""}
-            className="h-full w-full object-cover rounded-full"
-          />
-          <AvatarFallback className="h-full w-full flex items-center justify-center bg-gray-200 text-gray-700 rounded-full">
-            {username ? username.charAt(0).toUpperCase() : "U"}
-          </AvatarFallback>
-        </Avatar>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Avatar className="h-9 w-9 overflow-hidden rounded-full hover:border cursor-pointer">
+              <AvatarImage
+                src={userImage || ""}
+                className="h-full w-full object-cover rounded-full"
+              />
+              <AvatarFallback className="h-full w-full flex items-center justify-center bg-gray-200 text-gray-700 rounded-full">
+                {username ? username.charAt(0).toUpperCase() : "U"}
+              </AvatarFallback>
+            </Avatar>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-28 text-white">
+            <DropdownMenuItem asChild>
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <User className="h-4 w-4" />
+                <span>Profile</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleLogout}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Logout</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
