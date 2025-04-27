@@ -33,16 +33,17 @@ export function Header({}: HeaderProps) {
 
   return (
     <header className="w-full p-4 flex justify-between items-center">
-      <h1
-        className="text-2xl md:text-4xl font-bold tracking-tight bg-clip-text text-transparent cursor-pointer"
-        style={{
-          backgroundImage: `linear-gradient(135deg, ${COLORS.silver} 45%, ${COLORS.cardinal} 55%)`,
-          letterSpacing: "-0.02em",
-        }}
-      >
-        Cerebero
-      </h1>
-
+      <Link href="/dashboard">
+        <h1
+          className="text-2xl md:text-4xl font-bold tracking-tight bg-clip-text text-transparent cursor-pointer"
+          style={{
+            backgroundImage: `linear-gradient(135deg, ${COLORS.silver} 45%, ${COLORS.cardinal} 55%)`,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Cerebero
+        </h1>
+      </Link>
       <div className="flex items-center gap-2">
         <SearchBar />
 
