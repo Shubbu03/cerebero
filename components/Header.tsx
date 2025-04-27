@@ -1,14 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { IconSearch, IconLogout } from "@tabler/icons-react";
+import { IconLogout } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { signOut } from "next-auth/react";
-import {
-  CommandDialog,
-  CommandInput,
-  CommandList,
-} from "@/components/ui/command";
+import { signOut, useSession } from "next-auth/react";
+import { SearchBar } from "./SearchBar";
+import { Avatar, AvatarImage, AvatarFallback } from "@radix-ui/react-avatar";
 
 const COLORS = {
   silver: "#C0C0C0",
@@ -20,66 +16,49 @@ interface HeaderProps {
 }
 
 export function Header({}: HeaderProps) {
-  const [searchOpen, setSearchOpen] = useState(false);
-
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setSearchOpen((open) => !open);
-      }
-    };
-
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, []);
+  const session = useSession();
+  const userImage = session?.data?.user?.image;
+  const username = session?.data?.user?.name;
 
   const handleLogout = () => {
     signOut();
   };
 
   return (
-    <>
-      <header className="w-full p-4 flex justify-between items-center">
-        <h1
-          className="text-2xl md:text-4xl font-bold tracking-tight bg-clip-text text-transparent cursor-pointer"
-          style={{
-            backgroundImage: `linear-gradient(135deg, ${COLORS.silver} 45%, ${COLORS.cardinal} 55%)`,
-            letterSpacing: "-0.02em",
-          }}
+    <header className="w-full p-4 flex justify-between items-center">
+      <h1
+        className="text-2xl md:text-4xl font-bold tracking-tight bg-clip-text text-transparent cursor-pointer"
+        style={{
+          backgroundImage: `linear-gradient(135deg, ${COLORS.silver} 45%, ${COLORS.cardinal} 55%)`,
+          letterSpacing: "-0.02em",
+        }}
+      >
+        Cerebero
+      </h1>
+
+      <div className="flex items-center gap-2">
+        <SearchBar />
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-white hover:bg-white/20 cursor-pointer"
+          onClick={handleLogout}
         >
-          Cerebero
-        </h1>
+          <IconLogout className="h-8 w-8" />
+          <span className="sr-only">Log out</span>
+        </Button>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className="text-white border-white/20 bg-white/10 hover:bg-white/20"
-            onClick={() => setSearchOpen(true)}
-          >
-            <IconSearch className="h-4 w-4 mr-2" />
-            Search...
-            <kbd className="ml-2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-white/20 bg-white/10 px-1.5 font-mono text-[10px] font-medium text-white opacity-100">
-              <span className="text-xs">⌘</span>K
-            </kbd>
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/20 cursor-pointer"
-            onClick={handleLogout}
-          >
-            <IconLogout className="h-5 w-5" />
-            <span className="sr-only">Log out</span>
-          </Button>
-        </div>
-      </header>
-
-      <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <CommandInput placeholder="Search content..." />
-        <CommandList></CommandList>
-      </CommandDialog>
-    </>
+        <Avatar className="h-9 w-9 overflow-hidden rounded-full hover:border cursor-pointer">
+          <AvatarImage
+            src={userImage || ""}
+            className="h-full w-full object-cover rounded-full"
+          />
+          <AvatarFallback className="h-full w-full flex items-center justify-center bg-gray-200 text-gray-700 rounded-full">
+            {username ? username.charAt(0).toUpperCase() : "U"}
+          </AvatarFallback>
+        </Avatar>
+      </div>
+    </header>
   );
 }
