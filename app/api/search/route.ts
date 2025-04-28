@@ -69,7 +69,7 @@ export async function GET(request: Request) {
       id: tag.id,
       type: "tag",
       title: tag.name,
-      url: `/tags/${tag.id}`,
+      url: `/tags`,
     }));
 
     const results = [...formattedContent, ...formattedTags];
