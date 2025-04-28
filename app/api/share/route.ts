@@ -37,6 +37,7 @@ export async function PATCH(request: Request) {
       .from("content")
       .update({
         is_shared: newIsShared,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", id)
       .eq("user_id", session.user.id)
