@@ -13,7 +13,7 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname();
 
-  const excludedPaths = ["/", "/login", "/signup"];
+  const excludedPaths = ["/", "/login", "/signup", "/shared"];
 
   const shouldExcludeLayout = excludedPaths.some(
     (path) => pathname === path || pathname.startsWith(path + "/")

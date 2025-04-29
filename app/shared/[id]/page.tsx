@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import type { UserContent } from "@/app/dashboard/page";
 import axios from "axios";
 import Loading from "@/components/ui/loading";
+import { TexturedBackground } from "@/components/background/TexturedBackground";
 
 export default function SharedContent() {
   const params = useParams();
@@ -64,6 +65,7 @@ export default function SharedContent() {
   };
 
   return (
+    <TexturedBackground className="min-h-screen " dotPattern>
     <main className="container mx-4 px-4 py-8 max-w-3xl text-white">
       {isLoading ? (
         <div className="flex justify-start mt-8">
@@ -154,5 +156,6 @@ export default function SharedContent() {
         </article>
       )}
     </main>
+    </TexturedBackground>
   );
 }
