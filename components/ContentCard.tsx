@@ -10,12 +10,13 @@ import {
   IconLink,
   IconCircleArrowUpRight,
   IconHeartFilled,
+  IconShare,
 } from "@tabler/icons-react";
 import { UserContent } from "@/app/dashboard/page";
 import { useState } from "react";
 import { ContentDetailsModal } from "./ContentDetailsModal";
 
-type Origin = "Recents" | "Favourites";
+type Origin = "Recents" | "Favourites" | "Profile_Shared";
 
 interface ContentCardProps {
   content: UserContent[];
@@ -80,10 +81,17 @@ export function ContentCard({
               <IconClock className="h-5 w-5" />
               <h3 className="text-xl font-semibold text-white">Recents</h3>
             </div>
-          ) : (
+          ) : origin === "Favourites" ? (
             <div className="flex items-center gap-1">
               <IconHeartFilled className="h-5 w-5" />
               <h3 className="text-xl font-semibold text-white">Favourites</h3>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <IconShare className="h-5 w-5 text-white" />
+              <h3 className="text-xl font-semibold text-white">
+                Recently Shared
+              </h3>
             </div>
           )}
 
@@ -100,9 +108,7 @@ export function ContentCard({
         </div>
 
         {isLoading ? (
-          <p className="text-gray-400 text-center py-4">
-            Loading items...
-          </p>
+          <p className="text-gray-400 text-center py-4">Loading items...</p>
         ) : recentItems.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-5">
             {" "}
@@ -169,9 +175,7 @@ export function ContentCard({
             })}
           </div>
         ) : (
-          <p className="text-gray-400 text-center py-4">
-            No items found.
-          </p>
+          <p className="text-gray-400 text-center py-4">No items found.</p>
         )}
       </div>
 
