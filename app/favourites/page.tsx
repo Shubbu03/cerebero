@@ -1,10 +1,10 @@
 "use client";
 
 import { DynamicHeader } from "@/components/DynamicHeader";
-import { ContentCard } from "@/components/ContentCard";
 import axios from "axios";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { ContentDetailCard } from "@/components/ContentDetailCard";
 
 export default function Favourites() {
   const [favData, setFavData] = useState([]);
@@ -43,7 +43,7 @@ export default function Favourites() {
         <div className="flex justify-center">
           <DynamicHeader userName={firstName || ""} />
         </div>
-        <ContentCard
+        <ContentDetailCard
           content={favData}
           isLoading={isLoading}
           username={firstName}
