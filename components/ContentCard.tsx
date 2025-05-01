@@ -16,7 +16,7 @@ import { UserContent } from "@/app/dashboard/page";
 import { useState } from "react";
 import { ContentDetailsModal } from "./ContentDetailsModal";
 
-type Origin = "Recents" | "Favourites" | "Profile_Shared";
+type Origin = "Recents" | "Profile_Shared";
 
 interface ContentCardProps {
   content: UserContent[];
@@ -80,11 +80,6 @@ export function ContentCard({
             <div className="flex items-center gap-1">
               <IconClock className="h-5 w-5" />
               <h3 className="text-xl font-semibold text-white">Recents</h3>
-            </div>
-          ) : origin === "Favourites" ? (
-            <div className="flex items-center gap-1">
-              <IconHeartFilled className="h-5 w-5" />
-              <h3 className="text-xl font-semibold text-white">Favourites</h3>
             </div>
           ) : (
             <div className="flex items-center gap-2">
