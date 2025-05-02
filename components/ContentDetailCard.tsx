@@ -12,6 +12,8 @@ import {
   IconFileDescription,
   IconWorld,
   IconBrandGithub,
+  IconChevronLeft,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import { UserContent } from "@/app/dashboard/page";
 import { useState } from "react";
@@ -25,6 +27,8 @@ interface ContentCardProps {
   username: string;
   origin: Origin;
 }
+
+const ITEMS_PER_PAGE = 10;
 
 const formatDate = (dateString: string) => {
   try {
@@ -71,6 +75,7 @@ export function ContentDetailCard({
     null
   );
   const [modalOpen, setModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const contentTypes = [
     {
@@ -103,6 +108,11 @@ export function ContentDetailCard({
     (a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
+
+  const totalPages = Math.ceil(recentItems.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentItems = recentItems.slice(startIndex, endIndex);
 
   const handleCardClick = (contentId: string, event: React.MouseEvent) => {
     if (
@@ -229,6 +239,77 @@ export function ContentDetailCard({
     }
   };
 
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex items-center justify-center mt-6 gap-2">
+        <button
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          className={`p-1 rounded-md ${
+            currentPage === 1
+              ? "text-zinc-600 cursor-not-allowed"
+              : "text-zinc-300 hover:bg-zinc-800"
+          }`}
+        >
+          <IconChevronLeft size={20} />
+        </button>
+
+        <div className="flex items-center gap-1">
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+            const shouldShow =
+              page === 1 ||
+              page === totalPages ||
+              Math.abs(currentPage - page) <= 1;
+
+            if (!shouldShow) {
+              if (
+                (page === 2 && currentPage > 3) ||
+                (page === totalPages - 1 && currentPage < totalPages - 2)
+              ) {
+                return (
+                  <span key={`ellipsis-${page}`} className="text-zinc-500 px-1">
+                    ...
+                  </span>
+                );
+              }
+              return null;
+            }
+
+            return (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-8 h-8 flex items-center justify-center rounded-md text-sm ${
+                  currentPage === page
+                    ? "bg-zinc-700 text-white"
+                    : "text-zinc-400 hover:bg-zinc-800"
+                }`}
+              >
+                {page}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={() =>
+            setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+          }
+          disabled={currentPage === totalPages}
+          className={`p-1 rounded-md ${
+            currentPage === totalPages
+              ? "text-zinc-600 cursor-not-allowed"
+              : "text-zinc-300 hover:bg-zinc-800"
+          }`}
+        >
+          <IconChevronRight size={20} />
+        </button>
+      </div>
+    );
+  };
+
   return (
     <>
       <div className="mt-4 p-3 md:p-5 rounded-lg">
@@ -244,86 +325,98 @@ export function ContentDetailCard({
               <h3 className="text-lg font-semibold text-white">Your Content</h3>
             </div>
           )}
+
+          {!isLoading && recentItems.length > 0 && (
+            <div className="text-xs text-zinc-400">
+              {recentItems.length} {recentItems.length === 1 ? "item" : "items"}
+            </div>
+          )}
         </div>
 
         {isLoading ? (
           <p className="text-gray-400 text-center py-3">Loading items...</p>
         ) : recentItems.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {recentItems.map((item) => {
-              const contentType =
-                contentTypes.find((type) => type.value === item.type) ||
-                contentTypes[0];
-              const IconComponent = contentType.icon;
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {currentItems.map((item) => {
+                const contentType =
+                  contentTypes.find((type) => type.value === item.type) ||
+                  contentTypes[0];
+                const IconComponent = contentType.icon;
 
-              return (
-                <div
-                  key={item.id}
-                  className={`${getCardBgColor(
-                    item.type
-                  )} rounded-xl overflow-hidden shadow-lg border border-zinc-800/50 hover:border-zinc-700/80 transition-all duration-200 ease-in-out cursor-pointer flex flex-col h-full`}
-                  onClick={(e) => handleCardClick(item.id, e)}
-                >
-                  {renderPreview(item)}
+                return (
+                  <div
+                    key={item.id}
+                    className={`${getCardBgColor(
+                      item.type
+                    )} rounded-xl overflow-hidden shadow-lg border border-zinc-800/50 hover:border-zinc-700/80 transition-all duration-200 ease-in-out cursor-pointer flex flex-col h-full`}
+                    onClick={(e) => handleCardClick(item.id, e)}
+                  >
+                    {renderPreview(item)}
 
-                  <div className="p-3 flex flex-col flex-grow">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center gap-1.5">
-                        <div
-                          className={`w-5 h-5 rounded-md flex items-center justify-center ${contentType.color}`}
-                        >
-                          <IconComponent size={14} className="text-white" />
-                        </div>
-                        <span className="text-xs text-zinc-400 font-medium">
-                          {contentType.label}
-                        </span>
-                      </div>
-
-                      {item.type !== "document" && item.url && (
-                        <Link
-                          href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hover:bg-zinc-700/50 p-1 rounded-full transition-colors"
-                        >
-                          <IconCircleArrowUpRight
-                            size={14}
-                            className="text-zinc-400"
-                          />
-                        </Link>
-                      )}
-                    </div>
-
-                    <h3 className="text-white font-medium text-xs mt-1 mb-1.5 line-clamp-1">
-                      {item.title || "Untitled"}
-                    </h3>
-
-                    {item.body && item.type !== "tweet" && (
-                      <p className="text-xs text-zinc-400 line-clamp-1 mb-2">
-                        {item.body}
-                      </p>
-                    )}
-
-                    <div className="flex items-center justify-between mt-auto pt-2 border-t border-zinc-800/70">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-4 h-4 rounded-full bg-zinc-700 flex items-center justify-center">
-                          <span className="text-xs font-medium text-zinc-300">
-                            {username ? username.charAt(0).toUpperCase() : "U"}
+                    <div className="p-3 flex flex-col flex-grow">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <div
+                            className={`w-5 h-5 rounded-md flex items-center justify-center ${contentType.color}`}
+                          >
+                            <IconComponent size={14} className="text-white" />
+                          </div>
+                          <span className="text-xs text-zinc-400 font-medium">
+                            {contentType.label}
                           </span>
                         </div>
-                        <p className="text-xs text-zinc-400">
-                          {formatDate(item.created_at)}
-                        </p>
+
+                        {item.type !== "document" && item.url && (
+                          <Link
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:bg-zinc-700/50 p-1 rounded-full transition-colors"
+                          >
+                            <IconCircleArrowUpRight
+                              size={14}
+                              className="text-zinc-400"
+                            />
+                          </Link>
+                        )}
                       </div>
-                      {item.is_favourite && (
-                        <IconHeartFilled size={14} className="text-red-500" />
+
+                      <h3 className="text-white font-medium text-xs mt-1 mb-1.5 line-clamp-1">
+                        {item.title || "Untitled"}
+                      </h3>
+
+                      {item.body && item.type !== "tweet" && (
+                        <p className="text-xs text-zinc-400 line-clamp-1 mb-2">
+                          {item.body}
+                        </p>
                       )}
+
+                      <div className="flex items-center justify-between mt-auto pt-2 border-t border-zinc-800/70">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-4 h-4 rounded-full bg-zinc-700 flex items-center justify-center">
+                            <span className="text-xs font-medium text-zinc-300">
+                              {username
+                                ? username.charAt(0).toUpperCase()
+                                : "U"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-zinc-400">
+                            {formatDate(item.created_at)}
+                          </p>
+                        </div>
+                        {item.is_favourite && (
+                          <IconHeartFilled size={14} className="text-red-500" />
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+
+            {renderPagination()}
+          </>
         ) : (
           <p className="text-zinc-400 text-center py-3">No items found.</p>
         )}
