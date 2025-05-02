@@ -12,12 +12,11 @@ import {
   IconFileDescription,
   IconWorld,
   IconBrandGithub,
-  IconChevronLeft,
-  IconChevronRight,
 } from "@tabler/icons-react";
 import { UserContent } from "@/app/dashboard/page";
 import { useState } from "react";
 import { ContentDetailsModal } from "./ContentDetailsModal";
+import Pagination from "./Pagination";
 
 type Origin = "Favourites" | "All_Content";
 
@@ -239,77 +238,6 @@ export function ContentDetailCard({
     }
   };
 
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
-
-    return (
-      <div className="flex items-center justify-center mt-6 gap-2">
-        <button
-          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-          disabled={currentPage === 1}
-          className={`p-1 rounded-md ${
-            currentPage === 1
-              ? "text-zinc-600 cursor-not-allowed"
-              : "text-zinc-300 hover:bg-zinc-800"
-          }`}
-        >
-          <IconChevronLeft size={20} />
-        </button>
-
-        <div className="flex items-center gap-1">
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-            const shouldShow =
-              page === 1 ||
-              page === totalPages ||
-              Math.abs(currentPage - page) <= 1;
-
-            if (!shouldShow) {
-              if (
-                (page === 2 && currentPage > 3) ||
-                (page === totalPages - 1 && currentPage < totalPages - 2)
-              ) {
-                return (
-                  <span key={`ellipsis-${page}`} className="text-zinc-500 px-1">
-                    ...
-                  </span>
-                );
-              }
-              return null;
-            }
-
-            return (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`w-8 h-8 flex items-center justify-center rounded-md text-sm ${
-                  currentPage === page
-                    ? "bg-zinc-700 text-white"
-                    : "text-zinc-400 hover:bg-zinc-800"
-                }`}
-              >
-                {page}
-              </button>
-            );
-          })}
-        </div>
-
-        <button
-          onClick={() =>
-            setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-          }
-          disabled={currentPage === totalPages}
-          className={`p-1 rounded-md ${
-            currentPage === totalPages
-              ? "text-zinc-600 cursor-not-allowed"
-              : "text-zinc-300 hover:bg-zinc-800"
-          }`}
-        >
-          <IconChevronRight size={20} />
-        </button>
-      </div>
-    );
-  };
-
   return (
     <>
       <div className="mt-4 p-3 md:p-5 rounded-lg">
@@ -415,7 +343,12 @@ export function ContentDetailCard({
               })}
             </div>
 
-            {renderPagination()}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              className="mt-6"
+            />
           </>
         ) : (
           <p className="text-zinc-400 text-center py-3">No items found.</p>
