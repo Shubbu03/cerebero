@@ -153,11 +153,11 @@ export function ContentDetailCard({
                 <iframe
                   src={`https://www.youtube.com/embed/${getYouTubeVideoId(
                     url
-                  )}?controls=0&showinfo=0`}
+                  )}?controls=1&showinfo=0`}
                   title={title || "YouTube video"}
                   className="w-full h-full object-cover opacity-90"
                   frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                   allowFullScreen
                 />
               </div>
