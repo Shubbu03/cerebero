@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { Avatar, AvatarImage, AvatarFallback } from "@radix-ui/react-avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import axios from "axios";
 import { ContentCard } from "@/components/ContentCard";
@@ -262,12 +262,12 @@ export default function Profile() {
     <div>
       <div className="flex flex-col items-center pt-16 px-4">
         <div className="mb-6">
-          <Avatar className="h-72 w-72 rounded-full">
+          <Avatar className="h-42 w-42 rounded-full">
             <AvatarImage
               src={session.user.image || ""}
-              className="h-full w-full object-cover rounded-full"
+              className="h-42 w-42 object-cover rounded-full"
             />
-            <AvatarFallback className="h-48 w-48 flex items-center justify-center bg-gray-200 text-gray-700 text-5xl rounded-full">
+            <AvatarFallback className="h-42 w-42 flex items-center justify-center bg-gray-200 text-gray-700 text-5xl rounded-full">
               {username}
             </AvatarFallback>
           </Avatar>
