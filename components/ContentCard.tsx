@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   IconClock,
   IconFileText,
-  IconBrandTwitter,
+  IconBrandX,
   IconBrandYoutube,
   IconLink,
   IconCircleArrowUpRight,
@@ -15,6 +15,7 @@ import {
 import { UserContent } from "@/app/dashboard/page";
 import { useState } from "react";
 import { ContentDetailsModal } from "./ContentDetailsModal";
+import { formatDate } from "@/lib/format-date";
 
 type Origin = "Recents" | "Profile_Shared";
 
@@ -24,19 +25,6 @@ interface ContentCardProps {
   username: string;
   origin: Origin;
 }
-
-const formatDate = (dateString: string) => {
-  try {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  } catch (err) {
-    console.error("Error formating date", err);
-    return "Invalid Date";
-  }
-};
 
 export function ContentCard({
   content,
@@ -51,7 +39,7 @@ export function ContentCard({
 
   const contentTypes = [
     { value: "document", label: "Document", icon: IconFileText },
-    { value: "tweet", label: "Tweet", icon: IconBrandTwitter },
+    { value: "tweet", label: "Tweet", icon: IconBrandX },
     { value: "youtube", label: "YouTube", icon: IconBrandYoutube },
     { value: "link", label: "Link", icon: IconLink },
   ];

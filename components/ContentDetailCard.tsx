@@ -17,6 +17,7 @@ import { UserContent } from "@/app/dashboard/page";
 import { useState } from "react";
 import { ContentDetailsModal } from "./ContentDetailsModal";
 import Pagination from "./Pagination";
+import { formatDate } from "@/lib/format-date";
 
 type Origin = "Favourites" | "All_Content";
 
@@ -28,19 +29,6 @@ interface ContentCardProps {
 }
 
 const ITEMS_PER_PAGE = 10;
-
-const formatDate = (dateString: string) => {
-  try {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  } catch (err) {
-    console.error("Error formatting date", err);
-    return "Invalid Date";
-  }
-};
 
 const getYouTubeVideoId = (url: string): string => {
   try {
