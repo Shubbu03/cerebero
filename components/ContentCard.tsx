@@ -13,9 +13,8 @@ import {
   IconShare,
 } from "@tabler/icons-react";
 import { UserContent } from "@/app/dashboard/page";
-import { useState } from "react";
-import { ContentDetailsModal } from "./ContentDetailsModal";
 import { formatDate } from "@/lib/format-date";
+import { useRouter } from "next/navigation";
 
 type Origin = "Recents" | "Profile_Shared";
 
@@ -32,11 +31,7 @@ export function ContentCard({
   username,
   origin,
 }: ContentCardProps) {
-  const [selectedContentId, setSelectedContentId] = useState<string | null>(
-    null
-  );
-  const [modalOpen, setModalOpen] = useState(false);
-
+  const router = useRouter();
   const contentTypes = [
     { value: "document", label: "Document", icon: IconFileText },
     { value: "tweet", label: "Tweet", icon: IconBrandX },
@@ -56,8 +51,7 @@ export function ContentCard({
       return;
     }
 
-    setSelectedContentId(contentId);
-    setModalOpen(true);
+    router.push(`/content/${contentId}`);
   };
 
   return (
@@ -79,7 +73,7 @@ export function ContentCard({
           )}
 
           {content.length > 0 && origin == "Recents" && (
-            <Link href="/all-content" passHref>
+            <Link href="/content" passHref>
               <Button
                 variant="link"
                 className="text-accent hover:text-accent/80 p-0 h-auto cursor-pointer"
@@ -161,12 +155,6 @@ export function ContentCard({
           <p className="text-gray-400 text-center py-4">No items found.</p>
         )}
       </div>
-
-      <ContentDetailsModal
-        contentId={selectedContentId}
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-      />
     </>
   );
 }

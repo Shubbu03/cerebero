@@ -15,9 +15,9 @@ import {
 } from "@tabler/icons-react";
 import { UserContent } from "@/app/dashboard/page";
 import { useState } from "react";
-import { ContentDetailsModal } from "./ContentDetailsModal";
 import Pagination from "./Pagination";
 import { formatDate } from "@/lib/format-date";
+import { useRouter } from "next/navigation";
 
 type Origin = "Favourites" | "All_Content";
 
@@ -58,10 +58,7 @@ export function ContentDetailCard({
   username,
   origin,
 }: ContentCardProps) {
-  const [selectedContentId, setSelectedContentId] = useState<string | null>(
-    null
-  );
-  const [modalOpen, setModalOpen] = useState(false);
+  const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
 
   const contentTypes = [
@@ -109,8 +106,7 @@ export function ContentDetailCard({
       return;
     }
 
-    setSelectedContentId(contentId);
-    setModalOpen(true);
+    router.push(`/content/${contentId}`);
   };
 
   const getCardBgColor = (type: string) => {
@@ -342,12 +338,6 @@ export function ContentDetailCard({
           <p className="text-zinc-400 text-center py-3">No items found.</p>
         )}
       </div>
-
-      <ContentDetailsModal
-        contentId={selectedContentId}
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-      />
     </>
   );
 }
