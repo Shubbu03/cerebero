@@ -43,7 +43,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ data }, { status: 200 });
+    const tags = data.map((item) => item.tags);
+
+    return NextResponse.json({ data: tags }, { status: 200 });
   } catch (error) {
     console.error("Error fetching content tags:", error);
     return NextResponse.json(
