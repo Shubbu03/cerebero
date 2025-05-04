@@ -64,6 +64,16 @@ export default function Dashboard() {
 
   const showAddHint = !isLoading && userContent.length === 0;
 
+  const handleContentDelete = async (id: string) => {
+    try {
+      await axios.delete(`/api/delete-content/${id}`);
+    } catch (error) {
+      console.error("Error deleting content:", error);
+    } finally {
+      fetchUserContent();
+    }
+  };
+
   return (
     <>
       {showAddHint && <AddHintArrow />}
@@ -87,6 +97,7 @@ export default function Dashboard() {
           isLoading={isLoading}
           username={firstName}
           origin="Recents"
+          onDelete={handleContentDelete}
         />
       </main>
 

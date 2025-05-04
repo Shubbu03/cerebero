@@ -11,6 +11,7 @@ import {
   IconCircleArrowUpRight,
   IconHeartFilled,
   IconShare,
+  IconTrash,
 } from "@tabler/icons-react";
 import { UserContent } from "@/app/dashboard/page";
 import { formatDate } from "@/lib/format-date";
@@ -23,6 +24,7 @@ interface ContentCardProps {
   isLoading: boolean;
   username: string;
   origin: Origin;
+  onDelete?: (id: string) => void;
 }
 
 export function ContentCard({
@@ -30,6 +32,7 @@ export function ContentCard({
   isLoading,
   username,
   origin,
+  onDelete,
 }: ContentCardProps) {
   const router = useRouter();
   const contentTypes = [
@@ -52,6 +55,14 @@ export function ContentCard({
     }
 
     router.push(`/content/${contentId}`);
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      onDelete?.(id);
+    } catch (error) {
+      console.error("Error deleting content:", error);
+    }
   };
 
   return (
@@ -141,7 +152,15 @@ export function ContentCard({
                         {formatDate(item.created_at)}
                       </p>
                     </div>
-                    <div>
+                    <div className="flex items-center gap-2">
+                      <IconTrash
+                        size={18}
+                        className="text-gray-400 hover:text-rose-400 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(item.id);
+                        }}
+                      />
                       {item.is_favourite && (
                         <IconHeartFilled size={18} className="text-gray-400" />
                       )}
