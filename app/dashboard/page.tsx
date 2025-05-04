@@ -9,6 +9,7 @@ import AddHintArrow from "@/components/background/AddButtonGuide";
 import { useSession } from "next-auth/react";
 import { DynamicHeader } from "@/components/DynamicHeader";
 import { ContentCard } from "@/components/ContentCard";
+import TodoCard from "@/components/TodoCard";
 
 export interface UserContent {
   body: string;
@@ -99,6 +100,7 @@ export default function Dashboard() {
           origin="Recents"
           onDelete={handleContentDelete}
         />
+        <TodoCard />
       </main>
 
       {modalOpen && (
