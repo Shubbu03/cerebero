@@ -1,11 +1,14 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
+import { authOptions } from "../../auth/[...nextauth]/options";
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const contentId = searchParams.get("id");
+    const contentId = (await params).id;
 
     if (!contentId) {
       return NextResponse.json(
@@ -14,7 +17,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
@@ -30,7 +33,9 @@ export async function DELETE(request: NextRequest) {
 
     if (contentError || !contentData) {
       return NextResponse.json(
-        { message: "Content not found or does not belong to user" },
+        {
+          message: "Content not found or does not belong to user",
+        },
         { status: 404 }
       );
     }
