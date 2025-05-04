@@ -15,27 +15,37 @@ export default function Favourites() {
   const firstName = fullName ? fullName.split(" ")[0] : "";
 
   useEffect(() => {
-    const fetchFavouriteContent = async () => {
-      setIsLoading(true);
-      try {
-        const response = await axios.get("/api/view-favourites");
-        if (response) {
-          if (response && response.data) {
-            setFavData(response.data.data || []);
-          } else {
-            setFavData([]);
-          }
-        }
-      } catch (error) {
-        console.error("Error occured:", error);
-        setFavData([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchFavouriteContent();
   }, []);
+
+  const fetchFavouriteContent = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.get("/api/view-favourites");
+      if (response) {
+        if (response && response.data) {
+          setFavData(response.data.data || []);
+        } else {
+          setFavData([]);
+        }
+      }
+    } catch (error) {
+      console.error("Error occured:", error);
+      setFavData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleContentDelete = async (id: string) => {
+    try {
+      await axios.delete(`/api/delete-content/${id}`);
+    } catch (error) {
+      console.error("Error deleting content:", error);
+    } finally {
+      fetchFavouriteContent();
+    }
+  };
 
   return (
     <>
@@ -48,6 +58,7 @@ export default function Favourites() {
           isLoading={isLoading}
           username={firstName}
           origin="Favourites"
+          onDelete={handleContentDelete}
         />
       </main>
     </>

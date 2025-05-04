@@ -12,6 +12,7 @@ import {
   IconFileDescription,
   IconWorld,
   IconBrandGithub,
+  IconTrash,
 } from "@tabler/icons-react";
 import { UserContent } from "@/app/dashboard/page";
 import { useState } from "react";
@@ -26,6 +27,7 @@ interface ContentCardProps {
   isLoading: boolean;
   username: string;
   origin: Origin;
+  onDelete?: (id: string) => void;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -57,6 +59,7 @@ export function ContentDetailCard({
   isLoading,
   username,
   origin,
+  onDelete,
 }: ContentCardProps) {
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
@@ -121,6 +124,14 @@ export function ContentDetailCard({
         return "bg-gradient-to-br from-blue-900/30 to-zinc-900";
       default:
         return "bg-gradient-to-br from-zinc-800 to-zinc-900";
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      onDelete?.(id);
+    } catch (error) {
+      console.error("Error deleting content:", error);
     }
   };
 
@@ -317,9 +328,22 @@ export function ContentDetailCard({
                             {formatDate(item.created_at)}
                           </p>
                         </div>
-                        {item.is_favourite && (
-                          <IconHeartFilled size={14} className="text-red-500" />
-                        )}
+                        <div className="flex items-center gap-2">
+                          <IconTrash
+                            size={14}
+                            className="text-gray-400 hover:text-rose-400 cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(item.id);
+                            }}
+                          />
+                          {item.is_favourite && (
+                            <IconHeartFilled
+                              size={14}
+                              className="text-red-500"
+                            />
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

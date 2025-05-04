@@ -15,27 +15,37 @@ export default function AllContent() {
   const firstName = fullName ? fullName.split(" ")[0] : "";
 
   useEffect(() => {
-    const fetchAllContent = async () => {
-      setIsLoading(true);
-      try {
-        const response = await axios.get("/api/get-content");
-        if (response) {
-          if (response && response.data) {
-            setAllContent(response.data.data || []);
-          } else {
-            setAllContent([]);
-          }
-        }
-      } catch (error) {
-        console.error("Error occured:", error);
-        setAllContent([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchAllContent();
   }, []);
+
+  const fetchAllContent = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.get("/api/get-content");
+      if (response) {
+        if (response && response.data) {
+          setAllContent(response.data.data || []);
+        } else {
+          setAllContent([]);
+        }
+      }
+    } catch (error) {
+      console.error("Error occured:", error);
+      setAllContent([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleContentDelete = async (id: string) => {
+    try {
+      await axios.delete(`/api/delete-content/${id}`);
+    } catch (error) {
+      console.error("Error deleting content:", error);
+    } finally {
+      fetchAllContent();
+    }
+  };
 
   return (
     <>
@@ -45,6 +55,7 @@ export default function AllContent() {
           isLoading={isLoading}
           username={firstName}
           origin="All_Content"
+          onDelete={handleContentDelete}
         />
       </main>
     </>
