@@ -84,6 +84,9 @@ export default function ContentDetail() {
   const [isLoadingTags, setIsLoadingTags] = useState(false);
   const [newTagValue, setNewTagValue] = useState("");
   const [isAddingTag, setIsAddingTag] = useState(false);
+  const [suggestedTags, setSuggestedTags] = useState<Tag[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -187,15 +190,18 @@ export default function ContentDetail() {
     const name = newTagValue.trim();
     if (!name || isAddingTag) return;
 
-    console.log("TAG TO ADD IS::", name);
     setIsAddingTag(true);
     try {
-      const { data } = await axios.post("/api/tags", { name });
-      if (data?.data) {
-        setTags((prev) => [...prev, data.data]);
+      const response = await axios.post("/api/tags", { name });
+      if (response?.data) {
+        setTags((prev) => [...prev, response.data]);
+        await axios.post("/api/edit-content-tags", {
+          contentID: contentId,
+          tagID: response.data.id,
+        });
         setNewTagValue("");
       } else {
-        console.error("Add tag failed: invalid response", data);
+        console.error("Add tag failed");
       }
     } catch (err) {
       console.error("Error adding tag:", err);
@@ -204,14 +210,63 @@ export default function ContentDetail() {
     }
   };
 
+  const fetchTagSuggestions = async () => {
+    setIsLoadingSuggestions(true);
+    try {
+      const response = await axios.get("/api/tags");
+      const data = response.data;
+
+      const filteredSuggestions = data.filter(
+        (suggestion: Tag) => !tags.some((tag) => tag.id === suggestion.id)
+      );
+
+      setSuggestedTags(filteredSuggestions);
+    } catch (error) {
+      console.error("Error fetching tag suggestions:", error);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  };
+
+  const handleInputFocus = () => {
+    setInputFocused(true);
+    fetchTagSuggestions();
+  };
+
+  const addTagFromSuggestion = async (tagName: string) => {
+    setIsAddingTag(true);
+    try {
+      const response = await axios.post("/api/tags", { name: tagName.trim() });
+      if (response?.data) {
+        setTags((prev) => [...prev, response.data]);
+        await axios.post("/api/edit-content-tags", {
+          contentID: contentId,
+          tagID: response.data.id,
+        });
+      }
+    } catch (err) {
+      console.error("Error adding tag:", err);
+    } finally {
+      setInputFocused(false);
+      setIsAddingTag(false);
+    }
+  };
+
   const deleteTag = async (tagId: string) => {
     if (isEditing) return;
 
     try {
-      await axios.delete(`/api/tags/${tagId}`);
+      await axios.delete("/api/edit-content-tags", {
+        data: {
+          contentID: contentId,
+          tagID: tagId,
+        },
+      });
       setTags((prev) => prev.filter((t) => t.id !== tagId));
     } catch (err) {
       console.error("Error deleting tag:", err);
+    } finally {
+      fetchTagSuggestions();
     }
   };
 
@@ -394,15 +449,48 @@ export default function ContentDetail() {
           )}
 
           {!isEditing && (
-            <div className="flex items-center gap-1">
-              <Input
-                type="text"
-                value={newTagValue}
-                onChange={(e) => setNewTagValue(e.target.value)}
-                placeholder="Add tag..."
-                className="w-24 h-8 text-xs bg-gray-800 border-gray-600 text-gray-200 focus:border-accent focus:ring-accent"
-                disabled={isAddingTag}
-              />
+            <div className="flex items-center gap-1 relative">
+              <div className="relative w-full">
+                <Input
+                  type="text"
+                  value={newTagValue}
+                  onChange={(e) => setNewTagValue(e.target.value)}
+                  onFocus={handleInputFocus}
+                  onBlur={() => {
+                    setTimeout(() => setInputFocused(false), 200);
+                  }}
+                  placeholder="Add tag..."
+                  className="w-24 h-8 text-xs bg-gray-800 border-gray-600 text-gray-200 focus:border-accent focus:ring-accent"
+                  disabled={isAddingTag}
+                />
+
+                {inputFocused && (
+                  <div className="absolute top-full left-0 w-full mt-1 z-50 bg-gray-800 border border-gray-700 rounded-md shadow-lg">
+                    {isLoadingSuggestions ? (
+                      <div className="p-4 text-sm text-gray-400">
+                        Loading suggestions...
+                      </div>
+                    ) : suggestedTags.length > 0 ? (
+                      <div className="max-h-60 overflow-y-auto py-1">
+                        {suggestedTags.map((tag) => (
+                          <div
+                            key={tag.id}
+                            onClick={() => addTagFromSuggestion(tag.name)}
+                            className="px-3 py-2 text-sm text-gray-200 hover:bg-gray-700 cursor-pointer"
+                          >
+                            {tag.name}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-2 text-sm text-gray-400">
+                        No tags available
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <Button
                 type="submit"
                 onClick={addTag}
