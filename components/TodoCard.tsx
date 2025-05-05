@@ -187,7 +187,7 @@ export default function TodoCard() {
           </div>
         )}
 
-        {todos.length >= 3 && (
+        {todos.length >= 0 && (
           <p className="text-md text-gray-400 italic mt-2 text-center">
             Focus on your top 3 priorities.
           </p>
