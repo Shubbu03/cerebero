@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -29,7 +28,7 @@ function TodoItemComponent({
   return (
     <div
       className={cn(
-        "flex items-center justify-between bg-background/20 border border-gray-700/40 rounded-lg px-3 py-2 mb-2",
+        "flex items-center justify-between bg-background/20 border border-gray-700/40 rounded-lg px-3 py-2 mb-2 hover:border-gray-600/80 transition-all duration-200 ease-in-out",
         minimalist && "bg-transparent border-none px-1 py-1"
       )}
     >
@@ -37,7 +36,7 @@ function TodoItemComponent({
         <Checkbox
           checked={todo.completed}
           onCheckedChange={() => onToggleComplete(todo.id)}
-          className="border-gray-500"
+          className="border-gray-500 cursor-pointer"
           id={todo.id}
         />
         <label
@@ -55,7 +54,7 @@ function TodoItemComponent({
         <Button
           size="icon"
           variant="ghost"
-          className="text-gray-400 hover:text-destructive hover:bg-destructive/10 w-7 h-7"
+          className="text-gray-400 hover:text-red-400 hover:bg-destructive/10 w-7 h-7 cursor-pointer"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(todo.id);
@@ -134,33 +133,25 @@ export default function TodoCard() {
   };
 
   return (
-    <Card className="w-full max-w-full mx-auto bg-transparent border-none shadow-none">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
+    <div className="w-full max-w-full mx-auto space-y-4 p-6">
+      <div className="flex flex-row items-center justify-between pb-2">
         <div className="flex items-center gap-2">
-          <IconBrain
-            size={20}
-            className={minimalist ? "text-gray-500" : "text-gray-200"}
-          />
-          <CardTitle
-            className={cn(
-              "text-lg font-semibold",
-              minimalist ? "text-gray-500" : "text-gray-200"
-            )}
-          >
+          <IconBrain className={"h-5 w-5 text-white"} />
+          <h2 className={"text-xl font-semibold text-white"}>
             Focus for Today
-          </CardTitle>
+          </h2>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setMinimalist((m) => !m)}
-            className="text-gray-400 hover:text-gray-200 w-7 h-7"
+            className="text-gray-400 hover:text-gray-200 w-5 h-5 cursor-pointer"
           >
             {minimalist ? <IconEyeOff size={18} /> : <IconEye size={18} />}
           </Button>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="pt-0">
+      <div className="pt-0">
         <div className="space-y-2 mb-4">
           {todos.map((todo) => (
             <TodoItemComponent
@@ -187,7 +178,7 @@ export default function TodoCard() {
                 <Button
                   onClick={handleAdd}
                   variant="secondary"
-                  className="shrink-0 bg-gray-700/60 hover:bg-gray-700/80 text-gray-200 h-9 px-3"
+                  className="shrink-0 bg-gray-700/60 hover:bg-gray-700/80 text-gray-200 h-9 px-3 cursor-pointer"
                 >
                   Add
                 </Button>
@@ -196,7 +187,7 @@ export default function TodoCard() {
           </div>
         )}
 
-        {!minimalist && todos.length >= 3 && (
+        {todos.length >= 3 && (
           <p className="text-md text-gray-400 italic mt-2 text-center">
             Focus on your top 3 priorities.
           </p>
@@ -206,7 +197,7 @@ export default function TodoCard() {
             Add a focus item
           </p>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
