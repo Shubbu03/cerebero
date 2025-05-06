@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import Background from "../background/Background";
+import NeuronBackground from "../background/NeuronBackground";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -161,7 +161,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
   return (
     <div className="relative flex h-screen w-full items-center justify-center overflow-hidden">
       <div className="absolute inset-0 w-full h-full">
-        <Background className=" top-0 left-0 h-screen" />
+        <NeuronBackground className=" top-0 left-0 h-screen" />
       </div>
 
       <div className="relative z-10 w-full max-w-md p-8 mx-4 bg-white rounded-lg shadow-xl">
@@ -309,7 +309,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-black hover:bg-black/90 text-white"
+            className="w-full bg-black hover:bg-black/90 text-white cursor-pointer hover:shadow-md"
           >
             {isLoading
               ? "Loading..."
