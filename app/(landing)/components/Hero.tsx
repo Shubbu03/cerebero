@@ -3,7 +3,9 @@
 import { useEffect } from "react";
 import { motion, useAnimation } from "framer-motion";
 import Link from "next/link";
-import Background, { COLORS } from "@/components/background/Background";
+import NeuronBackground, {
+  COLORS,
+} from "@/components/background/NeuronBackground";
 
 export default function Hero() {
   const textControls = useAnimation();
@@ -27,7 +29,7 @@ export default function Hero() {
   }, [textControls, buttonControls]);
 
   return (
-    <Background className="w-full h-screen">
+    <NeuronBackground className="w-full h-screen">
       <div className="flex flex-col items-center justify-center h-full text-white px-4">
         <motion.div
           className="text-center"
@@ -103,6 +105,6 @@ export default function Hero() {
           </div>
         </motion.div>
       </div>
-    </Background>
+    </NeuronBackground>
   );
 }

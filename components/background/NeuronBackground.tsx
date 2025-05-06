@@ -30,7 +30,7 @@ interface NeuralNetworkBackgroundProps {
   children?: React.ReactNode;
 }
 
-export default function Background({
+export default function NeuronBackground({
   className = "",
   style = {},
   onMouseMove,
