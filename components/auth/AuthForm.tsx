@@ -5,7 +5,13 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { z } from "zod";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import {
+  IconMail,
+  IconLock,
+  IconEye,
+  IconEyeOff,
+  IconUser,
+} from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -200,6 +206,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
                 Name
               </Label>
               <div className="relative">
+                <IconUser className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 <Input
                   id="name"
                   name="name"
@@ -223,7 +230,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
               Email address
             </Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <IconMail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
               <Input
                 id="email"
                 name="email"
@@ -248,7 +255,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
               </Label>
             </div>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <IconLock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
               <Input
                 id="password"
                 name="password"
@@ -268,9 +275,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
+                  <IconEyeOff className="h-4 w-4" />
                 ) : (
-                  <Eye className="h-4 w-4" />
+                  <IconEye className="h-4 w-4" />
                 )}
               </button>
               {errors.password && (
@@ -285,7 +292,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
                 Confirm Password
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                <IconLock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 <Input
                   id="confirmPassword"
                   name="confirmPassword"
