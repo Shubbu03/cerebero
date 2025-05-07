@@ -3,9 +3,8 @@
 import { useEffect } from "react";
 import { motion, useAnimation } from "framer-motion";
 import Link from "next/link";
-import NeuronBackground, {
-  COLORS,
-} from "@/components/background/NeuronBackground";
+import NeuronBackground from "@/components/background/NeuronBackground";
+import { COLORS } from "@/lib/colors";
 
 export default function Hero() {
   const textControls = useAnimation();

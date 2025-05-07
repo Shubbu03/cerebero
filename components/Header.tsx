@@ -12,11 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { User, LogOut } from "lucide-react";
 import Link from "next/link";
-
-const COLORS = {
-  silver: "#C0C0C0",
-  cardinal: "#C41E3A",
-};
+import { COLORS } from "@/lib/colors";
 
 interface HeaderProps {
   onSearch?: () => void;
