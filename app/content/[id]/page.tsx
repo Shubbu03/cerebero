@@ -51,6 +51,7 @@ import {
 import { formatDate } from "@/lib/format-date";
 import { getContentTypeIcon, getContentTypeName } from "@/lib/content-funcs";
 import Loading from "@/components/ui/loading";
+import { Switch } from "@/components/ui/switch";
 
 export interface Tag {
   id: string;
@@ -87,6 +88,7 @@ export default function ContentDetail() {
   const [suggestedTags, setSuggestedTags] = useState<Tag[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
+  const [isShared, setIsShared] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -292,23 +294,36 @@ export default function ContentDetail() {
     e.stopPropagation();
     if (!content || isEditing) return;
 
+    setIsShareModalOpen(true);
+
+    try {
+      const response = await axios.get(`/api/share?id=${content.id}`);
+      const { is_shared, share_url } = response.data;
+
+      setIsShared(is_shared);
+      setShareableLink(share_url);
+    } catch (error) {
+      console.error("Error fetching share info:", error);
+      alert("Failed to fetch sharing info.");
+    }
+  };
+
+  const handleToggleShare = async () => {
+    if (!content) return;
+
     try {
       const response = await axios.patch(`/api/share?id=${content.id}`);
-      if (response?.data?.share_url) {
-        setShareableLink(response.data.share_url);
+      if (response.status === 200) {
+        const getResponse = await axios.get(`/api/share?id=${content.id}`);
+        const { is_shared, share_url } = getResponse.data;
+        setIsShared(is_shared);
+        setShareableLink(share_url);
       } else {
-        console.error("Share failed: Invalid response structure", response);
-        alert("Failed to generate shareable link. Please try again.");
+        alert("Failed to update sharing status.");
       }
-    } catch (error: unknown) {
-      if (error instanceof Error && error.name !== "AbortError") {
-        console.error("Error sharing content:", error);
-        alert("Failed to share content. Please try again.");
-      }
-    } finally {
-      if (shareableLink) {
-        setIsShareModalOpen(true);
-      }
+    } catch (error) {
+      console.error("Error toggling share:", error);
+      alert("An error occurred while updating sharing status.");
     }
   };
 
@@ -875,36 +890,49 @@ export default function ContentDetail() {
   const renderShareModal = () => (
     <Dialog open={isShareModalOpen} onOpenChange={setIsShareModalOpen}>
       <DialogContent className="bg-[#1c1c1f] text-white border border-gray-700 shadow-xl sm:max-w-md w-[95vw] p-0 overflow-hidden rounded-lg">
-        <DialogHeader className="p-6 border-b border-gray-700 shrink-0 bg-[#1f1f23]">
+        <DialogHeader className="p-6 border-b border-gray-700 bg-[#1f1f23]">
           <DialogTitle className="text-xl font-semibold text-gray-100">
             Share Content
           </DialogTitle>
         </DialogHeader>
         <div className="p-6 space-y-4">
-          <p className="text-gray-300 text-sm">
-            Share this link with others to give them access to this content:
-          </p>
-          <div className="flex gap-2">
-            <Input
-              value={shareableLink}
-              readOnly
-              className="bg-gray-800 border-gray-600 text-gray-100"
+          <div className="flex items-center justify-between">
+            <span className="text-gray-300 text-sm">Enable Sharing</span>
+            <Switch
+              checked={isShared}
+              onCheckedChange={handleToggleShare}
+              className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600 cursor-pointer"
             />
-            <Button
-              onClick={copyToClipboard}
-              variant="outline"
-              className={`shrink-0 bg-gray-700 cursor-pointer ${
-                isCopied ? "text-white" : "text-gray-200"
-              }`}
-            >
-              {isCopied ? (
-                <IconCheck size={18} stroke={1.5} className="mr-2" />
-              ) : (
-                <IconCopy size={18} stroke={1.5} className="mr-2" />
-              )}
-              {isCopied ? "Copied!" : "Copy"}
-            </Button>
           </div>
+
+          {isShared && shareableLink && (
+            <>
+              <p className="text-gray-300 text-sm">
+                Share this link with others to give them access to this content:
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  value={shareableLink}
+                  readOnly
+                  className="bg-gray-800 border-gray-600 text-gray-100"
+                />
+                <Button
+                  onClick={copyToClipboard}
+                  variant="outline"
+                  className={`shrink-0 bg-gray-700 cursor-pointer ${
+                    isCopied ? "text-white" : "text-gray-200"
+                  }`}
+                >
+                  {isCopied ? (
+                    <IconCheck size={18} stroke={1.5} className="mr-2" />
+                  ) : (
+                    <IconCopy size={18} stroke={1.5} className="mr-2" />
+                  )}
+                  {isCopied ? "Copied!" : "Copy"}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
         <DialogFooter className="border-t border-gray-700 p-4 bg-[#1f1f23]">
           <Button
