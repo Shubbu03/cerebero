@@ -52,7 +52,7 @@ import { formatDate } from "@/lib/format-date";
 import { getContentTypeIcon, getContentTypeName } from "@/lib/content-funcs";
 import Loading from "@/components/ui/loading";
 
-interface Tag {
+export interface Tag {
   id: string;
   name: string;
 }
