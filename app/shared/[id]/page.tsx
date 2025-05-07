@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import type { UserContent } from "@/app/dashboard/page";
 import axios from "axios";
-import Loading from "@/components/ui/loading";
 import { TexturedBackground } from "@/components/background/TexturedBackground";
 import { COLORS } from "@/lib/colors";
 import {
@@ -17,10 +15,30 @@ import {
 import { formatDate } from "@/lib/format-date";
 import { getContentTypeIcon, getContentTypeName } from "@/lib/content-funcs";
 import { Badge } from "@/components/ui/badge";
+import dynamic from "next/dynamic";
+import { UserContent } from "@/app/dashboard/page";
+
+const Loading = dynamic(() => import("@/components/ui/loading"), {
+  ssr: false,
+});
+
+const ClientOnly = ({ children }: { children: React.ReactNode }) => {
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  if (!hasMounted) {
+    return null;
+  }
+
+  return <>{children}</>;
+};
 
 export default function SharedContent() {
   const params = useParams();
-  const id = params.id as string;
+  const [id, setId] = useState<string | null>(null);
 
   const [content, setContent] = useState<UserContent | null>(null);
   const [userDetails, setUserDetails] = useState({
@@ -28,29 +46,53 @@ export default function SharedContent() {
     name: "",
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
 
+  useEffect(() => {
+    if (params && params.id) {
+      if (Array.isArray(params.id)) {
+        setId(params.id[0] || null);
+      } else {
+        setId(params.id);
+      }
+    } else {
+      setId(null);
+    }
+  }, [params]);
   useEffect(() => {
     const fetchContent = async () => {
       if (!id) return;
 
       setIsLoading(true);
+      setIsError(false);
+
       try {
         const response = await axios.get(`/api/share/${id}`);
         setContent(response.data);
-        //for fetching user details-
-        const user = await axios.get(`/api/get-user/${response.data.user_id}`);
-        setUserDetails({
-          email: user.data.data.email,
-          name: user.data.data.name,
-        });
+
+        if (response.data && response.data.user_id) {
+          const user = await axios.get(
+            `/api/get-user/${response.data.user_id}`
+          );
+          if (user.data && user.data.data) {
+            setUserDetails({
+              email: user.data.data.email || "",
+              name: user.data.data.name || "",
+            });
+          }
+        }
       } catch (err) {
-        console.error("Error occured:", err);
+        console.error("Error occurred:", err);
+        setIsError(true);
+        setContent(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchContent();
+    if (id) {
+      fetchContent();
+    }
   }, [id]);
 
   const getUserInitials = () => {
@@ -82,11 +124,11 @@ export default function SharedContent() {
   );
 
   const renderContent = () => {
-    const currentType = content?.type;
-    const isDocument = currentType?.toLowerCase() === "document";
-    const hasUrl = !!content?.url;
-
     if (!content || !content.is_shared) return renderError();
+
+    const currentType = content?.type || "";
+    const isDocument = currentType.toLowerCase() === "document";
+    const hasUrl = Boolean(content?.url);
 
     return (
       <div className="max-w-full mx-auto px-2 py-2 space-y-2">
@@ -115,19 +157,22 @@ export default function SharedContent() {
                 );
               })()}
 
-              <div
-                className="flex items-center gap-1.5"
-                title={`Created on ${formatDate(content.created_at)}`}
-              >
-                <IconCalendar
-                  size={16}
-                  stroke={1.5}
-                  className="text-gray-500"
-                />
-                <span>{formatDate(content.created_at)}</span>
-              </div>
+              {content.created_at && (
+                <div
+                  className="flex items-center gap-1.5"
+                  title={`Created on ${formatDate(content.created_at)}`}
+                >
+                  <IconCalendar
+                    size={16}
+                    stroke={1.5}
+                    className="text-gray-500"
+                  />
+                  <span>{formatDate(content.created_at)}</span>
+                </div>
+              )}
 
               {content.updated_at &&
+                content.created_at &&
                 new Date(content.updated_at) > new Date(content.created_at) && (
                   <div
                     className="flex items-center gap-1.5"
@@ -222,7 +267,13 @@ export default function SharedContent() {
             Cerebero
           </h1>
         </header>
-        {isLoading ? renderLoading() : renderContent()}
+        <ClientOnly>
+          {isLoading
+            ? renderLoading()
+            : isError
+            ? renderError()
+            : renderContent()}
+        </ClientOnly>
       </div>
     </TexturedBackground>
   );
