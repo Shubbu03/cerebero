@@ -16,43 +16,84 @@ export async function PATCH(request: Request) {
     }
 
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: content } = await supabaseAdmin
+    const { data: content, error: fetchError } = await supabaseAdmin
       .from("content")
-      .select("is_shared, share_id")
+      .select("is_shared")
       .eq("id", id)
       .eq("user_id", session.user.id)
       .single();
 
-    if (!content) {
+    if (fetchError || !content) {
       return NextResponse.json({ error: "Content not found" }, { status: 404 });
     }
 
-    const newIsShared = !content?.is_shared;
+    const updatedIsShared = !content.is_shared;
 
-    const { data, error } = await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin
       .from("content")
       .update({
-        is_shared: newIsShared,
+        is_shared: updatedIsShared,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
-      .eq("user_id", session.user.id)
-      .select("id, is_shared, share_id")
-      .single();
+      .eq("user_id", session.user.id);
 
-    if (error) {
+    if (updateError) {
       return NextResponse.json(
         { error: "Failed to toggle sharing" },
         { status: 500 }
       );
     }
 
+    return NextResponse.json({
+      message: "Share status updated",
+      is_shared: updatedIsShared,
+    });
+  } catch (error) {
+    console.error("PATCH error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const url = new URL(request.url);
+    const id = url.searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Missing ID parameter" },
+        { status: 400 }
+      );
+    }
+
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("content")
+      .select("id, is_shared, share_id")
+      .eq("id", id)
+      .eq("user_id", session.user.id)
+      .single();
+
+    if (error || !data) {
+      return NextResponse.json({ error: "Content not found" }, { status: 404 });
+    }
+
     const responseData = {
-      ...data,
+      id: data.id,
+      is_shared: data.is_shared,
+      share_id: data.is_shared ? data.share_id : null,
       share_url:
         data.is_shared && data.share_id
           ? `${process.env.SHARED_BASE_URL}/shared/${data.share_id}`
@@ -61,7 +102,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json(responseData);
   } catch (error) {
-    console.error("error", error);
+    console.error("GET error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
