@@ -9,8 +9,8 @@ import {
   IconSearch,
   IconHeartFilled,
 } from "@tabler/icons-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "./ui/button";
+import Loading from "./ui/loading";
 
 type SearchResultType = "content" | "tag";
 
@@ -153,10 +153,7 @@ export function SearchBar() {
               <Command.List className="max-h-[300px] overflow-y-auto p-1">
                 {isLoading ? (
                   <div className="p-4 space-y-3">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-8 w-full" />
-                    <Skeleton className="h-8 w-full" />
-                    <Skeleton className="h-8 w-full" />
+                    <Loading text="Searching..." />
                   </div>
                 ) : (
                   <>
