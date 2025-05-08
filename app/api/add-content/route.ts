@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         is_shared: false,
         updated_at: new Date().toISOString(),
       })
-      .select("id, share_id")
+      .select("id")
       .single();
 
     if (contentError) {
@@ -80,7 +80,6 @@ export async function POST(request: NextRequest) {
 
     try {
       let inputText = validatedData.title;
-
       if (validatedData.type === "document" && validatedData.body) {
         inputText += `\n${validatedData.body}`;
       } else if (
@@ -90,7 +89,6 @@ export async function POST(request: NextRequest) {
         validatedData.url
       ) {
         inputText += `\n${validatedData.url}`;
-        if (validatedData.body) inputText += `\n${validatedData.body}`;
       }
 
       const embedResp = await ai.models.embedContent({
@@ -104,11 +102,16 @@ export async function POST(request: NextRequest) {
       }
 
       const embedding = embedResp.embeddings[0];
+      const { error: embedErr } = await supabaseAdmin
+        .from("content_embeddings")
+        .insert({
+          content_id: contentID,
+          embedding: embedding.values,
+        });
 
-      await supabaseAdmin.from("content_embeddings").insert({
-        content_id: contentID,
-        embedding,
-      });
+      if (embedErr) {
+        console.log("embedding error:", embedErr);
+      }
     } catch (e) {
       console.error("Embedding generation error:", e);
     }
@@ -154,7 +157,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: "Content created successfully",
       contentId: contentData.id,
-      shareId: contentData.share_id,
     });
   } catch (error) {
     console.error("Unexpected error:", error);
