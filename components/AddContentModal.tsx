@@ -361,18 +361,18 @@ export default function AddContentModal({
               )}
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex flex-row gap-2 justify-end">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="border-zinc-700 bg-zinc-800 text-white hover:bg-zinc-700"
+                className="border-zinc-700 bg-zinc-800 text-white hover:bg-zinc-700 flex-1 sm:flex-none cursor-pointer"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="bg-red-600 hover:bg-red-700 text-white"
+                className="bg-red-600 hover:bg-red-700 text-white flex-1 sm:flex-none cursor-pointer"
               >
                 Add Content
               </Button>
