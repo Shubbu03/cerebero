@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { authOptions } from "../auth/[...nextauth]/options";
+import { ai } from "@/lib/gen-ai";
 
 const baseContentSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -39,9 +40,7 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = session.user.id;
-
     const body = await request.json();
-
     const validationResult = contentSchema.safeParse(body);
 
     if (!validationResult.success) {
@@ -65,7 +64,7 @@ export async function POST(request: NextRequest) {
         is_shared: false,
         updated_at: new Date().toISOString(),
       })
-      .select("id, share_id")
+      .select("id")
       .single();
 
     if (contentError) {
@@ -74,6 +73,47 @@ export async function POST(request: NextRequest) {
         { message: "Failed to create content" },
         { status: 500 }
       );
+    }
+
+    //content embeddings
+    const contentID = contentData.id;
+
+    try {
+      let inputText = validatedData.title;
+      if (validatedData.type === "document" && validatedData.body) {
+        inputText += `\n${validatedData.body}`;
+      } else if (
+        (validatedData.type === "tweet" ||
+          validatedData.type === "youtube" ||
+          validatedData.type === "link") &&
+        validatedData.url
+      ) {
+        inputText += `\n${validatedData.url}`;
+      }
+
+      const embedResp = await ai.models.embedContent({
+        model: "gemini-embedding-exp-03-07",
+        contents: inputText,
+        config: { taskType: "RETRIEVAL_DOCUMENT" },
+      });
+
+      if (!embedResp.embeddings || embedResp.embeddings.length === 0) {
+        throw new Error("No embeddings generated");
+      }
+
+      const embedding = embedResp.embeddings[0];
+      const { error: embedErr } = await supabaseAdmin
+        .from("content_embeddings")
+        .insert({
+          content_id: contentID,
+          embedding: embedding.values,
+        });
+
+      if (embedErr) {
+        console.log("embedding error:", embedErr);
+      }
+    } catch (e) {
+      console.error("Embedding generation error:", e);
     }
 
     if (validatedData.tags.length > 0) {
@@ -117,7 +157,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: "Content created successfully",
       contentId: contentData.id,
-      shareId: contentData.share_id,
     });
   } catch (error) {
     console.error("Unexpected error:", error);
