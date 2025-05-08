@@ -8,9 +8,11 @@ import {
   IconTag,
   IconSearch,
   IconHeartFilled,
+  IconBrain,
 } from "@tabler/icons-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "./ui/button";
+import Loading from "./ui/loading";
+import { Switch } from "./ui/switch";
 
 type SearchResultType = "content" | "tag";
 
@@ -29,50 +31,60 @@ export function SearchBar() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiSearchExecuted, setAiSearchExecuted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const performSearch = useCallback(async (searchQuery: string) => {
-    if (!searchQuery.trim()) {
-      setResults([]);
-      return;
-    }
+  const performSearch = useCallback(
+    async (searchQuery: string, useAi: boolean = false) => {
+      if (!searchQuery.trim()) {
+        setResults([]);
+        return;
+      }
 
-    setIsLoading(true);
-    try {
-      const response = await axios.get(`/api/search`, {
-        params: { q: searchQuery },
-        timeout: 5000,
-      });
-
-      setResults(response.data.results || []);
-    } catch (error) {
-      console.error("Search error:", error);
-      setResults([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+      setIsLoading(true);
+      try {
+        const response = await axios.get(`/api/search`, {
+          params: {
+            q: searchQuery,
+            ai: useAi,
+          },
+          timeout: 5000,
+        });
+        setResults(response.data.results || []);
+        if (useAi) {
+          setAiSearchExecuted(true);
+        }
+      } catch (error) {
+        console.error("Search error:", error);
+        setResults([]);
+        if (useAi) {
+          setAiSearchExecuted(true);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
 
   const debouncedSearch = useCallback(
     debounce((value: unknown) => {
-      if (typeof value === "string") {
-        performSearch(value);
-      } else {
+      if (typeof value === "string" && !aiEnabled) {
+        performSearch(value, false);
+      } else if (typeof value !== "string") {
         console.error("Debounced search received non-string value:", value);
-        performSearch("");
+        performSearch("", false);
       }
     }, 300),
-    [performSearch]
+    [performSearch, aiEnabled]
   );
 
   useEffect(() => {
-    if (open) {
+    if (open && !aiEnabled) {
       debouncedSearch(query);
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 10);
     }
-  }, [query, open, debouncedSearch]);
+  }, [query, open, debouncedSearch, aiEnabled]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -85,21 +97,42 @@ export function SearchBar() {
         e.preventDefault();
         setOpen(false);
       }
+
+      if (e.key === "Enter" && open && aiEnabled && query.trim()) {
+        e.preventDefault();
+        performSearch(query, true);
+      }
     };
 
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
+  }, [open, aiEnabled, query, performSearch]);
+
+  useEffect(() => {
+    if (open && inputRef.current) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 10);
+    }
   }, [open]);
 
   useEffect(() => {
     if (!open) {
       setQuery("");
+      setResults([]);
+      setAiSearchExecuted(false);
     }
   }, [open]);
 
   const handleSelect = (result: SearchResult) => {
     setOpen(false);
     window.open(result.url, "_blank");
+  };
+
+  const toggleAi = () => {
+    setAiEnabled(!aiEnabled);
+    setResults([]);
+    setAiSearchExecuted(false);
   };
 
   const contentResults = results.filter((item) => item.type === "content");
@@ -146,29 +179,68 @@ export function SearchBar() {
                   ref={inputRef}
                   value={query}
                   onValueChange={setQuery}
-                  placeholder="Search content, tags..."
+                  placeholder={
+                    aiEnabled
+                      ? "Type and press Return/Enter for AI search"
+                      : "Search content, tags..."
+                  }
                   className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white"
                 />
+                <div className="flex items-center ml-2 space-x-2">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={aiEnabled}
+                      onCheckedChange={toggleAi}
+                      id="ai-toggle"
+                      className="data-[state=checked]:bg-blue-500 cursor-pointer"
+                    />
+                    {aiEnabled ? (
+                      <IconBrain className="h-4 w-4 text-blue-500" />
+                    ) : (
+                      <IconBrain className="h-4 w-4 text-black" />
+                    )}
+                  </div>
+                </div>
               </div>
               <Command.List className="max-h-[300px] overflow-y-auto p-1">
                 {isLoading ? (
                   <div className="p-4 space-y-3">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-8 w-full" />
-                    <Skeleton className="h-8 w-full" />
-                    <Skeleton className="h-8 w-full" />
+                    <Loading text="Searching..." />
                   </div>
                 ) : (
                   <>
-                    {query.trim() && results.length === 0 && (
+                    {query.trim() && results.length === 0 && !aiEnabled && (
                       <Command.Empty className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
                         No results found.
                       </Command.Empty>
                     )}
 
+                    {query.trim() &&
+                      results.length === 0 &&
+                      aiEnabled &&
+                      !aiSearchExecuted && (
+                        <div className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                          <p>AI search is enabled.</p>
+                          <p className="font-medium text-blue-500">
+                            Press Return/Enter to search with AI
+                          </p>
+                        </div>
+                      )}
+
+                    {query.trim() &&
+                      results.length === 0 &&
+                      aiEnabled &&
+                      aiSearchExecuted && (
+                        <Command.Empty className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                          No results found.
+                        </Command.Empty>
+                      )}
+
                     {!query.trim() && (
                       <div className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                        Type to start searching...
+                        {aiEnabled
+                          ? "Type your query and press Return/Enter to search with AI"
+                          : "Type to start searching..."}
                       </div>
                     )}
 
