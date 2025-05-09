@@ -80,6 +80,8 @@ export default function AddContentModal({
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [newTag, setNewTag] = useState("");
+  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const router = useRouter();
   const { data: session, status, update } = useSession();
 
@@ -105,6 +107,18 @@ export default function AddContentModal({
     }
   }, [session, status, update]);
 
+  const title = form.watch("title");
+
+  useEffect(() => {
+    const debounceFetchSuggestions = setTimeout(() => {
+      if (title && title.length > 3) {
+        fetchSuggestedTags(title);
+      }
+    }, 2500);
+
+    return () => clearTimeout(debounceFetchSuggestions);
+  }, [title]);
+
   if (status === "loading") {
     return <Loading />;
   }
@@ -115,6 +129,25 @@ export default function AddContentModal({
       setTags(response.data || []);
     } catch (error) {
       console.error("Error fetching tags:", error);
+    }
+  };
+
+  const fetchSuggestedTags = async (titleText: string) => {
+    if (!titleText || titleText.length < 3) return;
+
+    setIsLoadingSuggestions(true);
+    try {
+      const response = await axios.get(
+        `/api/suggest-tags?title=${encodeURIComponent(titleText)}`
+      );
+
+      if (response.data && response.data.suggestedTags) {
+        setSuggestedTags(response.data.suggestedTags);
+      }
+    } catch (error) {
+      console.error("Error fetching suggested tags:", error);
+    } finally {
+      setIsLoadingSuggestions(false);
     }
   };
 
@@ -173,6 +206,7 @@ export default function AddContentModal({
 
       form.reset();
       setSelectedTags([]);
+      setSuggestedTags([]);
       onOpenChange(false);
 
       router.refresh();
@@ -186,6 +220,37 @@ export default function AddContentModal({
   };
 
   const contentType = form.watch("type");
+
+  const addSuggestedTag = async (tagName: string) => {
+    if (!tagName.trim() || !session?.user?.id) return;
+
+    try {
+      const existingTag = tags.find(
+        (tag) => tag.name.toLowerCase() === tagName.toLowerCase()
+      );
+
+      if (existingTag) {
+        if (!selectedTags.some((tag) => tag.id === existingTag.id)) {
+          setSelectedTags([...selectedTags, existingTag]);
+        }
+      } else {
+        const response = await axios.post("/api/tags", {
+          name: tagName.trim(),
+        });
+
+        const data = response.data;
+        setTags([...tags, data]);
+        setSelectedTags([...selectedTags, data]);
+      }
+    } catch (error) {
+      console.error("Error adding suggested tag:", error);
+    }
+  };
+
+  const filteredSuggestedTags = suggestedTags.filter(
+    (tagName) =>
+      !tags.some((tag) => tag.name.toLowerCase() === tagName.toLowerCase())
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -342,6 +407,71 @@ export default function AddContentModal({
                   </Button>
                 </div>
               </div>
+
+              {filteredSuggestedTags.length > 0 && (
+                <div>
+                  <FormLabel className="text-sm text-zinc-400 flex items-center gap-2">
+                    <span>AI Suggested Tags</span>
+                    {isLoadingSuggestions && (
+                      <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-solid border-current border-r-transparent"></span>
+                    )}
+                  </FormLabel>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {filteredSuggestedTags.map((tagName, index) => {
+                      const isSelected = selectedTags.some(
+                        (t) => t.name.toLowerCase() === tagName.toLowerCase()
+                      );
+
+                      return (
+                        <Badge
+                          key={`suggested-${index}`}
+                          variant={isSelected ? "default" : "outline"}
+                          className={`cursor-pointer relative ${
+                            isSelected
+                              ? "bg-zinc-700 text-white hover:bg-zinc-600"
+                              : "border-transparent text-zinc-300 hover:bg-zinc-800"
+                          } overflow-hidden`}
+                          style={{
+                            padding: "0.25rem 0.5rem",
+                            margin: "1px",
+                          }}
+                          onClick={() => addSuggestedTag(tagName)}
+                        >
+                          <span
+                            className="absolute inset-0 rounded-md"
+                            style={{
+                              background:
+                                "linear-gradient(90deg, #FF0000, #FF8000, #FFFF00, #00FF00, #0000FF, #8000FF, #FF0000)",
+                              backgroundSize: "400% 400%",
+                              animation: "rainbow-border 3s linear infinite",
+                              opacity: 0.8,
+                              zIndex: -1,
+                            }}
+                          />
+                          <span
+                            className="absolute inset-0.5 bg-zinc-800 rounded-sm"
+                            style={{ zIndex: -1 }}
+                          />
+                          <span className="relative">{tagName}</span>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                  <style jsx global>{`
+                    @keyframes rainbow-border {
+                      0% {
+                        background-position: 0% 50%;
+                      }
+                      50% {
+                        background-position: 100% 50%;
+                      }
+                      100% {
+                        background-position: 0% 50%;
+                      }
+                    }
+                  `}</style>
+                </div>
+              )}
 
               {tags.length > 0 && (
                 <div>
