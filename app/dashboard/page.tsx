@@ -103,9 +103,7 @@ export default function Dashboard() {
         <TodoCard />
       </main>
 
-      {modalOpen && (
-        <AddContentModal open={modalOpen} onOpenChange={setModalOpen} />
-      )}
+      <AddContentModal open={modalOpen} onOpenChange={setModalOpen} />
     </>
   );
 }
