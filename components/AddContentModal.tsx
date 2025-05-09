@@ -42,6 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import Loading from "./ui/loading";
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -80,7 +81,7 @@ export default function AddContentModal({
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [newTag, setNewTag] = useState("");
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status, update } = useSession();
 
   const form = useForm<ContentFormValues>({
     resolver: zodResolver(formSchema),
@@ -97,6 +98,16 @@ export default function AddContentModal({
       fetchTags();
     }
   }, [open, session]);
+
+  useEffect(() => {
+    if (status === "authenticated" && !session?.user?.id) {
+      update();
+    }
+  }, [session, status, update]);
+
+  if (status === "loading") {
+    return <Loading />;
+  }
 
   const fetchTags = async () => {
     try {
