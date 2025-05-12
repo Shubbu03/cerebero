@@ -96,7 +96,7 @@ export async function GET(request: Request) {
       share_id: data.is_shared ? data.share_id : null,
       share_url:
         data.is_shared && data.share_id
-          ? `${process.env.SHARED_BASE_URL}/shared/${data.share_id}`
+          ? `${process.env.NEXT_PUBLIC_SHARED_BASE_URL}/shared/${data.share_id}`
           : null,
     };
 
