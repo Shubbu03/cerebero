@@ -9,6 +9,9 @@ import { authOptions } from "./api/auth/[...nextauth]/options";
 export const metadata: Metadata = {
   title: "Cerebero",
   description: "Your second brain for saving important web links.",
+  icons: {
+    icon: "icon.png"
+  },
   keywords:
     "second-brain, notes, knowledge-management, data-storage, personal-wiki, information-organization, digital-memory ,PKM",
 };

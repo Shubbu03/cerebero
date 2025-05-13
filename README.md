@@ -61,66 +61,68 @@ Follow these instructions to set up Cerebero locally for development or personal
 
 ### Installation & Setup
 
-1.  **Clone the repository:**
+1. **Clone the repository:**
 
-    ```bash
-    git clone [https://github.com/your-username/cerebero.git](https://github.com/your-username/cerebero.git)
-    cd cerebero
-    ```
+   ```bash
+   git clone [https://github.com/your-username/cerebero.git](https://github.com/your-username/cerebero.git)
+   cd cerebero
+   ```
 
-2.  **Install dependencies:**
+2. **Install dependencies:**
 
-    ```bash
-    npm install
-    # or
-    yarn install
-    # or
-    pnpm install
-    ```
+   ```bash
+   npm install
+   # or
+   yarn install
+   # or
+   pnpm install
+   ```
 
-3.  **Set up Environment Variables:**
-    Create a `.env.local` file in the root of your project and add the following environment variables. Obtain these keys from your Supabase dashboard, Google Cloud Console, and a secure secret generator.
+3. **Set up Environment Variables:**
+   Create a `.env.local` file in the root of your project and add the following environment variables. Obtain these keys from your Supabase dashboard, Google Cloud Console, and a secure secret generator.
 
-    ```env
-    # Base URL for your deployed application (used for share links, etc.)
-    NEXT_PUBLIC_SHARED_BASE_URL=http://localhost:3000
+   ```env
+   # Base URL for your deployed application (used for share links, etc.)
+   NEXT_PUBLIC_SHARED_BASE_URL=http://localhost:3000
 
-    # A secret key for NextAuth.js (generate a strong random string)
-    # You can generate one here: [https://generate-secret.vercel.app/32](https://generate-secret.vercel.app/32)
-    NEXTAUTH_SECRET=your_nextauth_secret
+   # A secret key for NextAuth.js (generate a strong random string)
+   # You can generate one here: [https://generate-secret.vercel.app/32](https://generate-secret.vercel.app/32)
+   NEXTAUTH_SECRET=your_nextauth_secret
 
-    # Supabase Project URL
-    NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+   # Supabase Project URL
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 
-    # Supabase Public Anon Key
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   # Supabase Public Anon Key
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-    # Supabase Service Role Key (for admin tasks, keep this secret!)
-    SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+   # Supabase Service Role Key (for admin tasks, keep this secret!)
+   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
-    # Google OAuth Client ID (from Google Cloud Console)
-    GOOGLE_CLIENT_ID=your_google_client_id
+   # Google OAuth Client ID (from Google Cloud Console)
+   GOOGLE_CLIENT_ID=your_google_client_id
 
-    # Google OAuth Client Secret (from Google Cloud Console)
-    GOOGLE_CLIENT_SECRET=your_google_client_secret
+   # Google OAuth Client Secret (from Google Cloud Console)
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
 
-    # Google Gemini API Key (from Google AI Studio or Google Cloud Console)
-    GEMINI_API_KEY=your_gemini_api_key
-    ```
+   # Google Gemini API Key (from Google AI Studio or Google Cloud Console)
+   GEMINI_API_KEY=your_gemini_api_key
+   ```
 
-4.  **Set up Supabase Database:**
+4. **Set up Supabase Database:**
 
-    - Ensure your Supabase project has the necessary tables and policies set up. You might want to include schema migration files or instructions in your repository.
+   - Ensure your Supabase project has the necessary tables and policies set up. You might want to include schema migration files or instructions in your repository.
 
-5.  **Run the development server:**
-    ```bash
-    npm run dev
-    # or
-    yarn dev
-    # or
-    pnpm dev
-    ```
-    Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. **Run the development server:**
+
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   # or
+   pnpm dev
+   ```
+
+   Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 ## Environment Variables Explained 🔑
 
@@ -140,13 +142,12 @@ Contributions are what make the open-source community such an amazing place to l
 If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
 Don't forget to give the project a star! Thanks again!
 
-1.  Fork the Project
-2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4.  Push to the Branch (`git push origin feature/AmazingFeature`)
-5.  Open a Pull Request
-
----
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 peace✌️
-****
+
+---
