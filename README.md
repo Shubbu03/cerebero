@@ -45,7 +45,7 @@ Cerebero is a powerful and intuitive knowledge management tool designed to help 
 _Dashboard View:_
 ![Dashboard Screenshot](/public/dashboard.png)
 
-_Adding New Content:_
+_Tags View:_
 ![Tags Screenshot](/public/tags-page.png)
 
 ## Getting Started 🏁
