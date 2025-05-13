@@ -305,21 +305,33 @@ export default function Profile() {
           accept=".xls,.xlsx"
           className="hidden"
         />
-        <button
-          onClick={handleImport}
-          className="flex items-center bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-xl mr-3 cursor-pointer"
-          disabled={isImporting}
-        >
-          <IconTableImport size={20} className="mr-2" />
-          {isImporting ? "Importing..." : "Import"}
-        </button>
-        <button
-          onClick={handleExport}
-          className="flex items-center bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-xl cursor-pointer"
-        >
-          <IconTableExport size={20} className="mr-2" />
-          Export
-        </button>
+        <div className="flex items-center space-x-2">
+          <div className="relative group">
+            <button
+              onClick={handleImport}
+              className="flex items-center bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-xl mr-3 cursor-pointer"
+              disabled={isImporting}
+            >
+              <IconTableImport size={20} className="mr-2" />
+              {isImporting ? "Importing..." : "Import"}
+            </button>
+            <span className="absolute left-1/2 -translate-x-1/2 -top-10 opacity-0 group-hover:opacity-100 transition bg-gray-900 text-white text-xs rounded py-1 px-2 pointer-events-none z-50 whitespace-nowrap">
+              Bulk import content at once
+            </span>
+          </div>
+          <div className="relative group">
+            <button
+              onClick={handleExport}
+              className="flex items-center bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-xl cursor-pointer"
+            >
+              <IconTableExport size={20} className="mr-2" />
+              Export
+            </button>
+            <span className="absolute left-1/2 -translate-x-1/2 -top-10 opacity-0 group-hover:opacity-100 transition bg-gray-900 text-white text-xs rounded py-1 px-2 pointer-events-none z-50 whitespace-nowrap">
+              Export all your content
+            </span>
+          </div>
+        </div>
       </div>
 
       <ContentCard
