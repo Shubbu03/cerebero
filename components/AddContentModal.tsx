@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import axios from "axios";
 import {
@@ -43,6 +42,9 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import Loading from "./ui/loading";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { notify } from "@/lib/notify";
+import { Loader2 } from "lucide-react";
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -82,8 +84,32 @@ export default function AddContentModal({
   const [newTag, setNewTag] = useState("");
   const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
-  const router = useRouter();
   const { data: session, status, update } = useSession();
+  const queryClient = useQueryClient();
+  const { mutate, isPending } = useMutation({
+    mutationFn: (newContent: ContentFormValues & { tags: string[] }) => {
+      return axios.post("/api/add-content", newContent);
+    },
+    onSuccess: () => {
+      notify("Content added successfully", "success");
+      queryClient.invalidateQueries({
+        queryKey: ["userContent", session?.user.id],
+      });
+
+      form.reset();
+      setSelectedTags([]);
+      setSuggestedTags([]);
+      onOpenChange(false);
+    },
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response) {
+        console.error("API Error:", error.response.data);
+      } else {
+        console.error("Error adding content:", error);
+      }
+      notify("Error adding content", "error");
+    },
+  });
 
   const form = useForm<ContentFormValues>({
     resolver: zodResolver(formSchema),
@@ -191,7 +217,7 @@ export default function AddContentModal({
     setSelectedTags(selectedTags.filter((tag) => tag.id !== tagId));
   };
 
-  const onSubmit = async (values: ContentFormValues) => {
+  const onSubmit1 = async (values: ContentFormValues) => {
     try {
       if (!session?.user?.id) {
         console.error("User not authenticated");
@@ -208,15 +234,33 @@ export default function AddContentModal({
       setSelectedTags([]);
       setSuggestedTags([]);
       onOpenChange(false);
+      notify("Content added successfully", "success");
 
-      router.refresh();
+      await queryClient.invalidateQueries({
+        queryKey: ["userContent", session.user.id],
+      });
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
         console.error("API Error:", error.response.data);
       } else {
         console.error("Error adding content:", error);
       }
+      notify("Error adding content", "error");
     }
+  };
+
+  const onSubmit = (values: ContentFormValues) => {
+    if (!session?.user?.id) {
+      console.error("User not authenticated");
+      return;
+    }
+
+    const payload = {
+      ...values,
+      tags: selectedTags.map((tag) => tag.name),
+    };
+
+    mutate(payload);
   };
 
   const contentType = form.watch("type");
@@ -508,14 +552,23 @@ export default function AddContentModal({
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 className="border-zinc-700 bg-zinc-800 text-white hover:bg-zinc-700 flex-1 sm:flex-none cursor-pointer"
+                disabled={isPending}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 className="bg-red-600 hover:bg-red-700 text-white flex-1 sm:flex-none cursor-pointer"
+                disabled={isPending}
               >
-                Add Content
+                {isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  "Add Content"
+                )}
               </Button>
             </DialogFooter>
           </form>
