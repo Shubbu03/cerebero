@@ -52,6 +52,9 @@ import { formatDate } from "@/lib/format-date";
 import { getContentTypeIcon, getContentTypeName } from "@/lib/content-funcs";
 import Loading from "@/components/ui/loading";
 import { Switch } from "@/components/ui/switch";
+import { useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
+import { notify } from "@/lib/notify";
 
 export interface Tag {
   id: string;
@@ -89,6 +92,9 @@ export default function ContentDetail() {
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const [isShared, setIsShared] = useState(false);
+
+  const session = useSession();
+  const queryClient = useQueryClient();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -284,9 +290,14 @@ export default function ContentDetail() {
       setContent((prev) =>
         prev ? { ...prev, is_favourite: !originalFavoriteState } : null
       );
+      await queryClient.invalidateQueries({
+        queryKey: ["favourites", session.data?.user?.id],
+      });
+      notify("Favourite status toggled successfully", "success");
     } catch (error) {
-      console.error("Error toggling favorite:", error);
+      notify("Error toggling favorite", "error");
       setIsFavorite(originalFavoriteState);
+      throw error;
     }
   };
 

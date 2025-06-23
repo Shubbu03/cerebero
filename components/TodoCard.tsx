@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { IconTrash, IconEyeOff, IconEye, IconBrain } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import axios from "axios";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { notify } from "@/lib/notify";
+import { useSession } from "next-auth/react";
 
 interface TodoItem {
   id: string;
@@ -67,41 +70,49 @@ function TodoItemComponent({
   );
 }
 
+const fetchUserTodos = async () => {
+  try {
+    const response = await axios.get("/api/todos");
+    if (response.data?.todo) {
+      const fetchedTodos: TodoItem[] = response.data.todo;
+      fetchedTodos.sort((a, b) => {
+        return Number(a.completed) - Number(b.completed);
+      });
+      return fetchedTodos;
+    }
+  } catch (error) {
+    notify("Error fetching user todo:", "error");
+    throw error;
+  }
+};
+
 export default function TodoCard() {
-  const [todos, setTodos] = useState<TodoItem[]>([]);
   const [newTodo, setNewTodo] = useState("");
   const [minimalist, setMinimalist] = useState(false);
+  const session = useSession();
+  const userID = session.data?.user.id;
 
-  useEffect(() => {
-    fetchUserTodos();
-  }, []);
-
-  const fetchUserTodos = async () => {
-    try {
-      const response = await axios.get("/api/todos");
-      if (response.data?.todo) {
-        const fetchedTodos: TodoItem[] = response.data.todo;
-        fetchedTodos.sort((a, b) => {
-          return Number(a.completed) - Number(b.completed);
-        });
-        setTodos(fetchedTodos);
-      }
-    } catch (error) {
-      console.error("Error fetching user todo:", error);
-    }
-  };
+  const todos = useSuspenseQuery({
+    queryKey: ["todos", userID],
+    queryFn: fetchUserTodos,
+  });
+  const queryClient = useQueryClient();
 
   const handleAdd = async () => {
-    if (newTodo.trim() === "" || todos.length >= 3) return;
+    if (newTodo.trim() === "" || !todos.data || todos.data.length >= 3) return;
 
     try {
       await axios.post("/api/todos", {
         title: newTodo.trim(),
       });
       setNewTodo("");
-      fetchUserTodos();
+      await queryClient.invalidateQueries({
+        queryKey: ["todos", userID],
+      });
+      notify("Todo added successfully", "success");
     } catch (error) {
-      console.error("Error adding todo:", error);
+      notify("Error adding todo", "error");
+      throw error;
     }
   };
 
@@ -110,18 +121,25 @@ export default function TodoCard() {
       await axios.delete("/api/todos", {
         data: { id },
       });
-      fetchUserTodos();
+      await queryClient.invalidateQueries({
+        queryKey: ["todos", userID],
+      });
+      notify("Todo deleted successfully", "success");
     } catch (error) {
-      console.error("Error deleting todo:", error);
+      notify("Error deleting todo", "error");
+      throw error;
     }
   };
 
   const toggleComplete = async (id: string) => {
     try {
       await axios.patch("/api/todos", { id });
-      fetchUserTodos();
+      await queryClient.invalidateQueries({
+        queryKey: ["todos", userID],
+      });
     } catch (error) {
-      console.error("Error toggling todo:", error);
+      notify("Error toggling todo", "error");
+      throw error;
     }
   };
 
@@ -153,20 +171,21 @@ export default function TodoCard() {
 
       <div className="pt-0">
         <div className="space-y-2 mb-4">
-          {todos.map((todo) => (
-            <TodoItemComponent
-              key={todo.id}
-              todo={todo}
-              onDelete={handleDelete}
-              onToggleComplete={toggleComplete}
-              minimalist={minimalist}
-            />
-          ))}
+          {todos.data &&
+            todos.data.map((todo) => (
+              <TodoItemComponent
+                key={todo.id}
+                todo={todo}
+                onDelete={handleDelete}
+                onToggleComplete={toggleComplete}
+                minimalist={minimalist}
+              />
+            ))}
         </div>
 
         {!minimalist && (
           <div className="flex items-center gap-2 mt-1">
-            {todos.length < 3 && (
+            {todos.data && todos.data.length < 3 && (
               <>
                 <Input
                   placeholder="Add a focus item..."
@@ -187,12 +206,12 @@ export default function TodoCard() {
           </div>
         )}
 
-        {!minimalist && todos.length >= 0 && (
+        {!minimalist && todos.data && todos.data.length >= 0 && (
           <p className="text-md text-gray-400 italic mt-2 text-center">
             Focus on your top 3 priorities.
           </p>
         )}
-        {minimalist && todos.length === 0 && (
+        {minimalist && todos.data && todos.data.length === 0 && (
           <p className="text-md text-gray-500 italic mt-2 text-center">
             Add a focus item
           </p>
