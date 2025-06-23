@@ -10,10 +10,7 @@ import { useSession } from "next-auth/react";
 import { DynamicHeader } from "@/components/DynamicHeader";
 import { ContentCard } from "@/components/ContentCard";
 import TodoCard from "@/components/TodoCard";
-import {
-  useQueryClient,
-  useSuspenseQuery,
-} from "@tanstack/react-query";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { notify } from "@/lib/notify";
 
 export interface UserContent {
@@ -71,6 +68,7 @@ export default function Dashboard() {
       notify("Content deleted successfully", "success");
     } catch (error) {
       notify("Error deleting content", "error");
+      throw error;
     }
   };
 

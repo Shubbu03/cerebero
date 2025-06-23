@@ -217,38 +217,6 @@ export default function AddContentModal({
     setSelectedTags(selectedTags.filter((tag) => tag.id !== tagId));
   };
 
-  const onSubmit1 = async (values: ContentFormValues) => {
-    try {
-      if (!session?.user?.id) {
-        console.error("User not authenticated");
-        return;
-      }
-
-      const payload = {
-        ...values,
-        tags: selectedTags.map((tag) => tag.name),
-      };
-      await axios.post("/api/add-content", payload);
-
-      form.reset();
-      setSelectedTags([]);
-      setSuggestedTags([]);
-      onOpenChange(false);
-      notify("Content added successfully", "success");
-
-      await queryClient.invalidateQueries({
-        queryKey: ["userContent", session.user.id],
-      });
-    } catch (error) {
-      if (axios.isAxiosError(error) && error.response) {
-        console.error("API Error:", error.response.data);
-      } else {
-        console.error("Error adding content:", error);
-      }
-      notify("Error adding content", "error");
-    }
-  };
-
   const onSubmit = (values: ContentFormValues) => {
     if (!session?.user?.id) {
       console.error("User not authenticated");
