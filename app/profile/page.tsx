@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { format } from "date-fns";
@@ -15,6 +15,7 @@ import {
 import * as XLSX from "xlsx";
 import { UserContent } from "../dashboard/page";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 
 interface UserData {
   email: string;
@@ -28,71 +29,42 @@ interface ImportNotification {
 
 export default function Profile() {
   const { data: session } = useSession();
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [sharedContent, setSharedContent] = useState([]);
-  const [allContent, setAllContent] = useState<UserContent[]>([]);
-  const [notification, setNotification] = useState<ImportNotification | null>(
-    null
-  );
+  const [notification, setNotification] = useState<ImportNotification | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const username = session?.user?.name?.charAt(0).toUpperCase() ?? "U";
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      if (session?.user?.id) {
-        try {
-          const response = await axios.get(`/api/get-user/${session.user.id}`);
-          setUserData(response.data.data);
-        } catch (error) {
-          console.error("Error fetching user data:", error);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    };
+  const {
+    data: userData,
+    isLoading: isUserLoading,
+  } = useQuery<UserData | null>({
+    queryKey: ["userData", session?.user?.id],
+    queryFn: async () => {
+      if (!session?.user?.id) return null;
+      const response = await axios.get(`/api/get-user/${session.user.id}`);
+      return response.data.data;
+    },
+    enabled: !!session?.user?.id,
+  });
 
-    if (session?.user) {
-      fetchUserData();
-    }
-  }, [session]);
+  const {
+    data: allContent = [],
+    isLoading: isContentLoading,
+  } = useQuery<UserContent[]>({
+    queryKey: ["allContent"],
+    queryFn: async () => {
+      const response = await axios.get("/api/get-content/");
+      return response.data.data;
+    },
+    enabled: !!session?.user,
+  });
 
-  useEffect(() => {
-    const fetchRecentlySharedData = async () => {
-      try {
-        const response = await axios.get("/api/get-content/");
-
-        setAllContent(response.data.data);
-
-        const sharedOnly = response.data.data.filter(
-          (item: { is_shared: boolean }) => item.is_shared === true
-        );
-
-        const sortedByDate = sharedOnly.sort(
-          (
-            a: { updated_at: string | number | Date },
-            b: { updated_at: string | number | Date }
-          ) => {
-            return (
-              new Date(b.updated_at).getTime() -
-              new Date(a.updated_at).getTime()
-            );
-          }
-        );
-
-        const topShared = sortedByDate.slice(0, 3);
-
-        setSharedContent(topShared);
-      } catch (error) {
-        console.error("Error fetching shared data:", error);
-      }
-    };
-
-    fetchRecentlySharedData();
-  }, []);
+  const sharedContent = (allContent || [])
+    .filter((item: any) => item.is_shared === true)
+    .sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    .slice(0, 3);
 
   useEffect(() => {
     if (notification) {
@@ -246,7 +218,7 @@ export default function Profile() {
     );
   }
 
-  if (isLoading) {
+  if (isUserLoading) {
     return (
       <div className="flex justify-center pt-16 text-white">
         Loading profile...
@@ -336,7 +308,7 @@ export default function Profile() {
 
       <ContentCard
         content={sharedContent}
-        isLoading={false}
+        isLoading={isContentLoading}
         username={username}
         origin={"Profile_Shared"}
       />
