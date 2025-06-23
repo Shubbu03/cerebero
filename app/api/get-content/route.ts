@@ -27,7 +27,7 @@ export async function GET() {
     if (!data || data.length == 0) {
       return NextResponse.json(
         { message: "User has no content" },
-        { status: 404 }
+        { status: 200 }
       );
     }
 
