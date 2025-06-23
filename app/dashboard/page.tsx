@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { IconPlus } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import AddContentModal from "@/components/AddContentModal";
@@ -11,7 +11,6 @@ import { DynamicHeader } from "@/components/DynamicHeader";
 import { ContentCard } from "@/components/ContentCard";
 import TodoCard from "@/components/TodoCard";
 import {
-  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
@@ -60,12 +59,6 @@ export default function Dashboard() {
 
   const fullName = session.data?.user?.name;
   const firstName = fullName ? fullName.split(" ")[0] : "";
-
-  // useEffect(() => {
-  //   if (!modalOpen) {
-  //     setTimeout(fetchUserContent, 100);
-  //   }
-  // }, [modalOpen]);
 
   const showAddHint = !userContent.isLoading && userContent.data.length === 0;
 
