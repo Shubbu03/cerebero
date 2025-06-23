@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { IconPlus } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import AddContentModal from "@/components/AddContentModal";
@@ -10,6 +10,8 @@ import { useSession } from "next-auth/react";
 import { DynamicHeader } from "@/components/DynamicHeader";
 import { ContentCard } from "@/components/ContentCard";
 import TodoCard from "@/components/TodoCard";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { notify } from "@/lib/notify";
 
 export interface UserContent {
   body: string;
@@ -25,53 +27,48 @@ export interface UserContent {
   updated_at: string;
 }
 
+const fetchUserContent = async () => {
+  try {
+    const response = await axios.get<{ data: UserContent[] }>(
+      "/api/get-content"
+    );
+    if (response && response.data) {
+      return response.data.data || [];
+    } else {
+      return [];
+    }
+  } catch (error) {
+    notify("Error fetching user content", "error");
+    throw error;
+  }
+};
+
 export default function Dashboard() {
   const [modalOpen, setModalOpen] = useState(false);
-  const [userContent, setUserContent] = useState<UserContent[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const session = useSession();
+  const userID = session.data?.user.id;
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    fetchUserContent();
-  }, []);
+  const userContent = useSuspenseQuery({
+    queryKey: ["userContent", userID],
+    queryFn: fetchUserContent,
+  });
 
   const fullName = session.data?.user?.name;
   const firstName = fullName ? fullName.split(" ")[0] : "";
 
-  useEffect(() => {
-    if (!modalOpen) {
-      setTimeout(fetchUserContent, 100);
-    }
-  }, [modalOpen]);
-
-  const fetchUserContent = async () => {
-    setIsLoading(true);
-    try {
-      const response = await axios.get<{ data: UserContent[] }>(
-        "/api/get-content"
-      );
-      if (response && response.data) {
-        setUserContent(response.data.data || []);
-      } else {
-        setUserContent([]);
-      }
-    } catch (error) {
-      console.error("Error fetching user content::", error);
-      setUserContent([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const showAddHint = !isLoading && userContent.length === 0;
+  const showAddHint = !userContent.isLoading && userContent.data.length === 0;
 
   const handleContentDelete = async (id: string) => {
     try {
       await axios.delete(`/api/delete-content/${id}`);
+      await queryClient.invalidateQueries({
+        queryKey: ["userContent", userID],
+      });
+      notify("Content deleted successfully", "success");
     } catch (error) {
-      console.error("Error deleting content:", error);
-    } finally {
-      fetchUserContent();
+      notify("Error deleting content", "error");
+      throw error;
     }
   };
 
@@ -94,8 +91,8 @@ export default function Dashboard() {
           <DynamicHeader userName={firstName || ""} />
         </div>
         <ContentCard
-          content={userContent}
-          isLoading={isLoading}
+          content={userContent.data}
+          isLoading={userContent.isLoading}
           username={firstName}
           origin="Recents"
           onDelete={handleContentDelete}
