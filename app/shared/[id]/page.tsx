@@ -17,6 +17,7 @@ import { getContentTypeIcon, getContentTypeName } from "@/lib/content-funcs";
 import { Badge } from "@/components/ui/badge";
 import dynamic from "next/dynamic";
 import { UserContent } from "@/app/dashboard/page";
+import { useQuery } from "@tanstack/react-query";
 
 const Loading = dynamic(() => import("@/components/ui/loading"), {
   ssr: false,
@@ -38,65 +39,42 @@ const ClientOnly = ({ children }: { children: React.ReactNode }) => {
 
 export default function SharedContent() {
   const params = useParams();
-  const [id, setId] = useState<string | null>(null);
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
-  const [content, setContent] = useState<UserContent | null>(null);
-  const [userDetails, setUserDetails] = useState({
-    email: "",
-    name: "",
+  const {
+    data: content,
+    isLoading,
+    isError,
+  } = useQuery<UserContent | null>({
+    queryKey: ["sharedContent", id],
+    queryFn: async () => {
+      if (!id) return null;
+      const response = await axios.get(`/api/share/${id}`);
+      return response.data;
+    },
+    enabled: !!id,
   });
-  const [isLoading, setIsLoading] = useState(true);
-  const [isError, setIsError] = useState(false);
 
-  useEffect(() => {
-    if (params && params.id) {
-      if (Array.isArray(params.id)) {
-        setId(params.id[0] || null);
-      } else {
-        setId(params.id);
+  const {
+    data: userDetails,
+  } = useQuery<{ email: string; name: string } | null>({
+    queryKey: ["userDetails", content?.user_id],
+    queryFn: async () => {
+      if (!content?.user_id) return { email: "", name: "" };
+      const user = await axios.get(`/api/get-user/${content.user_id}`);
+      if (user.data && user.data.data) {
+        return {
+          email: user.data.data.email || "",
+          name: user.data.data.name || "",
+        };
       }
-    } else {
-      setId(null);
-    }
-  }, [params]);
-  useEffect(() => {
-    const fetchContent = async () => {
-      if (!id) return;
-
-      setIsLoading(true);
-      setIsError(false);
-
-      try {
-        const response = await axios.get(`/api/share/${id}`);
-        setContent(response.data);
-
-        if (response.data && response.data.user_id) {
-          const user = await axios.get(
-            `/api/get-user/${response.data.user_id}`
-          );
-          if (user.data && user.data.data) {
-            setUserDetails({
-              email: user.data.data.email || "",
-              name: user.data.data.name || "",
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Error occurred:", err);
-        setIsError(true);
-        setContent(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (id) {
-      fetchContent();
-    }
-  }, [id]);
+      return { email: "", name: "" };
+    },
+    enabled: !!content?.user_id,
+  });
 
   const getUserInitials = () => {
-    if (!userDetails.name) return "";
+    if (!userDetails?.name) return "";
     return userDetails.name
       .split(" ")
       .map((name) => name[0])
@@ -143,7 +121,7 @@ export default function SharedContent() {
                 <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-800 dark:text-gray-200 font-semibold text-sm">
                   {getUserInitials()}
                 </div>
-                <p className="text-gray-100">{userDetails.name}</p>
+                <p className="text-gray-100">{userDetails?.name}</p>
               </div>
 
               {(() => {

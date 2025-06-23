@@ -50,7 +50,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
 
   const userContent = useSuspenseQuery({
-    queryKey: ["userContent", userID],
+    queryKey: ["userContent", userID, "favourites"],
     queryFn: fetchUserContent,
   });
 

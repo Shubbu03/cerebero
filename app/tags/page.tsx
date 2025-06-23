@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import axios from "axios";
 import {
   IconEdit,
@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import Loading from "@/components/ui/loading";
 import TagContentModal from "@/components/TagContentModal";
+import { useSuspenseQueries } from "@tanstack/react-query";
+import { notify } from "@/lib/notify";
 
 interface TagData {
   id: string;
@@ -65,12 +67,6 @@ const BADGE_COLORS = [
 ];
 
 export default function TagsDashboard() {
-  const [allTags, setAllTags] = useState<TagData[]>([]);
-  const [topTagsWithContent, setTopTagsWithContent] = useState<TopTagData[]>(
-    []
-  );
-  const [isLoadingAll, setIsLoadingAll] = useState(true);
-  const [isLoadingTop, setIsLoadingTop] = useState(true);
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [newTagName, setNewTagName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -78,42 +74,38 @@ export default function TagsDashboard() {
   const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
   const [tagToDelete, setTagToDelete] = useState<TagData | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
   const [selectedTagModal, setSelectedTagModal] = useState<SelectedTag | null>(
     null
   );
 
-  const fetchAllTags = useCallback(async () => {
-    setIsLoadingAll(true);
-    try {
-      const response = await axios.get<TagData[]>("/api/tags");
-      const sortedTags = response.data.sort((a, b) =>
-        a.name.localeCompare(b.name)
-      );
-      setAllTags(sortedTags);
-    } catch (err) {
-      console.error("Error fetching all tags:", err);
-    } finally {
-      setIsLoadingAll(false);
-    }
-  }, []);
+  const results = useSuspenseQueries({
+    queries: [
+      {
+        queryKey: ["allTags"],
+        queryFn: async () => {
+          const response = await axios.get<TagData[]>("/api/tags");
+          return response.data.sort((a, b) => a.name.localeCompare(b.name));
+        },
+      },
+      {
+        queryKey: ["topTagsWithContent"],
+        queryFn: async () => {
+          const response = await axios.get<{ topTags: TopTagData[] }>(
+            "/api/tags/top-with-content",
+            {
+              params: { tagLimit: 5, contentLimit: 5 },
+            }
+          );
+          return response.data.topTags || [];
+        },
+      },
+    ],
+  });
 
-  const fetchTopTags = useCallback(async () => {
-    setIsLoadingTop(true);
-    try {
-      const response = await axios.get<{ topTags: TopTagData[] }>(
-        "/api/tags/top-with-content",
-        {
-          params: { tagLimit: 5, contentLimit: 5 },
-        }
-      );
-      setTopTagsWithContent(response.data.topTags || []);
-    } catch (err) {
-      console.error("Error fetching top tags:", err);
-    } finally {
-      setIsLoadingTop(false);
-    }
-  }, []);
+  const allTags = results[0].data as TagData[];
+  const topTagsWithContent = results[1].data as TopTagData[];
+  const refetchAllTags = results[0].refetch;
+  const refetchTopTags = results[1].refetch;
 
   const handleTagClick = (tag: TopTagData, colorClass: string) => {
     setSelectedTagModal({
@@ -127,11 +119,6 @@ export default function TagsDashboard() {
   const closeModal = () => {
     setSelectedTagModal(null);
   };
-
-  useEffect(() => {
-    fetchAllTags();
-    fetchTopTags();
-  }, [fetchAllTags, fetchTopTags]);
 
   const handleEditClick = (tag: TagData) => {
     setEditingTagId(tag.id);
@@ -152,47 +139,32 @@ export default function TagsDashboard() {
       return;
     }
     try {
-      const response = await axios.put<TagData>(`/api/tags/${tagId}`, {
+      await axios.put<TagData>(`/api/tags/${tagId}`, {
         name: newTagName.trim(),
       });
-      const updatedTag = response.data;
-
-      setAllTags((prevTags) =>
-        prevTags
-          .map((tag) =>
-            tag.id === tagId ? { ...tag, name: updatedTag.name } : tag
-          )
-          .sort((a, b) => a.name.localeCompare(b.name))
-      );
-
-      setTopTagsWithContent((prevTopTags) =>
-        prevTopTags.map((tag) =>
-          tag.tagId === tagId ? { ...tag, tagName: updatedTag.name } : tag
-        )
-      );
-
+      await refetchAllTags();
+      await refetchTopTags();
+      notify("Tag updated successfully", "success");
       setEditingTagId(null);
       setNewTagName("");
     } catch (err) {
-      console.error("Error updating tag:", err);
+      notify("Error updating tag", "error");
+      throw err;
     }
   };
 
   const handleDeleteConfirm = async () => {
     if (!tagToDelete) return;
     setIsDeleting(true);
-
     try {
       await axios.delete(`/api/tags/${tagToDelete.id}`);
-
-      setAllTags((prevTags) =>
-        prevTags.filter((tag) => tag.id !== tagToDelete.id)
-      );
-      fetchTopTags();
-
+      await refetchAllTags();
+      await refetchTopTags();
+      notify("Tag deleted successfully", "success");
       setTagToDelete(null);
     } catch (err) {
-      console.error("Error deleting tag:", err);
+      notify("Error deleting tag", "error");
+      throw err;
     } finally {
       setIsDeleting(false);
     }
@@ -201,7 +173,6 @@ export default function TagsDashboard() {
   const handleCreateTag = async () => {
     const trimmedName = createTagName.trim();
     if (!trimmedName) return;
-
     if (
       allTags.some(
         (tag) => tag.name.toLowerCase() === trimmedName.toLowerCase()
@@ -211,17 +182,18 @@ export default function TagsDashboard() {
       setIsCreating(false);
       return;
     }
-
     setIsSubmittingCreate(true);
-
     try {
       await axios.post("/api/tags", { name: trimmedName });
-      await fetchAllTags();
-      fetchTopTags();
+      await refetchAllTags();
+      await refetchTopTags();
+      notify("New tag created successfully", "success");
       setCreateTagName("");
       setIsCreating(false);
     } catch (err) {
       console.error("Error creating tag:", err);
+      notify("Error creating new tag", "error");
+      throw err;
     } finally {
       setIsSubmittingCreate(false);
     }
@@ -400,7 +372,7 @@ export default function TagsDashboard() {
           Top Tags
         </h2>
         <div className="flex flex-wrap gap-2">
-          {isLoadingTop ? (
+          {results[1].isPending ? (
             <div className="flex items-center space-x-2 py-1 text-neutral-500 w-full">
               <IconLoader2 className="h-4 w-4 animate-spin" stroke={1.5} />
               <span className="text-sm">Loading top tags...</span>
@@ -444,7 +416,7 @@ export default function TagsDashboard() {
         <div className="flex justify-between items-center mb-3 sm:mb-4">
           <div className="flex items-center gap-4">
             <h2 className="text-base font-medium text-neutral-400">All Tags</h2>
-            {!isLoadingAll && allTags.length > 0 && (
+            {!results[0].isPending && allTags.length > 0 && (
               <div className="text-sm text-neutral-400">
                 Total tags: {allTags.length}
               </div>
@@ -466,7 +438,7 @@ export default function TagsDashboard() {
         {isCreating && renderTagCreationForm()}
 
         <div className="space-y-2">
-          {isLoadingAll ? (
+          {results[0].isPending ? (
             renderLoading("Loading tags...")
           ) : allTags.length === 0 && !isCreating ? (
             <div className="flex flex-col items-center justify-center py-10 px-4 text-center bg-neutral-900 rounded-lg border border-neutral-800">
