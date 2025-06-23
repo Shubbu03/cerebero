@@ -29,30 +29,29 @@ interface ImportNotification {
 
 export default function Profile() {
   const { data: session } = useSession();
-  const [notification, setNotification] = useState<ImportNotification | null>(null);
+  const [notification, setNotification] = useState<ImportNotification | null>(
+    null
+  );
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const username = session?.user?.name?.charAt(0).toUpperCase() ?? "U";
 
-  const {
-    data: userData,
-    isLoading: isUserLoading,
-  } = useQuery<UserData | null>({
-    queryKey: ["userData", session?.user?.id],
-    queryFn: async () => {
-      if (!session?.user?.id) return null;
-      const response = await axios.get(`/api/get-user/${session.user.id}`);
-      return response.data.data;
-    },
-    enabled: !!session?.user?.id,
-  });
+  const { data: userData, isLoading: isUserLoading } =
+    useQuery<UserData | null>({
+      queryKey: ["userData", session?.user?.id],
+      queryFn: async () => {
+        if (!session?.user?.id) return null;
+        const response = await axios.get(`/api/get-user/${session.user.id}`);
+        return response.data.data;
+      },
+      enabled: !!session?.user?.id,
+    });
 
-  const {
-    data: allContent = [],
-    isLoading: isContentLoading,
-  } = useQuery<UserContent[]>({
+  const { data: allContent = [], isLoading: isContentLoading } = useQuery<
+    UserContent[]
+  >({
     queryKey: ["allContent"],
     queryFn: async () => {
       const response = await axios.get("/api/get-content/");
@@ -62,8 +61,11 @@ export default function Profile() {
   });
 
   const sharedContent = (allContent || [])
-    .filter((item: any) => item.is_shared === true)
-    .sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    .filter((item: UserContent) => item.is_shared === true)
+    .sort(
+      (a: UserContent, b: UserContent) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    )
     .slice(0, 3);
 
   useEffect(() => {
