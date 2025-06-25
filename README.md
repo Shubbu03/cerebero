@@ -58,15 +58,16 @@ Follow these instructions to set up Cerebero locally for development or personal
 - npm, yarn, or pnpm
 - A Supabase account (for database and authentication)
 - Google Cloud account (for Gemini API access and Google OAuth)
+- **Docker** and **Docker Compose** (for containerized setup)
 
-### Installation & Setup
+### Installation & Setup (Local)
 
 1. **Clone the repository:**
 
    ```bash
    git clone [https://github.com/your-username/cerebero.git](https://github.com/your-username/cerebero.git)
    cd cerebero
-   ```
+   ```****
 
 2. **Install dependencies:**
 
@@ -123,6 +124,38 @@ Follow these instructions to set up Cerebero locally for development or personal
    ```
 
    Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+---
+
+## 🐳 Running with Docker & Docker Compose
+
+You can run Cerebero in a containerized environment using Docker and Docker Compose. This is the recommended way for production or to avoid local dependency issues.
+
+### 1. Build and Start the App
+
+Make sure you have your `.env.local` file set up as described above.
+
+```bash
+docker-compose up --build
+```
+
+This will build the Docker image and start the app on [http://localhost:3000](http://localhost:3000).
+
+### 2. Stopping the App
+
+To stop the running containers:
+
+```bash
+docker-compose down
+```
+
+### 3. Customizing Docker
+
+- The `Dockerfile` and `docker-compose.yml` are already configured for a typical Next.js app.
+- If you need to change the port, update the `ports` section in `docker-compose.yml`.
+- For advanced configuration, edit the `Dockerfile` as needed.
+
+---
 
 ## Environment Variables Explained 🔑
 
