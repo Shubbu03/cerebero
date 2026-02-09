@@ -1,14 +1,22 @@
 import CredentialsProvider from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import { compare } from "bcrypt";
 import { z } from "zod";
-import Google from "next-auth/providers/google";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { NextAuthOptions } from "next-auth";
+import { callConvex } from "@/lib/backend/convex-http";
 
 const credentialsSchema = z.object({
   email: z.string().email("Invalid email format"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
+
+type ConvexUser = {
+  id: string;
+  email: string;
+  name: string;
+  image?: string | null;
+  passwordHash?: string | null;
+};
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -24,133 +32,96 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        try {
-          const validatedCredentials = credentialsSchema.parse(credentials);
+        const validatedCredentials = credentialsSchema.parse(credentials);
+        const email = validatedCredentials.email.trim().toLowerCase();
 
-          const { data: user, error } = await supabaseAdmin
-            .from("users")
-            .select("*")
-            .eq("email", validatedCredentials.email)
-            .single();
+        const user = await callConvex<ConvexUser | null>("query", "users:getByEmail", {
+          email,
+        });
 
-          if (error || !user) {
-            throw new Error("Email not found");
-          }
-
-          const isPasswordValid = await compare(
-            validatedCredentials.password,
-            user.password
-          );
-
-          if (!isPasswordValid) {
-            throw new Error("Invalid password");
-          }
-
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-          };
-        } catch (error) {
-          if (error instanceof z.ZodError) {
-            const errorMessage = error.errors
-              .map((err) => err.message)
-              .join(", ");
-            throw new Error(errorMessage);
-          }
-          throw error;
+        if (!user || !user.passwordHash) {
+          throw new Error("Invalid email or password");
         }
+
+        const isPasswordValid = await compare(
+          validatedCredentials.password,
+          user.passwordHash
+        );
+
+        if (!isPasswordValid) {
+          throw new Error("Invalid email or password");
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image ?? null,
+        };
       },
     }),
   ],
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === "google") {
+        if (!user.email) {
+          return false;
+        }
+
         try {
-          const { data: existingUser, error: findError } = await supabaseAdmin
-            .from("users")
-            .select("*")
-            .eq("email", user.email)
-            .single();
-
-          if (findError && findError.code !== "PGRST116") {
-            console.error("Error checking for existing user:", findError);
-            return false;
-          }
-
-          if (existingUser) {
-            user.id = existingUser.id;
-            const { error: updateError } = await supabaseAdmin
-              .from("users")
-              .update({
-                provider: "google",
-                provider_id: account.providerAccountId,
-              })
-              .eq("id", existingUser.id);
-
-            if (updateError) {
-              console.error("Error updating user provider:", updateError);
+          const dbUser = await callConvex<ConvexUser>(
+            "mutation",
+            "users:upsertGoogleUser",
+            {
+              email: user.email,
+              name: user.name ?? user.email,
+              image: user.image ?? undefined,
+              providerId: account.providerAccountId,
+              provider: "google",
             }
+          );
 
-            return true;
-          } else {
-            const { data: newUser, error: insertError } = await supabaseAdmin
-              .from("users")
-              .insert({
-                email: user.email,
-                name: user.name,
-                password: "",
-                provider: "google",
-                provider_id: account.providerAccountId,
-              })
-              .select()
-              .single();
-
-            if (insertError) {
-              console.error(
-                "Error saving Google user to Supabase:",
-                insertError
-              );
-              return false;
-            }
-
-            if (!newUser) {
-              console.error("No user returned after insert");
-              return false;
-            }
-
-            user.id = newUser.id;
-            return true;
-          }
+          user.id = dbUser.id;
+          user.name = dbUser.name;
+          user.email = dbUser.email;
+          user.image = dbUser.image ?? null;
+          return true;
         } catch (error) {
-          console.error("Unexpected error during Google sign-in:", error);
+          console.error("Google sign-in persistence failed:", error);
           return false;
         }
       }
+
       return true;
     },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-      } else if (!token.id && token.email) {
-        try {
-          const { data: dbUser, error } = await supabaseAdmin
-            .from("users")
-            .select("id")
-            .eq("email", token.email)
-            .single();
+        return token;
+      }
 
-          if (dbUser && !error) {
+      if (!token.id && token.email) {
+        try {
+          const dbUser = await callConvex<ConvexUser | null>(
+            "query",
+            "users:getByEmail",
+            {
+              email: token.email,
+            }
+          );
+
+          if (dbUser) {
             token.id = dbUser.id;
           }
         } catch (error) {
-          console.error("Error fetching user ID:", error);
+          console.error("Error resolving token user id:", error);
         }
       }
+
       return token;
     },
     async session({ session, token }) {
-      if (session.user && token) {
+      if (session.user && token?.id) {
         session.user.id = token.id as string;
       }
       return session;
@@ -158,7 +129,7 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/login",
-    error: "/auth/error",
+    error: "/api/auth/error",
   },
   secret: process.env.NEXTAUTH_SECRET,
   session: {

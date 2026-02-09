@@ -1,12 +1,47 @@
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { callConvex } from "@/lib/backend/convex-http";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-const UpdateTagSchema = z.object({
-  name: z.string().trim().min(1, "Tag name is required"),
+const updateTagSchema = z.object({
+  name: z.string().trim().min(1, "Tag name is required").max(50),
 });
+
+type TagRecord = {
+  id: string;
+  name: string;
+  userId: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+type UpdateTagResult =
+  | { status: "updated"; tag: TagRecord }
+  | { status: "not_found" }
+  | { status: "conflict" };
+
+type DeleteTagResult = { status: "deleted" } | { status: "not_found" };
+
+const TAG_PATHS = {
+  updateForUser: "tags:updateForUser",
+  deleteForUser: "tags:deleteForUser",
+} as const;
+
+function unauthorized() {
+  return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+}
+
+function isConvexValidationError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.message.includes("ArgumentValidationError") ||
+    error.message.includes("Value does not match validator")
+  );
+}
 
 export async function PUT(
   request: NextRequest,
@@ -14,31 +49,20 @@ export async function PUT(
 ) {
   try {
     const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
-    const userId = session.user.id;
+
     const tagId = (await params).tagID;
 
     if (!tagId) {
-      return NextResponse.json(
-        { error: "Tag ID is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Tag ID is required" }, { status: 400 });
     }
 
-    let payload;
-    try {
-      payload = await request.json();
-    } catch (e) {
-      console.error("error:", e);
-      return NextResponse.json(
-        { message: "Invalid JSON payload" },
-        { status: 400 }
-      );
-    }
+    const payload = await request.json();
+    const validationResult = updateTagSchema.safeParse(payload);
 
-    const validationResult = UpdateTagSchema.safeParse(payload);
     if (!validationResult.success) {
       return NextResponse.json(
         {
@@ -49,63 +73,44 @@ export async function PUT(
       );
     }
 
-    const { name } = validationResult.data;
-    const { data: existingTag, error: fetchError } = await supabaseAdmin
-      .from("tags")
-      .select("id")
-      .eq("id", tagId)
-      .eq("user_id", userId)
-      .maybeSingle();
+    const result = await callConvex<UpdateTagResult>(
+      "mutation",
+      TAG_PATHS.updateForUser,
+      {
+        userId: session.user.id,
+        tagId,
+        name: validationResult.data.name,
+      }
+    );
 
-    if (fetchError) {
-      console.error(
-        `Error fetching tag ${tagId} for update check:`,
-        fetchError
-      );
-      return NextResponse.json(
-        { error: "Database error checking tag" },
-        { status: 500 }
-      );
-    }
-
-    if (!existingTag) {
+    if (result.status === "not_found") {
       return NextResponse.json(
         { error: "Tag not found or permission denied" },
         { status: 404 }
       );
     }
 
-    const { data: updatedData, error: updateError } = await supabaseAdmin
-      .from("tags")
-      .update({ name })
-      .eq("id", tagId)
-      .eq("user_id", userId)
-      .select("id, name")
-      .single();
-
-    if (updateError) {
-      if (updateError.code === "23505") {
-        return NextResponse.json(
-          { error: `Tag name "${name}" already exists.` },
-          { status: 409 }
-        );
-      }
-      console.error(
-        `Error updating tag ${tagId} for user ${userId}:`,
-        updateError
-      );
+    if (result.status === "conflict") {
       return NextResponse.json(
-        { error: "Failed to update tag." },
-        { status: 500 }
+        { error: `Tag name "${validationResult.data.name}" already exists.` },
+        { status: 409 }
       );
     }
 
-    return NextResponse.json(updatedData);
+    return NextResponse.json({
+      id: result.tag.id,
+      name: result.tag.name,
+    });
   } catch (error: unknown) {
+    if (isConvexValidationError(error)) {
+      return NextResponse.json({ error: "Invalid tag ID" }, { status: 400 });
+    }
+
     if (error instanceof Error) {
       console.error(error.message);
       console.error(error.stack);
     }
+
     return NextResponse.json(
       { error: "An unexpected server error occurred." },
       { status: 500 }
@@ -119,73 +124,30 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
-    const userId = session.user.id;
+
     const tagId = (await params).tagID;
 
     if (!tagId) {
-      return NextResponse.json(
-        { error: "Tag ID is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Tag ID is required" }, { status: 400 });
     }
 
-    const { data: tagToDelete, error: fetchError } = await supabaseAdmin
-      .from("tags")
-      .select("id")
-      .eq("id", tagId)
-      .eq("user_id", userId)
-      .maybeSingle();
+    const result = await callConvex<DeleteTagResult>(
+      "mutation",
+      TAG_PATHS.deleteForUser,
+      {
+        userId: session.user.id,
+        tagId,
+      }
+    );
 
-    if (fetchError) {
-      console.error(
-        `Error fetching tag ${tagId} for delete check:`,
-        fetchError
-      );
-      return NextResponse.json(
-        { error: "Database error checking tag before delete" },
-        { status: 500 }
-      );
-    }
-
-    if (!tagToDelete) {
+    if (result.status === "not_found") {
       return NextResponse.json(
         { error: "Tag not found or permission denied" },
         { status: 404 }
-      );
-    }
-
-    const { error: contentTagError } = await supabaseAdmin
-      .from("content_tags")
-      .delete()
-      .eq("tag_id", tagId);
-
-    if (contentTagError) {
-      console.error(
-        `Error deleting content_tags for tag ${tagId}:`,
-        contentTagError
-      );
-      return NextResponse.json(
-        { error: "Failed to remove tag associations." },
-        { status: 500 }
-      );
-    }
-    const { error: deleteTagError } = await supabaseAdmin
-      .from("tags")
-      .delete()
-      .eq("id", tagId)
-      .eq("user_id", userId);
-
-    if (deleteTagError) {
-      console.error(
-        `Error deleting tag ${tagId} for user ${userId}:`,
-        deleteTagError
-      );
-      return NextResponse.json(
-        { error: "Failed to delete tag." },
-        { status: 500 }
       );
     }
 
@@ -194,10 +156,15 @@ export async function DELETE(
       { status: 200 }
     );
   } catch (error: unknown) {
+    if (isConvexValidationError(error)) {
+      return NextResponse.json({ error: "Invalid tag ID" }, { status: 400 });
+    }
+
     if (error instanceof Error) {
       console.error(error.message);
       console.error(error.stack);
     }
+
     return NextResponse.json(
       { error: "An unexpected server error occurred." },
       { status: 500 }
