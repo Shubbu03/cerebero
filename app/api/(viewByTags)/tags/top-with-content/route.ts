@@ -1,5 +1,5 @@
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { callConvex } from "@/lib/backend/convex-http";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -17,6 +17,10 @@ interface TagWithContent {
   usageCount: number;
   content: ContentItemsData[];
 }
+
+const TAG_PATHS = {
+  getTopWithContent: "tags:getTopWithContent",
+} as const;
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,10 +41,10 @@ export async function GET(request: NextRequest) {
     const tagLimit = parseInt(tagLimitParam || "5", 10);
 
     if (
-      isNaN(contentLimit) ||
+      Number.isNaN(contentLimit) ||
       contentLimit < 1 ||
       !Number.isInteger(contentLimit) ||
-      isNaN(tagLimit) ||
+      Number.isNaN(tagLimit) ||
       tagLimit < 1 ||
       !Number.isInteger(tagLimit)
     ) {
@@ -53,43 +57,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { data, error } = await supabaseAdmin.rpc(
-      "get_top_tags_with_content",
+    const topTags = await callConvex<TagWithContent[]>(
+      "query",
+      TAG_PATHS.getTopWithContent,
       {
-        p_user_id: userId,
-        p_tag_limit: tagLimit,
-        p_content_limit: contentLimit,
+        userId,
+        tagLimit: Math.min(tagLimit, 20),
+        contentLimit: Math.min(contentLimit, 20),
       }
     );
 
-    if (error) {
-      console.error(
-        `Error calling RPC get_top_tags_with_content for user ${userId}:`,
-        error
-      );
-      return NextResponse.json(
-        { error: "Failed to fetch top tags content from database." },
-        { status: 500 }
-      );
-    }
-
-    const typedData: TagWithContent[] = (data || []).map(
-      (tag: TagWithContent) => ({
-        tagId: tag.tagId,
-        tagName: tag.tagName,
-        usageCount: Number(tag.usageCount || 0),
-        content: tag.content || [],
-      })
-    );
-
-    return NextResponse.json({
-      topTags: typedData,
-    });
+    return NextResponse.json({ topTags });
   } catch (error: unknown) {
     if (error instanceof Error) {
       console.error(error.message);
       console.error(error.stack);
     }
+
     return NextResponse.json(
       { error: "An unexpected server error occurred." },
       { status: 500 }

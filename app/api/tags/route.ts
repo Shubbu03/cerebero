@@ -1,73 +1,63 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
+import { callConvex } from "@/lib/backend/convex-http";
 
 const tagSchema = z.object({
   name: z
     .string()
+    .trim()
     .min(1, "Tag name is required")
     .max(50, "Tag name is too long"),
 });
+
+type TagRecord = {
+  id: string;
+  name: string;
+  userId: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+type CreateTagResult =
+  | { status: "existing"; tag: TagRecord }
+  | { status: "created"; tag: TagRecord };
+
+const TAG_PATHS = {
+  listByUser: "tags:listByUser",
+  createForUser: "tags:createForUser",
+} as const;
+
+function unauthorized() {
+  return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+}
+
+function toApiTag(tag: TagRecord) {
+  return {
+    id: tag.id,
+    name: tag.name,
+    user_id: tag.userId,
+    created_at: new Date(tag.createdAt).toISOString(),
+    updated_at: new Date(tag.updatedAt).toISOString(),
+  };
+}
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.id) {
+      return unauthorized();
     }
 
-    let userId = session.user.id;
+    const tags = await callConvex<TagRecord[]>("query", TAG_PATHS.listByUser, {
+      userId: session.user.id,
+    });
 
-    if (!userId && session.user.email) {
-      const { data: user, error } = await supabaseAdmin
-        .from("users")
-        .select("id")
-        .eq("email", session.user.email)
-        .single();
-
-      if (error) {
-        console.error("Error fetching user ID from Supabase:", error);
-        return NextResponse.json(
-          { message: "Failed to identify user" },
-          { status: 500 }
-        );
-      }
-
-      if (user) {
-        userId = user.id;
-      }
-    }
-
-    if (!userId) {
-      console.error(
-        "User ID is missing from session and could not be retrieved"
-      );
-      return NextResponse.json(
-        { message: "User ID not found" },
-        { status: 400 }
-      );
-    }
-
-    const { data: tags, error } = await supabaseAdmin
-      .from("tags")
-      .select("id, name, user_id")
-      .eq("user_id", userId)
-      .order("name");
-
-    if (error) {
-      console.error("Error fetching tags:", error);
-      return NextResponse.json(
-        { message: "Failed to fetch tags" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(tags);
+    return NextResponse.json(tags.map(toApiTag));
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("Unexpected error while fetching tags:", error);
     return NextResponse.json(
       { message: "An unexpected error occurred" },
       { status: 500 }
@@ -79,87 +69,32 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-
-    let userId = session.user.id;
-
-    if (!userId && session.user.email) {
-      const { data: user, error } = await supabaseAdmin
-        .from("users")
-        .select("id")
-        .eq("email", session.user.email)
-        .single();
-
-      if (error) {
-        console.error("Error fetching user ID from Supabase:", error);
-        return NextResponse.json(
-          { message: "Failed to identify user" },
-          { status: 500 }
-        );
-      }
-
-      if (user) {
-        userId = user.id;
-      }
-    }
-
-    if (!userId) {
-      console.error(
-        "User ID is missing from session and could not be retrieved"
-      );
-      return NextResponse.json(
-        { message: "User ID not found" },
-        { status: 400 }
-      );
+    if (!session?.user?.id) {
+      return unauthorized();
     }
 
     const body = await request.json();
-
     const validationResult = tagSchema.safeParse(body);
 
     if (!validationResult.success) {
-      const errors = validationResult.error.format();
       return NextResponse.json(
-        { message: "Validation failed", errors },
+        { message: "Validation failed", errors: validationResult.error.format() },
         { status: 400 }
       );
     }
 
-    const tagName = validationResult.data.name.toLowerCase();
+    const result = await callConvex<CreateTagResult>(
+      "mutation",
+      TAG_PATHS.createForUser,
+      {
+        userId: session.user.id,
+        name: validationResult.data.name,
+      }
+    );
 
-    const { data: existingTag } = await supabaseAdmin
-      .from("tags")
-      .select("id, name, user_id")
-      .eq("name", tagName)
-      .eq("user_id", userId)
-      .single();
-
-    if (existingTag) {
-      return NextResponse.json(existingTag);
-    }
-
-    const { data: newTag, error } = await supabaseAdmin
-      .from("tags")
-      .insert({
-        name: tagName,
-        user_id: userId,
-      })
-      .select("id, name, user_id")
-      .single();
-
-    if (error) {
-      console.error("Error creating tag:", error);
-      return NextResponse.json(
-        { message: "Failed to create tag" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(newTag);
+    return NextResponse.json(toApiTag(result.tag));
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("Unexpected error while creating tag:", error);
     return NextResponse.json(
       { message: "An unexpected error occurred" },
       { status: 500 }

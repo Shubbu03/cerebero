@@ -1,43 +1,51 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { authOptions } from "../auth/[...nextauth]/options";
+import { callConvex } from "@/lib/backend/convex-http";
 
 const addTodoSchema = z.object({
-  title: z.string().min(1).max(280),
+  title: z.string().trim().min(1).max(280),
 });
 
 const idSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().min(1, "Todo ID is required"),
 });
+
+type TodoRecord = {
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+const CONVEX_TODOS = {
+  listByUser: "todos:listByUser",
+  createForUser: "todos:createForUser",
+  deleteForUser: "todos:deleteForUser",
+  toggleForUser: "todos:toggleForUser",
+} as const;
+
+function unauthorized() {
+  return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+}
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.id) {
+      return unauthorized();
     }
 
-    const userId = session.user.id;
+    const todos = await callConvex<TodoRecord[]>("query", CONVEX_TODOS.listByUser, {
+      userId: session.user.id,
+    });
 
-    const { data, error } = await supabaseAdmin
-      .from("todos")
-      .select("id, title, completed")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      return NextResponse.json(
-        { message: "Failed to fetch todos" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ todo: data }, { status: 200 });
+    return NextResponse.json({ todo: todos }, { status: 200 });
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("Unexpected error while fetching todos:", error);
     return NextResponse.json(
       { message: "An unexpected error occurred" },
       { status: 500 }
@@ -49,47 +57,35 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.id) {
+      return unauthorized();
     }
 
-    const userId = session.user.id;
-
     const body = await request.json();
-
     const validationResult = addTodoSchema.safeParse(body);
 
     if (!validationResult.success) {
-      const errors = validationResult.error.format();
       return NextResponse.json(
-        { message: "Validation failed", errors },
+        { message: "Validation failed", errors: validationResult.error.format() },
         { status: 400 }
       );
     }
 
-    const validatedData = validationResult.data;
-
-    const { data, error } = await supabaseAdmin
-      .from("todos")
-      .insert({
-        user_id: userId,
-        title: validatedData.title,
-      })
-      .select("id, title, completed");
-
-    if (error) {
-      return NextResponse.json(
-        { message: "Failed to create todo" },
-        { status: 500 }
-      );
-    }
+    const createdTodo = await callConvex<TodoRecord>(
+      "mutation",
+      CONVEX_TODOS.createForUser,
+      {
+        userId: session.user.id,
+        title: validationResult.data.title,
+      }
+    );
 
     return NextResponse.json(
-      { message: "Todo added successfully", todo: data },
+      { message: "Todo added successfully", todo: [createdTodo] },
       { status: 201 }
     );
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("Unexpected error while creating todo:", error);
     return NextResponse.json(
       { message: "An unexpected error occurred" },
       { status: 500 }
@@ -100,38 +96,35 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+
+    if (!session?.user?.id) {
+      return unauthorized();
     }
 
-    const userId = session.user.id;
-
     const body = await request.json();
-    const validated = idSchema.parse(body);
+    const validated = idSchema.safeParse(body);
 
-    const { data: todoData, error: todoError } = await supabaseAdmin
-      .from("todos")
-      .select("id")
-      .eq("id", validated.id)
-      .eq("user_id", userId)
-      .single();
-
-    if (todoError || !todoData) {
+    if (!validated.success) {
       return NextResponse.json(
-        {
-          message: "Todo not found or does not belong to user",
-        },
-        { status: 404 }
+        { message: "Validation failed", errors: validated.error.format() },
+        { status: 400 }
       );
     }
 
-    const { error } = await supabaseAdmin
-      .from("todos")
-      .delete()
-      .eq("id", validated.id);
+    const result = await callConvex<{ deleted: boolean }>(
+      "mutation",
+      CONVEX_TODOS.deleteForUser,
+      {
+        userId: session.user.id,
+        todoId: validated.data.id,
+      }
+    );
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!result.deleted) {
+      return NextResponse.json(
+        { message: "Todo not found or does not belong to user" },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json(
@@ -139,7 +132,7 @@ export async function DELETE(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("Unexpected error while deleting todo:", error);
     return NextResponse.json(
       { message: "An unexpected error occurred" },
       { status: 500 }
@@ -150,54 +143,43 @@ export async function DELETE(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+
+    if (!session?.user?.id) {
+      return unauthorized();
     }
 
-    const userId = session.user.id;
-
     const body = await request.json();
-    const validated = idSchema.parse(body);
+    const validated = idSchema.safeParse(body);
 
-    const { data: todoData, error: todoError } = await supabaseAdmin
-      .from("todos")
-      .select("id, completed")
-      .eq("id", validated.id)
-      .eq("user_id", userId)
-      .single();
-
-    if (todoError || !todoData) {
+    if (!validated.success) {
       return NextResponse.json(
-        {
-          message: "Todo not found or does not belong to user",
-        },
+        { message: "Validation failed", errors: validated.error.format() },
+        { status: 400 }
+      );
+    }
+
+    const updatedTodo = await callConvex<TodoRecord | null>(
+      "mutation",
+      CONVEX_TODOS.toggleForUser,
+      {
+        userId: session.user.id,
+        todoId: validated.data.id,
+      }
+    );
+
+    if (!updatedTodo) {
+      return NextResponse.json(
+        { message: "Todo not found or does not belong to user" },
         { status: 404 }
       );
     }
 
-    const newCompletedValue = !todoData.completed;
-
-    const { data: updatedTodo, error: updateError } = await supabaseAdmin
-      .from("todos")
-      .update({ completed: newCompletedValue })
-      .eq("id", validated.id)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error("Error updating todo:", updateError);
-      return NextResponse.json(
-        { message: "Failed to update todo status" },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
-      message: `Todo updated successfully`,
+      message: "Todo updated successfully",
       content: updatedTodo,
     });
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("Unexpected error while updating todo:", error);
     return NextResponse.json(
       { message: "An unexpected error occurred" },
       { status: 500 }
