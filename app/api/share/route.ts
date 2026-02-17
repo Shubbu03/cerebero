@@ -1,7 +1,13 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "../auth/[...nextauth]/options";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { callConvex } from "@/lib/backend/convex-http";
+import { ConvexContentRecord } from "@/lib/backend/content-mapper";
+
+const CONTENT_PATHS = {
+  getShareStatusForUser: "content:getShareStatusForUser",
+  toggleShareForUser: "content:toggleShareForUser",
+} as const;
 
 export async function PATCH(request: Request) {
   try {
@@ -20,38 +26,35 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: content, error: fetchError } = await supabaseAdmin
-      .from("content")
-      .select("is_shared")
-      .eq("id", id)
-      .eq("user_id", session.user.id)
-      .single();
+    const content = await callConvex<ConvexContentRecord | null>(
+      "query",
+      CONTENT_PATHS.getShareStatusForUser,
+      {
+        userId: session.user.id,
+        contentId: id,
+      }
+    );
 
-    if (fetchError || !content) {
+    if (!content) {
       return NextResponse.json({ error: "Content not found" }, { status: 404 });
     }
 
-    const updatedIsShared = !content.is_shared;
+    const updated = await callConvex<ConvexContentRecord | null>(
+      "mutation",
+      CONTENT_PATHS.toggleShareForUser,
+      {
+        userId: session.user.id,
+        contentId: id,
+      }
+    );
 
-    const { error: updateError } = await supabaseAdmin
-      .from("content")
-      .update({
-        is_shared: updatedIsShared,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .eq("user_id", session.user.id);
-
-    if (updateError) {
-      return NextResponse.json(
-        { error: "Failed to toggle sharing" },
-        { status: 500 }
-      );
+    if (!updated) {
+      return NextResponse.json({ error: "Content not found" }, { status: 404 });
     }
 
     return NextResponse.json({
       message: "Share status updated",
-      is_shared: updatedIsShared,
+      is_shared: updated.isShared,
     });
   } catch (error) {
     console.error("PATCH error:", error);
@@ -79,24 +82,26 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("content")
-      .select("id, is_shared, share_id")
-      .eq("id", id)
-      .eq("user_id", session.user.id)
-      .single();
+    const data = await callConvex<ConvexContentRecord | null>(
+      "query",
+      CONTENT_PATHS.getShareStatusForUser,
+      {
+        userId: session.user.id,
+        contentId: id,
+      }
+    );
 
-    if (error || !data) {
+    if (!data) {
       return NextResponse.json({ error: "Content not found" }, { status: 404 });
     }
 
     const responseData = {
       id: data.id,
-      is_shared: data.is_shared,
-      share_id: data.is_shared ? data.share_id : null,
+      is_shared: data.isShared,
+      share_id: data.isShared ? data.shareId : null,
       share_url:
-        data.is_shared && data.share_id
-          ? `${process.env.NEXT_PUBLIC_SHARED_BASE_URL}/shared/${data.share_id}`
+        data.isShared && data.shareId
+          ? `${process.env.NEXT_PUBLIC_SHARED_BASE_URL}/shared/${data.shareId}`
           : null,
     };
 

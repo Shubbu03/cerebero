@@ -2,14 +2,23 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { authOptions } from "../../auth/[...nextauth]/options";
 import { z } from "zod";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { callConvex } from "@/lib/backend/convex-http";
+import { ConvexContentRecord, toApiContent } from "@/lib/backend/content-mapper";
 
 const contentSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  type: z.string().min(1, "Type is required"),
+  type: z.enum(["document", "tweet", "youtube", "link"]),
   url: z.string().url().optional().nullable(),
   body: z.string().optional().nullable(),
 });
+
+type UpdateResult =
+  | { status: "updated"; content: ConvexContentRecord }
+  | { status: "not_found"; content: null };
+
+const CONTENT_PATHS = {
+  updateForUser: "content:updateForUser",
+} as const;
 
 export async function PUT(
   request: NextRequest,
@@ -37,52 +46,30 @@ export async function PUT(
 
     const { title, type, url, body: contentBody } = validationResult.data;
 
-    const { data: existingContent, error: fetchError } = await supabaseAdmin
-      .from("content")
-      .select("*")
-      .eq("id", contentID)
-      .single();
+    const result = await callConvex<UpdateResult>(
+      "mutation",
+      CONTENT_PATHS.updateForUser,
+      {
+        userId,
+        contentId: contentID,
+        title,
+        type,
+        url: url ?? undefined,
+        body: contentBody ?? undefined,
+      }
+    );
 
-    if (fetchError || !existingContent) {
+    if (result.status === "not_found") {
       return NextResponse.json(
         { message: "Content not found" },
         { status: 404 }
       );
     }
 
-    if (existingContent.user_id !== userId) {
-      return NextResponse.json(
-        { message: "You are not authorized to update this content" },
-        { status: 403 }
-      );
-    }
-
-    const { data: updatedContent, error: updateError } = await supabaseAdmin
-      .from("content")
-      .update({
-        title,
-        type,
-        url,
-        body: contentBody,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", contentID)
-      .eq("user_id", userId)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error("Error updating content:", updateError);
-      return NextResponse.json(
-        { message: "Failed to update content" },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json(
       {
         message: "Content updated successfully",
-        content: updatedContent,
+        content: toApiContent(result.content),
       },
       { status: 200 }
     );

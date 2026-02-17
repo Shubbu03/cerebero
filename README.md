@@ -80,7 +80,7 @@ Follow these instructions to set up Cerebero locally for development or personal
    ```
 
 3. **Set up Environment Variables:**
-   Create a `.env.local` file in the root of your project and add the following environment variables. Obtain these keys from your Supabase dashboard, Google Cloud Console, and a secure secret generator.
+   Create a `.env.local` file in the root of your project and add the following environment variables. Obtain these keys from Convex, Google Cloud Console, and a secure secret generator.
 
    ```env
    # Base URL for your deployed application (used for share links, etc.)
@@ -90,14 +90,14 @@ Follow these instructions to set up Cerebero locally for development or personal
    # You can generate one here: [https://generate-secret.vercel.app/32](https://generate-secret.vercel.app/32)
    NEXTAUTH_SECRET=your_nextauth_secret
 
-   # Supabase Project URL
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+   # Convex deployment URL (set by `npx convex dev` or from Convex dashboard)
+   NEXT_PUBLIC_CONVEX_URL=your_convex_deployment_url
 
-   # Supabase Public Anon Key
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   # Optional server-side Convex URL override
+   CONVEX_URL=your_convex_deployment_url
 
-   # Supabase Service Role Key (for admin tasks, keep this secret!)
-   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+   # Optional deploy key for Convex admin HTTP calls
+   CONVEX_DEPLOY_KEY=your_convex_deploy_key
 
    # Google OAuth Client ID (from Google Cloud Console)
    GOOGLE_CLIENT_ID=your_google_client_id
@@ -109,9 +109,10 @@ Follow these instructions to set up Cerebero locally for development or personal
    GEMINI_API_KEY=your_gemini_api_key
    ```
 
-4. **Set up Supabase Database:**
+4. **Set up Convex:**
 
-   - Ensure your Supabase project has the necessary tables and policies set up. You might want to include schema migration files or instructions in your repository.
+   - Run `npm run convex:dev` once to initialize Convex and generate local env values.
+   - Deploy schema/functions with `npm run convex:deploy` when moving to production.
 
 5. **Run the development server:**
 
@@ -161,9 +162,9 @@ docker-compose down
 
 - `NEXT_PUBLIC_SHARED_BASE_URL`: The public URL of your application. Used for generating shareable links.
 - `NEXTAUTH_SECRET`: A secret key used by NextAuth.js to encrypt session cookies and tokens.
-- `NEXT_PUBLIC_SUPABASE_URL`: The URL of your Supabase project.
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: The public anonymous key for your Supabase project, allowing client-side access to your database under RLS policies.
-- `SUPABASE_SERVICE_ROLE_KEY`: A secret key for your Supabase project that bypasses Row Level Security (RLS). Use with caution, typically for server-side operations or admin tasks.
+- `NEXT_PUBLIC_CONVEX_URL`: The public Convex deployment URL used by the app.
+- `CONVEX_URL`: Optional server-side Convex URL override.
+- `CONVEX_DEPLOY_KEY`: Optional Convex deploy key used for authenticated HTTP function calls.
 - `GOOGLE_CLIENT_ID`: Your Google OAuth 2.0 Client ID, used for Google Sign-In.
 - `GOOGLE_CLIENT_SECRET`: Your Google OAuth 2.0 Client Secret, used for Google Sign-In.
 - `GEMINI_API_KEY`: Your API key for accessing the Google Gemini API for AI features.

@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/options";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { callConvex } from "@/lib/backend/convex-http";
 
 interface ContentItem {
-  type: string;
+  type: "document" | "tweet" | "youtube" | "link";
   title: string;
   url?: string;
   body?: string;
 }
+
+const CONTENT_PATHS = {
+  importForUser: "content:importForUser",
+} as const;
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,32 +43,36 @@ export async function POST(request: NextRequest) {
       }
 
       return {
-        user_id: userId,
         type: item.type,
-        title: item.title,
-        url: item.url || null,
-        body: item.body || null,
-        is_shared: false,
-        is_favourite: false,
-        updated_at: new Date().toISOString(),
+        title: item.title.trim(),
+        url: item.url?.trim() || undefined,
+        body: item.body || undefined,
       };
     });
 
-    const { error } = await supabaseAdmin
-      .from("content")
-      .insert(validatedContent);
+    const invalidType = validatedContent.some(
+      (item) =>
+        item.type !== "document" &&
+        item.type !== "tweet" &&
+        item.type !== "youtube" &&
+        item.type !== "link"
+    );
 
-    if (error) {
-      console.error("Supabase error:", error);
+    if (invalidType) {
       return NextResponse.json(
         {
           success: false,
-          message: "Failed to import content",
-          error: error.message,
+          message:
+            "Invalid content type. Allowed values: document, tweet, youtube, link.",
         },
-        { status: 500 }
+        { status: 400 }
       );
     }
+
+    await callConvex<{ count: number }>("mutation", CONTENT_PATHS.importForUser, {
+      userId,
+      items: validatedContent,
+    });
 
     return NextResponse.json({
       success: true,

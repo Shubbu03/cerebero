@@ -1,7 +1,12 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "../auth/[...nextauth]/options";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { callConvex } from "@/lib/backend/convex-http";
+import { ConvexContentRecord, toApiContent } from "@/lib/backend/content-mapper";
+
+const CONTENT_PATHS = {
+  listByUser: "content:listByUser",
+} as const;
 
 export async function GET() {
   try {
@@ -11,18 +16,11 @@ export async function GET() {
     }
 
     const userId = session.user.id;
-    const { data, error } = await supabaseAdmin
-      .from("content")
-      .select()
-      .eq("user_id", userId);
-
-    if (error) {
-      console.error("Error fetching user data!!", error);
-      return NextResponse.json(
-        { message: "Failed to fetch user content" },
-        { status: 500 }
-      );
-    }
+    const data = await callConvex<ConvexContentRecord[]>(
+      "query",
+      CONTENT_PATHS.listByUser,
+      { userId }
+    );
 
     if (!data || data.length == 0) {
       return NextResponse.json(
@@ -34,7 +32,7 @@ export async function GET() {
     return NextResponse.json(
       {
         message: "User data fetched successfully",
-        data: data,
+        data: data.map(toApiContent),
       },
       { status: 200 }
     );

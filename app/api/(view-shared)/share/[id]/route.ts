@@ -1,26 +1,32 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { callConvex } from "@/lib/backend/convex-http";
+import { ConvexContentRecord, toApiContent } from "@/lib/backend/content-mapper";
 import { NextResponse } from "next/server";
+
+const CONTENT_PATHS = {
+  getSharedByShareId: "content:getSharedByShareId",
+} as const;
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { data, error } = await supabaseAdmin
-      .from("content")
-      .select("id,user_id, title, type, url, body, created_at, updated_at, is_shared")
-      .eq("share_id", (await params).id)
-      .eq("is_shared", true)
-      .single();
+    const data = await callConvex<ConvexContentRecord | null>(
+      "query",
+      CONTENT_PATHS.getSharedByShareId,
+      {
+        shareId: (await params).id,
+      }
+    );
 
-    if (error) {
+    if (!data) {
       return NextResponse.json(
         { error: "Content not found or not shared" },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(toApiContent(data));
   } catch (error) {
     console.error("Error occured while fetching data:", error);
     return NextResponse.json(

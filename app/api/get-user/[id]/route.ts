@@ -1,5 +1,31 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { callConvex } from "@/lib/backend/convex-http";
 import { NextRequest, NextResponse } from "next/server";
+
+type PublicUser = {
+  id: string;
+  email: string;
+  name: string;
+  image: string | null;
+  provider: "credentials" | "google";
+  providerId: string | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
+const USER_PATHS = {
+  getPublicById: "users:getPublicById",
+} as const;
+
+function isConvexValidationError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.message.includes("ArgumentValidationError") ||
+    error.message.includes("Value does not match validator")
+  );
+}
 
 export async function GET(
   request: NextRequest,
@@ -11,19 +37,13 @@ export async function GET(
     if (!userID) {
       return NextResponse.json({ message: "ID is required" }, { status: 400 });
     }
-    const { data, error } = await supabaseAdmin
-      .from("users")
-      .select("email, name, created_at")
-      .eq("id", userID)
-      .single();
-
-    if (error) {
-      console.error("Error fetching user:", error);
-      return NextResponse.json(
-        { message: "Failed to fetch user" },
-        { status: 500 }
-      );
-    }
+    const data = await callConvex<PublicUser | null>(
+      "query",
+      USER_PATHS.getPublicById,
+      {
+        userId: userID,
+      }
+    );
 
     if (!data) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
@@ -32,11 +52,19 @@ export async function GET(
     return NextResponse.json(
       {
         message: "User fetched successfully",
-        data: data,
+        data: {
+          email: data.email,
+          name: data.name,
+          created_at: new Date(data.createdAt).toISOString(),
+        },
       },
       { status: 200 }
     );
   } catch (error) {
+    if (isConvexValidationError(error)) {
+      return NextResponse.json({ message: "Invalid ID format" }, { status: 400 });
+    }
+
     console.error("Unexpected error:", error);
     return NextResponse.json(
       { message: "An unexpected error occurred" },

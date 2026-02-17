@@ -1,23 +1,38 @@
-import { supabase } from "@/lib/supabaseClient";
+import { authOptions } from "@/app/api/auth/[...nextauth]/options";
+import { callConvex } from "@/lib/backend/convex-http";
+import { ConvexContentRecord } from "@/lib/backend/content-mapper";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
-interface Tag {
+interface TagRecord {
   id: string;
   name: string;
+  userId?: string;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
-interface ContentTag {
-  tag_id: string;
-  tags: Tag;
-}
+type CreateTagResult =
+  | { status: "existing"; tag: TagRecord }
+  | { status: "created"; tag: TagRecord };
+
+const CONTENT_PATHS = {
+  getByIdForUser: "content:getByIdForUser",
+} as const;
+
+const TAG_PATHS = {
+  createForUser: "tags:createForUser",
+  listByContent: "tags:listByContent",
+  attachToContent: "tags:attachToContent",
+  detachFromContent: "tags:detachFromContent",
+} as const;
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -34,78 +49,67 @@ export async function PUT(
       );
     }
 
-    const { data: content, error: contentError } = await supabase
-      .from("content")
-      .select("id, user_id")
-      .eq("id", contentId)
-      .single();
+    const content = await callConvex<ConvexContentRecord | null>(
+      "query",
+      CONTENT_PATHS.getByIdForUser,
+      {
+        userId,
+        contentId,
+      }
+    );
 
-    if (contentError || !content) {
+    if (!content) {
       return NextResponse.json(
         { error: "Content not found or access denied" },
         { status: 404 }
       );
     }
 
-    await supabase.rpc("begin_transaction");
+    const currentTags = await callConvex<TagRecord[]>("query", TAG_PATHS.listByContent, {
+      userId,
+      contentId,
+    });
 
-    await supabase.from("content_tags").delete().eq("content_id", contentId);
+    const nextTagNames = Array.from(
+      new Set(tags.map((tag) => String(tag).trim().toLowerCase()).filter(Boolean))
+    );
 
-    const tagIds = [];
-    for (const tagName of tags) {
-      const { data: existingTag } = await supabase
-        .from("tags")
-        .select("id")
-        .eq("name", tagName)
-        .eq("user_id", userId)
-        .single();
+    const nextTagIds = new Set<string>();
 
-      let tagId;
-
-      if (existingTag) {
-        tagId = existingTag.id;
-      } else {
-        const { data: newTag, error: tagError } = await supabase
-          .from("tags")
-          .insert({
-            name: tagName,
-            user_id: userId,
-          })
-          .select("id")
-          .single();
-
-        if (tagError) {
-          return NextResponse.json(
-            { error: `Failed to create tag: ${tagError.message}` },
-            { status: 500 }
-          );
+    for (const tagName of nextTagNames) {
+      const tagResult = await callConvex<CreateTagResult>(
+        "mutation",
+        TAG_PATHS.createForUser,
+        {
+          userId,
+          name: tagName,
         }
+      );
 
-        tagId = newTag.id;
-      }
-
-      tagIds.push(tagId);
+      nextTagIds.add(tagResult.tag.id);
     }
 
-    if (tagIds.length > 0) {
-      const tagRelations = tagIds.map((tagId) => ({
-        content_id: contentId,
-        tag_id: tagId,
-      }));
+    const currentTagIds = new Set(currentTags.map((tag) => tag.id));
 
-      const { error: relationError } = await supabase
-        .from("content_tags")
-        .insert(tagRelations);
-
-      if (relationError) {
-        return NextResponse.json(
-          { error: `Failed to update tags: ${relationError.message}` },
-          { status: 500 }
-        );
+    for (const tagId of currentTagIds) {
+      if (!nextTagIds.has(tagId)) {
+        await callConvex("mutation", TAG_PATHS.detachFromContent, {
+          userId,
+          contentId,
+          tagId,
+        });
       }
     }
 
-    await supabase.rpc("commit_transaction");
+    for (const tagId of nextTagIds) {
+      if (!currentTagIds.has(tagId)) {
+        await callConvex("mutation", TAG_PATHS.attachToContent, {
+          userId,
+          contentId,
+          tagId,
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -125,44 +129,31 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const userId = session.user.id;
     const contentId = (await params).id;
 
-    const { data: content, error: contentError } = await supabase
-      .from("content")
-      .select("id")
-      .eq("id", contentId)
-      .single();
+    const content = await callConvex<ConvexContentRecord | null>(
+      "query",
+      CONTENT_PATHS.getByIdForUser,
+      {
+        userId,
+        contentId,
+      }
+    );
 
-    if (contentError || !content) {
+    if (!content) {
       return NextResponse.json({ error: "Content not found" }, { status: 404 });
     }
 
-    const { data: contentTags, error: tagsError } = await supabase
-      .from("content_tags")
-      .select(
-        `
-            tag_id,
-            tags (
-              id,
-              name
-            )
-          `
-      )
-      .eq("content_id", contentId);
-
-    if (tagsError) {
-      return NextResponse.json(
-        { error: "Failed to fetch tags" },
-        { status: 500 }
-      );
-    }
-
-    const typedContentTags = contentTags as unknown as ContentTag[];
-
-    const tags = typedContentTags.map((item) => ({
-      id: item.tags.id,
-      name: item.tags.name,
-    }));
+    const tags = await callConvex<TagRecord[]>("query", TAG_PATHS.listByContent, {
+      userId,
+      contentId,
+    });
 
     return NextResponse.json({ tags });
   } catch (error) {

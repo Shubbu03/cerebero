@@ -244,13 +244,15 @@ export const listByContent = query({
           return null;
         }
         return {
-          id: tag._id,
+          id: tag._id as string,
           name: tag.name,
         };
       })
     );
 
-    return tags.filter((tag): tag is { id: string; name: string } => Boolean(tag));
+    return tags.filter(
+      (tag): tag is { id: string; name: string } => tag !== null
+    );
   },
 });
 
@@ -278,14 +280,34 @@ export const getTopWithContent = query({
 
         const selectedRelations = relations.slice(0, args.contentLimit);
 
-        const content = selectedRelations.map((relation) => ({
-          id: relation.contentId,
-          // Content endpoint is migrating next; keep contract now.
-          title: relation.contentId,
-          url: null,
-          created_at: new Date(relation.createdAt).toISOString(),
-          updated_at: new Date(relation.createdAt).toISOString(),
-        }));
+        const content = (
+          await Promise.all(
+            selectedRelations.map(async (relation) => {
+              const normalizedContentId = ctx.db.normalizeId(
+                "content",
+                relation.contentId
+              );
+
+              if (!normalizedContentId) {
+                return null;
+              }
+
+              const contentDoc = await ctx.db.get(normalizedContentId);
+
+              if (!contentDoc || contentDoc.userId !== args.userId) {
+                return null;
+              }
+
+              return {
+                id: relation.contentId,
+                title: contentDoc.title,
+                url: contentDoc.url ?? null,
+                created_at: new Date(contentDoc.createdAt).toISOString(),
+                updated_at: new Date(contentDoc.updatedAt).toISOString(),
+              };
+            })
+          )
+        ).filter((item): item is NonNullable<typeof item> => item !== null);
 
         return {
           tagId: tag._id,
