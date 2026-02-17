@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { authOptions } from "../auth/[...nextauth]/options";
 import { ai } from "@/lib/gen-ai";
+import { callConvex } from "@/lib/backend/convex-http";
+import { ConvexContentRecord } from "@/lib/backend/content-mapper";
 
 const baseContentSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -31,6 +32,28 @@ const contentSchema = z.discriminatedUnion("type", [
   externalContentSchema.extend({ type: z.literal("link") }),
 ]);
 
+type TagRecord = {
+  id: string;
+  name: string;
+  userId: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+type CreateTagResult =
+  | { status: "existing"; tag: TagRecord }
+  | { status: "created"; tag: TagRecord };
+
+const CONTENT_PATHS = {
+  createForUser: "content:createForUser",
+  upsertEmbeddingForContent: "content:upsertEmbeddingForContent",
+} as const;
+
+const TAG_PATHS = {
+  createForUser: "tags:createForUser",
+  attachToContent: "tags:attachToContent",
+} as const;
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -53,27 +76,18 @@ export async function POST(request: NextRequest) {
 
     const validatedData = validationResult.data;
 
-    const { data: contentData, error: contentError } = await supabaseAdmin
-      .from("content")
-      .insert({
-        user_id: userId,
+    const contentData = await callConvex<ConvexContentRecord>(
+      "mutation",
+      CONTENT_PATHS.createForUser,
+      {
+        userId,
         title: validatedData.title,
         type: validatedData.type,
-        url: validatedData.url || null,
-        body: validatedData.body || null,
-        is_shared: false,
-        updated_at: new Date().toISOString(),
-      })
-      .select("id")
-      .single();
-
-    if (contentError) {
-      console.error("Content insertion error:", contentError);
-      return NextResponse.json(
-        { message: "Failed to create content" },
-        { status: 500 }
-      );
-    }
+        url: validatedData.url || undefined,
+        body: validatedData.body || undefined,
+        isShared: false,
+      }
+    );
 
     //content embeddings
     const contentID = contentData.id;
@@ -102,55 +116,43 @@ export async function POST(request: NextRequest) {
       }
 
       const embedding = embedResp.embeddings[0];
-      const { error: embedErr } = await supabaseAdmin
-        .from("content_embeddings")
-        .insert({
-          content_id: contentID,
-          embedding: embedding.values,
-        });
-
-      if (embedErr) {
-        console.log("embedding error:", embedErr);
-      }
+      await callConvex("mutation", CONTENT_PATHS.upsertEmbeddingForContent, {
+        userId,
+        contentId: contentID,
+        embedding: embedding.values,
+      });
     } catch (e) {
       console.error("Embedding generation error:", e);
     }
 
     if (validatedData.tags.length > 0) {
-      for (const tagName of validatedData.tags) {
-        const { data: existingTag } = await supabaseAdmin
-          .from("tags")
-          .select("id")
-          .eq("name", tagName.toLowerCase())
-          .eq("user_id", userId)
-          .single();
+      const normalizedTags = Array.from(
+        new Set(
+          validatedData.tags
+            .map((tagName) => tagName.trim().toLowerCase())
+            .filter(Boolean)
+        )
+      );
 
-        let tagId;
+      for (const tagName of normalizedTags) {
+        try {
+          const tagResult = await callConvex<CreateTagResult>(
+            "mutation",
+            TAG_PATHS.createForUser,
+            {
+              userId,
+              name: tagName,
+            }
+          );
 
-        if (existingTag) {
-          tagId = existingTag.id;
-        } else {
-          const { data: newTag, error: tagError } = await supabaseAdmin
-            .from("tags")
-            .insert({
-              name: tagName.toLowerCase(),
-              user_id: userId,
-            })
-            .select("id")
-            .single();
-
-          if (tagError) {
-            console.error("Tag creation error:", tagError);
-            continue;
-          }
-
-          tagId = newTag.id;
+          await callConvex("mutation", TAG_PATHS.attachToContent, {
+            userId,
+            contentId: contentData.id,
+            tagId: tagResult.tag.id,
+          });
+        } catch (tagError) {
+          console.error("Tag attach error:", tagError);
         }
-
-        await supabaseAdmin.from("content_tags").insert({
-          content_id: contentData.id,
-          tag_id: tagId,
-        });
       }
     }
 

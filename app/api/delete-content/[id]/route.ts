@@ -1,7 +1,11 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { callConvex } from "@/lib/backend/convex-http";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { authOptions } from "../../auth/[...nextauth]/options";
+
+const CONTENT_PATHS = {
+  deleteForUser: "content:deleteForUser",
+} as const;
 
 export async function DELETE(
   request: NextRequest,
@@ -23,34 +27,21 @@ export async function DELETE(
     }
 
     const userId = session.user.id;
+    const result = await callConvex<{ deleted: boolean }>(
+      "mutation",
+      CONTENT_PATHS.deleteForUser,
+      {
+        userId,
+        contentId,
+      }
+    );
 
-    const { data: contentData, error: contentError } = await supabaseAdmin
-      .from("content")
-      .select("id")
-      .eq("id", contentId)
-      .eq("user_id", userId)
-      .single();
-
-    if (contentError || !contentData) {
+    if (!result.deleted) {
       return NextResponse.json(
         {
           message: "Content not found or does not belong to user",
         },
         { status: 404 }
-      );
-    }
-
-    const { error: deleteError } = await supabaseAdmin
-      .from("content")
-      .delete()
-      .eq("id", contentId)
-      .eq("user_id", userId);
-
-    if (deleteError) {
-      console.error("Error deleting content:", deleteError);
-      return NextResponse.json(
-        { message: "Failed to delete content" },
-        { status: 500 }
       );
     }
 
