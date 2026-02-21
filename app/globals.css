@@ -1,198 +1,212 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: oklch(0 0 100);
-  --foreground: oklch(222.2 84 4.9);
+  --background: oklch(0.985 0.004 240);
+  --foreground: oklch(0.23 0.02 248);
+  --surface-1: oklch(1 0 0);
+  --surface-2: oklch(0.97 0.004 235);
+  --surface-3: oklch(0.94 0.006 235);
 
-  --card: oklch(0 0 100);
-  --card-foreground: oklch(222.2 84 4.9);
+  --card: var(--surface-1);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface-1);
+  --popover-foreground: var(--foreground);
 
-  --popover: oklch(0 0 100);
-  --popover-foreground: oklch(222.2 84 4.9);
+  --primary: oklch(0.58 0.17 15);
+  --primary-foreground: oklch(0.98 0.004 30);
+  --secondary: oklch(0.94 0.009 240);
+  --secondary-foreground: oklch(0.29 0.03 245);
+  --muted: oklch(0.95 0.007 245);
+  --muted-foreground: oklch(0.5 0.02 250);
+  --accent: oklch(0.9 0.02 236);
+  --accent-foreground: oklch(0.26 0.03 247);
+  --destructive: oklch(0.6 0.19 25);
+  --destructive-foreground: oklch(0.98 0.004 30);
+  --success: oklch(0.67 0.15 152);
+  --success-foreground: oklch(0.13 0.01 160);
+  --warning: oklch(0.8 0.15 83);
+  --warning-foreground: oklch(0.25 0.04 80);
 
-  --primary: oklch(221.2 83.2 53.3);
-  --primary-foreground: oklch(210 40 98);
+  --border: oklch(0.89 0.01 235);
+  --input: oklch(0.93 0.01 236);
+  --ring: oklch(0.62 0.11 18);
+  --radius: 0.85rem;
 
-  --secondary: oklch(210 40 96.1);
-  --secondary-foreground: oklch(222.2 47.4 11.2);
+  --calm-blue: oklch(0.56 0.1 241);
+  --calm-blue-foreground: oklch(0.97 0.005 250);
+  --calm-ink: oklch(0.45 0.04 252);
+  --calm-ink-foreground: oklch(0.95 0.006 250);
+  --calm-red: oklch(0.63 0.17 25);
+  --calm-red-foreground: oklch(0.98 0.004 30);
+  --calm-violet: oklch(0.6 0.13 300);
+  --calm-violet-foreground: oklch(0.98 0.004 290);
 
-  --muted: oklch(210 40 96.1);
-  --muted-foreground: oklch(215.4 16.3 46.9);
+  --font-sans: Geist, "Avenir Next", "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), "SF Mono", Menlo, monospace;
 
-  --accent: oklch(210 40 96.1);
-  --accent-foreground: oklch(222.2 47.4 11.2);
+  --text-xs: clamp(0.75rem, 0.74rem + 0.05vw, 0.8rem);
+  --text-sm: clamp(0.86rem, 0.84rem + 0.1vw, 0.94rem);
+  --text-base: clamp(1rem, 0.97rem + 0.18vw, 1.08rem);
+  --text-lg: clamp(1.1rem, 1.02rem + 0.36vw, 1.3rem);
+  --text-xl: clamp(1.32rem, 1.14rem + 0.6vw, 1.56rem);
+  --text-2xl: clamp(1.6rem, 1.38rem + 1vw, 2rem);
 
-  --destructive: oklch(0 84.2 60.2);
-  --destructive-foreground: oklch(210 40 98);
-
-  --border: oklch(214.3 31.8 91.4);
-  --input: oklch(214.3 31.8 91.4);
-  --ring: oklch(221.2 83.2 53.3);
-
-  --radius: 0.5rem;
-
-  --raisin-black: oklch(240, 15, 13);
-  --cardinal: oklch(348, 67, 45);
-  --silver: oklch(0, 0, 75);
+  --space-1: clamp(0.25rem, 0.18rem + 0.12vw, 0.4rem);
+  --space-2: clamp(0.5rem, 0.35rem + 0.2vw, 0.72rem);
+  --space-3: clamp(0.75rem, 0.58rem + 0.3vw, 1rem);
+  --space-4: clamp(1rem, 0.82rem + 0.5vw, 1.4rem);
+  --space-5: clamp(1.4rem, 1.08rem + 0.8vw, 1.9rem);
+  --space-6: clamp(1.9rem, 1.5rem + 1vw, 2.6rem);
 }
 
 .dark {
-  --background: oklch(222.2 84 4.9);
-  --foreground: oklch(210 40 98);
+  --background: oklch(0.2 0.018 250);
+  --foreground: oklch(0.92 0.008 250);
+  --surface-1: oklch(0.24 0.02 248);
+  --surface-2: oklch(0.29 0.02 247);
+  --surface-3: oklch(0.34 0.02 246);
 
-  --card: oklch(222.2 84 4.9);
-  --card-foreground: oklch(210 40 98);
+  --card: var(--surface-1);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface-2);
+  --popover-foreground: var(--foreground);
 
-  --popover: oklch(222.2 84 4.9);
-  --popover-foreground: oklch(210 40 98);
+  --primary: oklch(0.72 0.12 18);
+  --primary-foreground: oklch(0.2 0.03 250);
+  --secondary: oklch(0.3 0.015 245);
+  --secondary-foreground: oklch(0.92 0.008 250);
+  --muted: oklch(0.29 0.014 246);
+  --muted-foreground: oklch(0.72 0.015 246);
+  --accent: oklch(0.34 0.025 247);
+  --accent-foreground: oklch(0.94 0.008 250);
+  --destructive: oklch(0.7 0.18 27);
+  --destructive-foreground: oklch(0.18 0.02 255);
+  --success: oklch(0.73 0.11 153);
+  --success-foreground: oklch(0.2 0.02 160);
+  --warning: oklch(0.83 0.13 88);
+  --warning-foreground: oklch(0.21 0.03 85);
 
-  --primary: oklch(217.2 91.2 59.8);
-  --primary-foreground: oklch(222.2 47.4 11.2);
+  --border: oklch(0.38 0.02 246);
+  --input: oklch(0.32 0.017 247);
+  --ring: oklch(0.72 0.09 18);
 
-  --secondary: (217.2 32.6 17.5);
-  --secondary-foreground: oklch(210 40 98);
-
-  --muted: oklch(217.2 32.6 17.5);
-  --muted-foreground: oklch(215 20.2 65.1);
-
-  --accent: oklch(217.2 32.6 17.5);
-  --accent-foreground: oklch(210 40 98);
-
-  --destructive: oklch(0 62.8 30.6);
-  --destructive-foreground: oklch(210 40 98);
-
-  --border: oklch(217.2 32.6 17.5);
-  --input: oklch(217.2 32.6 17.5);
-  --ring: oklch(224.3 76.3 48);
+  --calm-blue: oklch(0.7 0.09 242);
+  --calm-blue-foreground: oklch(0.18 0.02 250);
+  --calm-ink: oklch(0.63 0.04 252);
+  --calm-ink-foreground: oklch(0.18 0.02 250);
+  --calm-red: oklch(0.71 0.15 24);
+  --calm-red-foreground: oklch(0.18 0.02 250);
+  --calm-violet: oklch(0.68 0.1 300);
+  --calm-violet-foreground: oklch(0.18 0.02 250);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: Geist, sans-serif;
-  --font-mono: var(--font-geist-mono);
-  /* --card: var(--card);
+  --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
-  --popover: var(--popover);
+  --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
-  --primary: var(--primary);
+  --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --secondary: var(--secondary);
+  --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --muted: var(--muted);
+  --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --accent: var(--accent);
+  --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --destructive: var(--destructive);
+  --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --border: var(--border);
-  --input: var(--input);
-  --ring: var(--ring);
-  --radius: var(--radius); */
-  --color-raisin-black: var(--raisin-black);
-  --color-cardinal: var(--cardinal);
-  --color-silver: var(--silver);
-  --color-accent-foreground: var(--accent-foreground);
-}
-
-@layer base {
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-calm-blue: var(--calm-blue);
+  --color-calm-blue-foreground: var(--calm-blue-foreground);
+  --color-calm-ink: var(--calm-ink);
+  --color-calm-ink-foreground: var(--calm-ink-foreground);
+  --color-calm-red: var(--calm-red);
+  --color-calm-red-foreground: var(--calm-red-foreground);
+  --color-calm-violet: var(--calm-violet);
+  --color-calm-violet-foreground: var(--calm-violet-foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
 @layer base {
   * {
-    border-color: hsl(var(--border));
-    /* @apply border-border outline-ring/50; */
+    @apply border-border;
   }
+
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    @apply bg-background text-foreground antialiased;
+    font-size: var(--text-base);
+    line-height: 1.5;
+  }
+
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring), transparent 45%);
   }
 }
 
 html,
 body {
-  overflow: hidden;
-  height: 100%;
+  min-height: 100%;
   width: 100%;
   margin: 0;
   padding: 0;
+  overflow-x: clip;
 }
 
-@keyframes gradient-shift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-@keyframes spring-bounce {
-  0%,
-  100% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-
-  40% {
-    transform: translate(-10px, 10px) rotate(-8deg);
-  }
-
-  70% {
-    transform: translate(3px, -3px) rotate(3deg);
-  }
-
-  85% {
-    transform: translate(-2px, 2px) rotate(-2deg);
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
   }
 }
 
-.bg-gradient-to-r {
-  background-size: 200% auto;
-  animation: gradient-shift 8s ease infinite;
+.text-fluid-xs {
+  font-size: var(--text-xs);
 }
 
-.text-raisin-black {
-  color: #1d1d27;
+.text-fluid-sm {
+  font-size: var(--text-sm);
 }
 
-.text-cardinal {
-  color: #bf2541;
+.text-fluid-lg {
+  font-size: var(--text-lg);
 }
 
-.text-silver {
-  color: #bfbfbf;
+.text-fluid-xl {
+  font-size: var(--text-xl);
 }
 
-.bg-raisin-black {
-  background-color: #1d1d27;
+.text-fluid-2xl {
+  font-size: var(--text-2xl);
 }
 
-.bg-cardinal {
-  background-color: #bf2541;
+.surface-soft {
+  background: color-mix(in oklch, var(--surface-1), var(--background) 35%);
+  border: 1px solid color-mix(in oklch, var(--border), transparent 10%);
+  box-shadow: 0 10px 32px -18px color-mix(in oklch, var(--foreground), transparent 88%);
 }
 
-.bg-silver {
-  background-color: #bfbfbf;
-}
-
-.border-raisin-black {
-  border-color: #1d1d27;
-}
-
-.border-cardinal {
-  border-color: #bf2541;
-}
-
-.border-silver {
-  border-color: #bfbfbf;
-}
-
-.animate-spring-bounce {
-  animation: spring-bounce 2s ease-in-out infinite;
+.soft-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--border), transparent 68%) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--border), transparent 68%) 1px, transparent 1px);
+  background-size: 26px 26px;
 }

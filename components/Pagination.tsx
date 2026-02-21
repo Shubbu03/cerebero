@@ -18,14 +18,17 @@ export default function Pagination({
   if (totalPages <= 1) return null;
 
   return (
-    <div className={`flex items-center justify-end gap-2 mt-6 ${className}`}>
+    <nav
+      className={`mt-6 flex items-center justify-end gap-2 ${className}`}
+      aria-label="Pagination"
+    >
       <button
         onClick={() => onPageChange(Math.max(currentPage - 1, 1))}
         disabled={currentPage === 1}
-        className={`p-1 rounded-md ${
+        className={`rounded-md p-1 ${
           currentPage === 1
-            ? "text-zinc-600 cursor-not-allowed"
-            : "text-zinc-300 hover:bg-zinc-800"
+            ? "cursor-not-allowed text-muted-foreground/50"
+            : "text-muted-foreground hover:bg-accent"
         }`}
         aria-label="Previous page"
       >
@@ -45,7 +48,10 @@ export default function Pagination({
               (page === totalPages - 1 && currentPage < totalPages - 2)
             ) {
               return (
-                <span key={`ellipsis-${page}`} className="text-zinc-500 px-1">
+                <span
+                  key={`ellipsis-${page}`}
+                  className="px-1 text-muted-foreground"
+                >
                   ...
                 </span>
               );
@@ -57,10 +63,10 @@ export default function Pagination({
             <button
               key={page}
               onClick={() => onPageChange(page)}
-              className={`w-8 h-8 flex items-center justify-center rounded-md text-sm ${
+              className={`flex h-8 w-8 items-center justify-center rounded-md text-sm ${
                 currentPage === page
-                  ? "bg-zinc-700 text-white"
-                  : "text-zinc-400 hover:bg-zinc-800"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent"
               }`}
               aria-label={`Page ${page}`}
               aria-current={currentPage === page ? "page" : undefined}
@@ -74,15 +80,15 @@ export default function Pagination({
       <button
         onClick={() => onPageChange(Math.min(currentPage + 1, totalPages))}
         disabled={currentPage === totalPages}
-        className={`p-1 rounded-md ${
+        className={`rounded-md p-1 ${
           currentPage === totalPages
-            ? "text-zinc-600 cursor-not-allowed"
-            : "text-zinc-300 hover:bg-zinc-800"
+            ? "cursor-not-allowed text-muted-foreground/50"
+            : "text-muted-foreground hover:bg-accent"
         }`}
         aria-label="Next page"
       >
         <IconChevronRight size={20} />
       </button>
-    </div>
+    </nav>
   );
 }

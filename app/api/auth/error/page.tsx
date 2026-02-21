@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -21,18 +21,8 @@ const errorMessages: Record<string, string> = {
 
 function AuthErrorContent() {
   const searchParams = useSearchParams();
-  const [error, setError] = useState<string>("default");
-  const [errorDescription, setErrorDescription] = useState<string | null>(null);
-
-  useEffect(() => {
-    const errorType = searchParams.get("error") || "default";
-    setError(errorType);
-
-    const description = searchParams.get("error_description");
-    if (description) {
-      setErrorDescription(description);
-    }
-  }, [searchParams]);
+  const error = (searchParams.get("error") || "default").toLowerCase();
+  const errorDescription = searchParams.get("error_description");
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

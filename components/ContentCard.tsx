@@ -3,19 +3,20 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
-  IconClock,
-  IconFileText,
   IconBrandX,
   IconBrandYoutube,
-  IconLink,
-  IconCircleArrowUpRight,
+  IconClock,
+  IconFileText,
   IconHeartFilled,
+  IconLink,
   IconShare,
   IconTrash,
 } from "@tabler/icons-react";
 import { UserContent } from "@/app/dashboard/page";
 import { formatDate } from "@/lib/format-date";
 import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { CONTENT_TYPE_ACCENTS } from "@/lib/design/tokens";
 
 type Origin = "Recents" | "Profile_Shared";
 
@@ -27,6 +28,13 @@ interface ContentCardProps {
   onDelete?: (id: string) => void;
 }
 
+const contentTypes = {
+  document: { label: "Document", icon: IconFileText },
+  tweet: { label: "Tweet", icon: IconBrandX },
+  youtube: { label: "YouTube", icon: IconBrandYoutube },
+  link: { label: "Link", icon: IconLink },
+};
+
 export function ContentCard({
   content,
   isLoading,
@@ -35,145 +43,117 @@ export function ContentCard({
   onDelete,
 }: ContentCardProps) {
   const router = useRouter();
-  const contentTypes = [
-    { value: "document", label: "Document", icon: IconFileText },
-    { value: "tweet", label: "Tweet", icon: IconBrandX },
-    { value: "youtube", label: "YouTube", icon: IconBrandYoutube },
-    { value: "link", label: "Link", icon: IconLink },
-  ];
-
   const recentItems = [...content]
     .sort(
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )
-    .slice(0, 5);
+    .slice(0, 6);
 
   const handleCardClick = (contentId: string, event: React.MouseEvent) => {
-    if ((event.target as HTMLElement).closest("a")) {
+    if ((event.target as HTMLElement).closest("a,button")) {
       return;
     }
-
     router.push(`/content/${contentId}`);
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      onDelete?.(id);
-    } catch (error) {
-      console.error("Error deleting content:", error);
-    }
-  };
-
   return (
-    <>
-      <div className="mt-4 p-4 md:p-6 rounded-lg">
-        <div className="flex justify-between items-center mb-4">
-          {origin === "Recents" ? (
-            <div className="flex items-center gap-1">
-              <IconClock className="h-5 w-5" />
-              <h3 className="text-xl font-semibold text-white">Recents</h3>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <IconShare className="h-5 w-5 text-white" />
-              <h3 className="text-xl font-semibold text-white">
-                Recently Shared
-              </h3>
-            </div>
-          )}
+    <section className="mb-6 surface-soft rounded-2xl p-4 sm:p-5">
+      <div className="mb-4 flex items-center justify-between">
+        {origin === "Recents" ? (
+          <h2 className="flex items-center gap-2 text-fluid-lg font-semibold">
+            <IconClock size={18} className="text-primary" />
+            Recents
+          </h2>
+        ) : (
+          <h2 className="flex items-center gap-2 text-fluid-lg font-semibold">
+            <IconShare size={18} className="text-primary" />
+            Recently Shared
+          </h2>
+        )}
 
-          {content.length > 0 && origin == "Recents" && (
-            <Link href="/content" passHref>
-              <Button
-                variant="link"
-                className="text-accent hover:text-accent/80 p-0 h-auto cursor-pointer"
+        {content.length > 0 && origin === "Recents" ? (
+          <Link href="/content">
+            <Button variant="link" className="h-auto p-0 text-sm">
+              View all
+            </Button>
+          </Link>
+        ) : null}
+      </div>
+
+      {isLoading ? (
+        <p className="py-4 text-center text-muted-foreground">Loading items...</p>
+      ) : recentItems.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          {recentItems.map((item) => {
+            const typeKey = item.type as keyof typeof contentTypes;
+            const config = contentTypes[typeKey] ?? contentTypes.document;
+            const Icon = config.icon;
+            const accentClass =
+              CONTENT_TYPE_ACCENTS[item.type] ?? CONTENT_TYPE_ACCENTS.document;
+
+            return (
+              <article
+                key={item.id}
+                onClick={(event) => handleCardClick(item.id, event)}
+                className="group relative flex min-h-[176px] cursor-pointer flex-col rounded-xl border border-border/80 bg-card p-3.5 transition hover:-translate-y-0.5 hover:border-border hover:shadow-md"
               >
-                View More
-              </Button>
-            </Link>
-          )}
-        </div>
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <Badge className={`gap-1.5 ${accentClass}`}>
+                    <Icon size={13} />
+                    {config.label}
+                  </Badge>
+                  {item.type !== "document" && item.url ? (
+                    <Link
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-md p-1 text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <IconLink size={16} />
+                    </Link>
+                  ) : null}
+                </div>
 
-        {isLoading ? (
-          <p className="text-gray-400 text-center py-4">Loading items...</p>
-        ) : recentItems.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-5">
-            {" "}
-            {recentItems.map((item) => {
-              const contentType =
-                contentTypes.find((type) => type.value === item.type) ||
-                contentTypes[0];
-              const IconComponent = contentType.icon;
+                <p className="line-clamp-2 text-sm font-medium text-foreground">
+                  {item.title || "Untitled"}
+                </p>
+                {item.body ? (
+                  <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
+                    {item.body}
+                  </p>
+                ) : null}
 
-              return (
-                <div
-                  key={item.id}
-                  className="bg-[#27272A] p-4 rounded-2xl border border-transparent hover:border-gray-600/80 transition-all duration-200 ease-in-out cursor-pointer flex flex-col min-h-[150px] shadow-sm relative overflow-hidden"
-                  onClick={(e) => handleCardClick(item.id, e)}
-                >
-                  <div className="absolute top-0 right-0 w-28 h-28 rounded-full bg-gradient-to-br from-white/20 to-transparent opacity-25 blur-md transform translate-x-4 -translate-y-4"></div>
-                  <div className="absolute top-2 right-2 w-12 h-12 rounded-full bg-gradient-to-br from-white/25 to-transparent opacity-20 blur-sm"></div>
-
-                  <div className="flex justify-between mb-3 relative z-10">
-                    <IconComponent size={24} className="text-gray-400" />
-                    {item.type !== "document" ? (
-                      <Link
-                        href={item.url || "#"}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <IconCircleArrowUpRight
-                          size={18}
-                          className="text-gray-400 transition-transform duration-200 hover:scale-125"
-                        />
-                      </Link>
+                <div className="mt-auto flex items-center justify-between pt-4">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-2 text-[11px] font-semibold text-foreground">
+                      {username ? username.charAt(0).toUpperCase() : "U"}
+                    </div>
+                    <span>{formatDate(item.created_at)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      className="rounded-md p-1 text-muted-foreground transition hover:bg-accent hover:text-destructive"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDelete?.(item.id);
+                      }}
+                    >
+                      <IconTrash size={15} />
+                    </button>
+                    {item.is_favourite ? (
+                      <IconHeartFilled size={15} className="text-primary" />
                     ) : null}
                   </div>
-
-                  <div className="flex-grow mb-2 relative z-10">
-                    {" "}
-                    <p
-                      className="text-sm font-medium text-gray-100 line-clamp-3"
-                      title={item.title || "Untitled"}
-                    >
-                      {item.title || "Untitled"}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between mt-auto pt-1 relative z-10">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center shadow-inner">
-                        <span className="text-xs font-medium text-gray-300">
-                          {username ? username.charAt(0).toUpperCase() : "U"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-400">
-                        {formatDate(item.created_at)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <IconTrash
-                        size={18}
-                        className="text-gray-400 hover:text-rose-400 cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(item.id);
-                        }}
-                      />
-                      {item.is_favourite && (
-                        <IconHeartFilled size={18} className="text-gray-400" />
-                      )}
-                    </div>
-                  </div>
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-gray-400 text-center py-4">No items found.</p>
-        )}
-      </div>
-    </>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="py-6 text-center text-muted-foreground">No items found.</p>
+      )}
+    </section>
   );
 }

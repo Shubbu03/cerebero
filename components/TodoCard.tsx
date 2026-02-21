@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { IconTrash, IconEyeOff, IconEye, IconBrain } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
-import axios from "axios";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { notify } from "@/lib/notify";
 import { useSession } from "next-auth/react";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api/client";
 
 interface TodoItem {
   id: string;
@@ -31,7 +31,7 @@ function TodoItemComponent({
   return (
     <div
       className={cn(
-        "flex items-center justify-between bg-background/20 border border-gray-700/40 rounded-lg px-3 py-2 mb-2 hover:border-gray-600/80 transition-all duration-200 ease-in-out",
+        "mb-2 flex items-center justify-between rounded-lg border border-border/70 bg-card px-3 py-2 transition",
         minimalist && "bg-transparent border-none px-1 py-1"
       )}
     >
@@ -57,7 +57,7 @@ function TodoItemComponent({
         <Button
           size="icon"
           variant="ghost"
-          className="text-gray-400 hover:text-red-400 hover:bg-destructive/10 w-7 h-7 cursor-pointer"
+          className="h-8 w-8 cursor-pointer text-muted-foreground hover:bg-accent hover:text-destructive"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(todo.id);
@@ -72,14 +72,15 @@ function TodoItemComponent({
 
 const fetchUserTodos = async () => {
   try {
-    const response = await axios.get("/api/todos");
-    if (response.data?.todo) {
-      const fetchedTodos: TodoItem[] = response.data.todo;
+    const response = await apiGet<{ todo: TodoItem[] }>("/api/todos");
+    if (response.todo) {
+      const fetchedTodos = response.todo;
       fetchedTodos.sort((a, b) => {
         return Number(a.completed) - Number(b.completed);
       });
       return fetchedTodos;
     }
+    return [];
   } catch (error) {
     notify("Error fetching user todo:", "error");
     throw error;
@@ -102,7 +103,7 @@ export default function TodoCard() {
     if (newTodo.trim() === "" || !todos.data || todos.data.length >= 3) return;
 
     try {
-      await axios.post("/api/todos", {
+      await apiPost("/api/todos", {
         title: newTodo.trim(),
       });
       setNewTodo("");
@@ -118,7 +119,7 @@ export default function TodoCard() {
 
   const handleDelete = async (id: string) => {
     try {
-      await axios.delete("/api/todos", {
+      await apiDelete("/api/todos", {
         data: { id },
       });
       await queryClient.invalidateQueries({
@@ -133,7 +134,7 @@ export default function TodoCard() {
 
   const toggleComplete = async (id: string) => {
     try {
-      await axios.patch("/api/todos", { id });
+      await apiPatch("/api/todos", { id });
       await queryClient.invalidateQueries({
         queryKey: ["todos", userID],
       });
@@ -151,18 +152,16 @@ export default function TodoCard() {
   };
 
   return (
-    <div className="w-full max-w-full mx-auto space-y-4 p-6">
-      <div className="flex flex-row items-center justify-between pb-2">
+    <section className="surface-soft w-full space-y-4 rounded-2xl p-4 sm:p-5">
+      <div className="flex flex-row items-center justify-between border-b border-border/70 pb-3">
         <div className="flex items-center gap-2">
-          <IconBrain className={"h-5 w-5 text-white"} />
-          <h2 className={"text-xl font-semibold text-white"}>
-            Focus for Today
-          </h2>
+          <IconBrain className={"h-5 w-5 text-primary"} />
+          <h2 className={"text-fluid-lg font-semibold"}>Focus for Today</h2>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setMinimalist((m) => !m)}
-            className="text-gray-400 hover:text-gray-200 w-5 h-5 cursor-pointer"
+            className="h-8 w-8 cursor-pointer text-muted-foreground hover:text-foreground"
           >
             {minimalist ? <IconEyeOff size={18} /> : <IconEye size={18} />}
           </Button>
@@ -189,7 +188,7 @@ export default function TodoCard() {
               <>
                 <Input
                   placeholder="Add a focus item..."
-                  className="text-sm bg-background/20 border-gray-700/40 text-gray-200 placeholder:text-gray-500 h-9"
+                  className="h-10 text-sm"
                   value={newTodo}
                   onChange={(e) => setNewTodo(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -197,7 +196,7 @@ export default function TodoCard() {
                 <Button
                   onClick={handleAdd}
                   variant="secondary"
-                  className="shrink-0 bg-gray-700/60 hover:bg-gray-700/80 text-gray-200 h-9 px-3 cursor-pointer"
+                  className="h-10 shrink-0 cursor-pointer px-3"
                 >
                   Add
                 </Button>
@@ -207,16 +206,16 @@ export default function TodoCard() {
         )}
 
         {!minimalist && todos.data && todos.data.length >= 0 && (
-          <p className="text-md text-gray-400 italic mt-2 text-center">
+          <p className="mt-2 text-center text-sm italic text-muted-foreground">
             Focus on your top 3 priorities.
           </p>
         )}
         {minimalist && todos.data && todos.data.length === 0 && (
-          <p className="text-md text-gray-500 italic mt-2 text-center">
+          <p className="mt-2 text-center text-sm italic text-muted-foreground">
             Add a focus item
           </p>
         )}
       </div>
-    </div>
+    </section>
   );
 }

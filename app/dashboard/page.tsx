@@ -4,43 +4,40 @@ import { useState } from "react";
 import { IconPlus } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import AddContentModal from "@/components/AddContentModal";
-import axios from "axios";
 import AddHintArrow from "@/components/background/AddButtonGuide";
 import { useSession } from "next-auth/react";
-import { DynamicHeader } from "@/components/DynamicHeader";
 import { ContentCard } from "@/components/ContentCard";
 import TodoCard from "@/components/TodoCard";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { notify } from "@/lib/notify";
+import { apiDelete, apiGet } from "@/lib/api/client";
+import { UserContentDTO, UserContentListResponse } from "@/lib/api/types";
+import {
+  PageContainer,
+  PageShell,
+  SectionHeader,
+} from "@/components/layout/PageShell";
 
-export interface UserContent {
-  body: string;
-  id: string;
-  created_at: string;
-  is_shared: boolean;
-  share_id: string;
-  title: string;
-  type: string;
-  url: string;
-  user_id: string;
-  is_favourite: boolean;
-  updated_at: string;
-}
+export type UserContent = UserContentDTO;
 
 const fetchUserContent = async () => {
   try {
-    const response = await axios.get<{ data: UserContent[] }>(
-      "/api/get-content"
-    );
-    if (response && response.data) {
-      return response.data.data || [];
-    } else {
-      return [];
+    const response = await apiGet<UserContentListResponse>("/api/get-content");
+    if (response) {
+      return response.data || [];
     }
+    return [];
   } catch (error) {
     notify("Error fetching user content", "error");
     throw error;
   }
+};
+
+const getGreeting = (name: string) => {
+  const hour = new Date().getHours();
+  if (hour < 12) return `Good morning, ${name}`;
+  if (hour < 18) return `Good afternoon, ${name}`;
+  return `Good evening, ${name}`;
 };
 
 export default function Dashboard() {
@@ -50,7 +47,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
 
   const userContent = useSuspenseQuery({
-    queryKey: ["userContent", userID, "favourites"],
+    queryKey: ["userContent", userID],
     queryFn: fetchUserContent,
   });
 
@@ -61,7 +58,7 @@ export default function Dashboard() {
 
   const handleContentDelete = async (id: string) => {
     try {
-      await axios.delete(`/api/delete-content/${id}`);
+      await apiDelete(`/api/delete-content/${id}`);
       await queryClient.invalidateQueries({
         queryKey: ["userContent", userID],
       });
@@ -78,27 +75,29 @@ export default function Dashboard() {
 
       <Button
         id="add-content-button"
-        className="fixed bottom-4 right-4 rounded-full w-12 h-12 p-0 bg-accent-foreground text-white cursor-pointer transition-transform duration-300 ease-in-out
-                   hover:scale-125"
+        className="fixed bottom-24 right-4 z-30 h-12 w-12 rounded-full shadow-lg sm:bottom-6 sm:right-6"
         onClick={() => setModalOpen(true)}
         aria-label="Add new content"
       >
         <IconPlus className="h-6 w-6" />
       </Button>
 
-      <main className="p-4 md:p-6 text-white">
-        <div className="flex justify-center">
-          <DynamicHeader userName={firstName || ""} />
-        </div>
-        <ContentCard
-          content={userContent.data}
-          isLoading={userContent.isLoading}
-          username={firstName}
-          origin="Recents"
-          onDelete={handleContentDelete}
-        />
-        <TodoCard />
-      </main>
+      <PageShell>
+        <PageContainer>
+          <SectionHeader
+            title={firstName ? getGreeting(firstName) : "Your workspace"}
+            subtitle="Capture, review, and organize your saved context."
+          />
+          <ContentCard
+            content={userContent.data}
+            isLoading={userContent.isLoading}
+            username={firstName}
+            origin="Recents"
+            onDelete={handleContentDelete}
+          />
+          <TodoCard />
+        </PageContainer>
+      </PageShell>
 
       <AddContentModal open={modalOpen} onOpenChange={setModalOpen} />
     </>

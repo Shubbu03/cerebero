@@ -1,22 +1,22 @@
 "use client";
 
-import { DynamicHeader } from "@/components/DynamicHeader";
-import axios from "axios";
 import { useSession } from "next-auth/react";
 import { ContentDetailCard } from "@/components/ContentDetailCard";
 import { notify } from "@/lib/notify";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { apiDelete, apiGet } from "@/lib/api/client";
+import { UserContentListResponse } from "@/lib/api/types";
+import {
+  PageContainer,
+  PageShell,
+  SectionHeader,
+} from "@/components/layout/PageShell";
+import { UserContent } from "@/app/dashboard/page";
 
-const fetchFavouriteContent = async () => {
+const fetchFavouriteContent = async (): Promise<UserContent[]> => {
   try {
-    const response = await axios.get("/api/view-favourites");
-    if (response) {
-      if (response && response.data) {
-        return response.data.data || [];
-      } else {
-        return [];
-      }
-    }
+    const response = await apiGet<UserContentListResponse>("/api/view-favourites");
+    return response.data || [];
   } catch (error) {
     notify("Error occured while fetcing favourites", "error");
     throw error;
@@ -37,7 +37,7 @@ export default function Favourites() {
 
   const handleContentDelete = async (id: string) => {
     try {
-      await axios.delete(`/api/delete-content/${id}`);
+      await apiDelete(`/api/delete-content/${id}`);
       await queryClient.invalidateQueries({
         queryKey: ["favourites", session.data?.user?.id],
       });
@@ -50,18 +50,21 @@ export default function Favourites() {
 
   return (
     <>
-      <main className="p-4 md:p-6 text-white">
-        <div className="flex justify-center">
-          <DynamicHeader userName={firstName || ""} />
-        </div>
-        <ContentDetailCard
-          content={favData.data}
-          isLoading={favData.isLoading}
-          username={firstName}
-          origin="Favourites"
-          onDelete={handleContentDelete}
-        />
-      </main>
+      <PageShell>
+        <PageContainer>
+          <SectionHeader
+            title={firstName ? `${firstName}'s favourites` : "Favourites"}
+            subtitle="Pinned references you return to frequently."
+          />
+          <ContentDetailCard
+            content={favData.data}
+            isLoading={favData.isLoading}
+            username={firstName}
+            origin="Favourites"
+            onDelete={handleContentDelete}
+          />
+        </PageContainer>
+      </PageShell>
     </>
   );
 }

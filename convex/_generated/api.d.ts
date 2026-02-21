@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as content from "../content.js";
 import type * as tags from "../tags.js";
 import type * as todos from "../todos.js";
 import type * as users from "../users.js";
@@ -19,6 +20,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  content: typeof content;
   tags: typeof tags;
   todos: typeof todos;
   users: typeof users;

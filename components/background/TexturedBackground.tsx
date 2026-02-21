@@ -3,6 +3,7 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 
 interface TexturedBackgroundProps {
   className?: string;
@@ -25,15 +26,37 @@ export function TexturedBackground({
 }: TexturedBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
+  const hasMounted = useHasMounted();
+  const [renderCanvas, setRenderCanvas] = useState(true);
 
   useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
+    if (!hasMounted) return;
+
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const mobileQuery = window.matchMedia("(max-width: 767px)");
+
+    const syncCapability = () => {
+      setRenderCanvas(!(motionQuery.matches || mobileQuery.matches));
+    };
+
+    syncCapability();
+    motionQuery.addEventListener("change", syncCapability);
+    mobileQuery.addEventListener("change", syncCapability);
+
+    return () => {
+      motionQuery.removeEventListener("change", syncCapability);
+      mobileQuery.removeEventListener("change", syncCapability);
+    };
+  }, [hasMounted]);
 
   useEffect(() => {
-    if (!canvasRef.current || !containerRef.current || !mounted) return;
+    if (
+      !canvasRef.current ||
+      !containerRef.current ||
+      !hasMounted ||
+      !renderCanvas
+    )
+      return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -130,15 +153,19 @@ export function TexturedBackground({
         cancelAnimationFrame(animationFrame);
       }
     };
-  }, [color, intensity, animated, dotPattern, mounted]);
+  }, [color, intensity, animated, dotPattern, hasMounted, renderCanvas]);
 
   return (
     <Component ref={containerRef} className={cn("relative", className)}>
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{ opacity: 0.9 }}
-      />
+      {renderCanvas ? (
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ opacity: 0.9 }}
+        />
+      ) : (
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,oklch(0.7_0.06_18_/_0.12),transparent_58%)]" />
+      )}
       <div className="relative z-10">{children}</div>
     </Component>
   );
