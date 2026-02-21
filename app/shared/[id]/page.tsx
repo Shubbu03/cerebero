@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import axios from "axios";
 import { TexturedBackground } from "@/components/background/TexturedBackground";
@@ -18,17 +17,14 @@ import { Badge } from "@/components/ui/badge";
 import dynamic from "next/dynamic";
 import { UserContent } from "@/app/dashboard/page";
 import { useQuery } from "@tanstack/react-query";
+import { useHasMounted } from "@/lib/hooks/use-has-mounted";
 
 const Loading = dynamic(() => import("@/components/ui/loading"), {
   ssr: false,
 });
 
 const ClientOnly = ({ children }: { children: React.ReactNode }) => {
-  const [hasMounted, setHasMounted] = useState(false);
-
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
+  const hasMounted = useHasMounted();
 
   if (!hasMounted) {
     return null;

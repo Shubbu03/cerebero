@@ -1,319 +1,266 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import axios from "axios";
-import { Command } from "cmdk";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  IconFile,
-  IconTag,
-  IconSearch,
-  IconHeartFilled,
   IconBrain,
+  IconFile,
+  IconHeartFilled,
+  IconSearch,
+  IconTag,
 } from "@tabler/icons-react";
-import { Button } from "./ui/button";
-import Loading from "./ui/loading";
-import { Switch } from "./ui/switch";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
+import { apiGet } from "@/lib/api/client";
+import { SearchResultDTO } from "@/lib/api/types";
 
-type SearchResultType = "content" | "tag";
-
-interface SearchResult {
-  id: string;
-  type: SearchResultType;
-  title: string;
-  description?: string | null;
-  url: string;
-  contentType?: string;
-  isFavourite?: boolean;
+interface SearchBarProps {
+  compact?: boolean;
 }
 
-export function SearchBar() {
+export function SearchBar({ compact = false }: SearchBarProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<SearchResultDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasAttempted, setHasAttempted] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(false);
-  const [aiSearchExecuted, setAiSearchExecuted] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  const performSearch = useCallback(
-    async (searchQuery: string, useAi: boolean = false) => {
-      if (!searchQuery.trim()) {
-        setResults([]);
-        return;
-      }
-
-      setIsLoading(true);
-      try {
-        const response = await axios.get(`/api/search`, {
-          params: {
-            q: searchQuery,
-            ai: useAi,
-          },
-          timeout: 5000,
-        });
-        setResults(response.data.results || []);
-        if (useAi) {
-          setAiSearchExecuted(true);
-        }
-      } catch (error) {
-        console.error("Search error:", error);
-        setResults([]);
-        if (useAi) {
-          setAiSearchExecuted(true);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    []
+  const contentResults = useMemo(
+    () => results.filter((item) => item.type === "content"),
+    [results]
   );
-
-  const debouncedSearch = useCallback(
-    debounce((value: unknown) => {
-      if (typeof value === "string" && !aiEnabled) {
-        performSearch(value, false);
-      } else if (typeof value !== "string") {
-        console.error("Debounced search received non-string value:", value);
-        performSearch("", false);
-      }
-    }, 300),
-    [performSearch, aiEnabled]
+  const tagResults = useMemo(
+    () => results.filter((item) => item.type === "tag"),
+    [results]
   );
 
   useEffect(() => {
-    if (open && !aiEnabled) {
-      debouncedSearch(query);
-    }
-  }, [query, open, debouncedSearch, aiEnabled]);
-
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen((open) => !open);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setOpen((prev) => !prev);
       }
-
-      if (e.key === "Escape" && open) {
-        e.preventDefault();
+      if (event.key === "Escape" && open) {
         setOpen(false);
-      }
-
-      if (e.key === "Enter" && open && aiEnabled && query.trim()) {
-        e.preventDefault();
-        performSearch(query, true);
       }
     };
 
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, [open, aiEnabled, query, performSearch]);
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   useEffect(() => {
-    if (open && inputRef.current) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 10);
+    if (!open || aiEnabled) {
+      return;
     }
-  }, [open]);
+
+    if (!query.trim()) {
+      setResults([]);
+      setHasAttempted(false);
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      setIsLoading(true);
+      setHasAttempted(true);
+      try {
+        const data = await apiGet<{ results: SearchResultDTO[] }>("/api/search", {
+          params: { q: query, ai: false },
+        });
+        setResults(data.results || []);
+      } catch (error) {
+        console.error("Search failed:", error);
+        setResults([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 280);
+
+    return () => clearTimeout(timeout);
+  }, [open, query, aiEnabled]);
 
   useEffect(() => {
     if (!open) {
       setQuery("");
       setResults([]);
-      setAiSearchExecuted(false);
+      setHasAttempted(false);
+      setAiEnabled(false);
     }
   }, [open]);
 
-  const handleSelect = (result: SearchResult) => {
+  const runAiSearch = async () => {
+    if (!query.trim()) {
+      return;
+    }
+
+    setIsLoading(true);
+    setHasAttempted(true);
+    try {
+      const data = await apiGet<{ results: SearchResultDTO[] }>("/api/search", {
+        params: { q: query, ai: true },
+      });
+      setResults(data.results || []);
+    } catch (error) {
+      console.error("AI search failed:", error);
+      setResults([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSelect = (item: SearchResultDTO) => {
     setOpen(false);
-    window.open(result.url, "_blank");
+    if (item.url.startsWith("http")) {
+      window.open(item.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    router.push(item.url);
   };
 
-  const toggleAi = () => {
-    setAiEnabled(!aiEnabled);
-    setResults([]);
-    setAiSearchExecuted(false);
-  };
-
-  const contentResults = results.filter((item) => item.type === "content");
-  const tagResults = results.filter((item) => item.type === "tag");
-
-  const getIcon = (result: SearchResult) => {
+  const renderIcon = (result: SearchResultDTO) => {
     if (result.type === "tag") {
-      return <IconTag className="mr-2 h-4 w-4 shrink-0" />;
+      return <IconTag size={16} className="text-muted-foreground" />;
     }
-
     if (result.isFavourite) {
-      return (
-        <IconHeartFilled className="mr-2 h-4 w-4 shrink-0 text-rose-500" />
-      );
+      return <IconHeartFilled size={16} className="text-primary" />;
     }
-
-    return <IconFile className="mr-2 h-4 w-4 shrink-0" />;
+    return <IconFile size={16} className="text-muted-foreground" />;
   };
 
   return (
     <>
       <Button
         variant="outline"
-        className="text-white border-white/20 bg-white/10 hover:bg-white/20"
+        className={
+          compact
+            ? "h-10 w-10 rounded-full border-border/70 bg-card/65 p-0 text-muted-foreground hover:bg-accent"
+            : "h-10 min-w-[220px] justify-start rounded-xl border-border/70 bg-card/65 text-muted-foreground hover:bg-accent"
+        }
         onClick={() => setOpen(true)}
+        aria-label="Search"
       >
-        <IconSearch className="h-4 w-4 mr-2" />
-        Search...
-        <kbd className="ml-2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-white/20 bg-white/10 px-1.5 font-mono text-[10px] font-medium text-white opacity-100">
-          <span className="text-xs">⌘</span>K
-        </kbd>
+        <IconSearch size={16} className={compact ? "" : "mr-2"} />
+        {!compact ? (
+          <>
+            <span className="text-sm">Search content…</span>
+            <kbd className="ml-auto rounded border border-border/70 bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
+              ⌘K
+            </kbd>
+          </>
+        ) : null}
       </Button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-            <Command
-              className="rounded-lg border border-gray-200 bg-white shadow-md dark:border-gray-700 dark:bg-gray-800 overflow-hidden"
-              shouldFilter={false}
-            >
-              <div className="flex items-center border-b border-gray-200 dark:border-gray-700 px-3">
-                <IconSearch className="mr-2 h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" />
-                <Command.Input
-                  ref={inputRef}
-                  value={query}
-                  onValueChange={setQuery}
-                  placeholder={
-                    aiEnabled
-                      ? "Type and press Return/Enter for AI search"
-                      : "Search content, tags..."
-                  }
-                  className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white"
-                />
-                <div className="flex items-center ml-2 space-x-2">
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={aiEnabled}
-                      onCheckedChange={toggleAi}
-                      id="ai-toggle"
-                      className="data-[state=checked]:bg-blue-500 cursor-pointer"
-                    />
-                    {aiEnabled ? (
-                      <IconBrain className="h-4 w-4 text-blue-500" />
-                    ) : (
-                      <IconBrain className="h-4 w-4 text-black" />
-                    )}
-                  </div>
-                </div>
-              </div>
-              <Command.List className="max-h-[300px] overflow-y-auto p-1">
-                {isLoading ? (
-                  <div className="p-4 space-y-3">
-                    <Loading text="Searching..." />
-                  </div>
-                ) : (
-                  <>
-                    {query.trim() && results.length === 0 && !aiEnabled && (
-                      <Command.Empty className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                        No results found.
-                      </Command.Empty>
-                    )}
-
-                    {query.trim() &&
-                      results.length === 0 &&
-                      aiEnabled &&
-                      !aiSearchExecuted && (
-                        <div className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                          <p>AI search is enabled.</p>
-                          <p className="font-medium text-blue-500">
-                            Press Return/Enter to search with AI
-                          </p>
-                        </div>
-                      )}
-
-                    {query.trim() &&
-                      results.length === 0 &&
-                      aiEnabled &&
-                      aiSearchExecuted && (
-                        <Command.Empty className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                          No results found.
-                        </Command.Empty>
-                      )}
-
-                    {!query.trim() && (
-                      <div className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                        {aiEnabled
-                          ? "Type your query and press Return/Enter to search with AI"
-                          : "Type to start searching..."}
-                      </div>
-                    )}
-
-                    {contentResults.length > 0 && (
-                      <Command.Group
-                        heading="Content"
-                        className="px-2 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-400"
-                      >
-                        {contentResults.map((result) => (
-                          <Command.Item
-                            key={result.id}
-                            onSelect={() => handleSelect(result)}
-                            className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-gray-100 dark:aria-selected:bg-gray-700"
-                          >
-                            {getIcon(result)}
-                            <div className="flex flex-col overflow-hidden">
-                              <span className="font-medium truncate dark:text-white">
-                                {result.title}
-                              </span>
-                              {result.description && (
-                                <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                  {result.description}
-                                </span>
-                              )}
-                            </div>
-                          </Command.Item>
-                        ))}
-                      </Command.Group>
-                    )}
-
-                    {tagResults.length > 0 && (
-                      <>
-                        {contentResults.length > 0 && (
-                          <div className="my-1 h-px bg-gray-200 dark:bg-gray-700" />
-                        )}
-                        <Command.Group
-                          heading="Tags"
-                          className="px-2 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-400"
-                        >
-                          {tagResults.map((result) => (
-                            <Command.Item
-                              key={result.id}
-                              onSelect={() => handleSelect(result)}
-                              className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-gray-100 dark:aria-selected:bg-gray-700"
-                            >
-                              {getIcon(result)}
-                              <span className="dark:text-white">
-                                {result.title}
-                              </span>
-                            </Command.Item>
-                          ))}
-                        </Command.Group>
-                      </>
-                    )}
-                  </>
-                )}
-              </Command.List>
-            </Command>
+      <CommandDialog open={open} onOpenChange={setOpen}>
+        <div className="flex items-center gap-3 border-b border-border/70 px-4 pb-3 pt-3">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Switch
+              checked={aiEnabled}
+              onCheckedChange={setAiEnabled}
+              aria-label="Toggle AI search"
+            />
+            <IconBrain
+              size={14}
+              className={aiEnabled ? "text-primary" : "text-muted-foreground"}
+            />
+            <span>AI mode</span>
           </div>
+          {aiEnabled ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="ml-auto rounded-lg"
+              onClick={runAiSearch}
+              disabled={isLoading || !query.trim()}
+            >
+              Search
+            </Button>
+          ) : null}
         </div>
-      )}
+
+        <CommandInput
+          value={query}
+          onValueChange={setQuery}
+          onKeyDown={(event) => {
+            if (aiEnabled && event.key === "Enter") {
+              event.preventDefault();
+              runAiSearch();
+            }
+          }}
+          placeholder={
+            aiEnabled
+              ? "Type query and press Search for semantic results"
+              : "Search title, body, tags"
+          }
+        />
+        <CommandList>
+          {isLoading ? (
+            <div className="p-4 text-sm text-muted-foreground">Searching…</div>
+          ) : null}
+
+          {!isLoading && !query.trim() ? (
+            <div className="p-4 text-sm text-muted-foreground">
+              Start typing to search your knowledge base.
+            </div>
+          ) : null}
+
+          {!isLoading && hasAttempted && query.trim() && results.length === 0 ? (
+            <CommandEmpty>No results found.</CommandEmpty>
+          ) : null}
+
+          {contentResults.length > 0 ? (
+            <CommandGroup heading="Content">
+              {contentResults.map((result) => (
+                <CommandItem
+                  key={result.id}
+                  onSelect={() => handleSelect(result)}
+                  className="cursor-pointer gap-2 rounded-md"
+                >
+                  {renderIcon(result)}
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{result.title}</p>
+                    {result.description ? (
+                      <p className="truncate text-xs text-muted-foreground">
+                        {result.description}
+                      </p>
+                    ) : null}
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ) : null}
+
+          {contentResults.length > 0 && tagResults.length > 0 ? (
+            <CommandSeparator />
+          ) : null}
+
+          {tagResults.length > 0 ? (
+            <CommandGroup heading="Tags">
+              {tagResults.map((result) => (
+                <CommandItem
+                  key={result.id}
+                  onSelect={() => handleSelect(result)}
+                  className="cursor-pointer gap-2 rounded-md"
+                >
+                  {renderIcon(result)}
+                  <span className="text-sm">{result.title}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ) : null}
+        </CommandList>
+      </CommandDialog>
     </>
   );
-}
-
-function debounce<F extends (...args: unknown[]) => unknown>(
-  func: F,
-  wait: number
-) {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-
-  return ((...args: Parameters<F>) => {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  }) as (...args: Parameters<F>) => ReturnType<F>;
 }

@@ -27,26 +27,26 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { type UserContent } from "@/app/dashboard/page";
 import {
-  IconLink,
-  IconHeart,
-  IconShare,
-  IconExternalLink,
-  IconCalendar,
   IconAlertTriangle,
-  IconPencil,
-  IconDeviceFloppy,
-  IconX,
-  IconPlus,
-  IconTag,
   IconArrowLeft,
-  IconCopy,
+  IconCalendar,
   IconCheck,
+  IconCopy,
+  IconDeviceFloppy,
+  IconExternalLink,
+  IconHeart,
+  IconLink,
+  IconPencil,
+  IconPlus,
+  IconShare,
+  IconTag,
+  IconX,
 } from "@tabler/icons-react";
 import { formatDate } from "@/lib/format-date";
 import { getContentTypeIcon, getContentTypeName } from "@/lib/content-funcs";
@@ -55,6 +55,8 @@ import { Switch } from "@/components/ui/switch";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { notify } from "@/lib/notify";
+import { CONTENT_TYPE_ACCENTS } from "@/lib/design/tokens";
+import { PageContainer, PageShell } from "@/components/layout/PageShell";
 
 export interface Tag {
   id: string;
@@ -104,11 +106,13 @@ export default function ContentDetail() {
       url: "",
       body: "",
     },
+    mode: "onChange",
   });
 
   const resetEditState = useCallback(() => {
     setIsEditing(false);
     setIsSaving(false);
+
     if (content) {
       form.reset({
         title: content.title || "",
@@ -116,62 +120,57 @@ export default function ContentDetail() {
         url: content.url || "",
         body: content.body || "",
       });
-    } else {
-      form.reset({
-        title: "",
-        type: "",
-        url: "",
-        body: "",
-      });
+      return;
     }
+
+    form.reset({
+      title: "",
+      type: "",
+      url: "",
+      body: "",
+    });
   }, [content, form]);
 
-  useEffect(() => {
-    if (contentId) {
-      fetchContentDetails(contentId);
-      fetchContentTags(contentId);
-    }
-  }, [contentId]);
-
-  useEffect(() => {
-    if (content) {
-      resetEditState();
-    }
-  }, [content, resetEditState]);
-
-  const fetchContentDetails = async (id: string) => {
-    setIsLoading(true);
-    setContent(null);
-    resetEditState();
-    try {
-      const response = await axios.get<{ data: UserContent }>(
-        `/api/get-content/${id}`
-      );
-      if (response?.data?.data) {
-        setContent(response.data.data);
-        setIsFavorite(response.data.data.is_favourite || false);
-        form.reset({
-          title: response.data.data.title || "",
-          type: response.data.data.type || "",
-          url: response.data.data.url || "",
-          body: response.data.data.body || "",
-        });
-      } else {
-        console.error(
-          "Error fetching content details: Invalid response structure",
-          response
-        );
-        setContent(null);
-      }
-    } catch (err: unknown) {
-      console.error("Error fetching content details:", err);
+  const fetchContentDetails = useCallback(
+    async (id: string) => {
+      setIsLoading(true);
       setContent(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      resetEditState();
 
-  const fetchContentTags = async (id: string) => {
+      try {
+        const response = await axios.get<{ data: UserContent }>(
+          `/api/get-content/${id}`
+        );
+        const contentData = response?.data?.data;
+
+        if (!contentData) {
+          console.error(
+            "Error fetching content details: Invalid response structure",
+            response
+          );
+          setContent(null);
+          return;
+        }
+
+        setContent(contentData);
+        setIsFavorite(contentData.is_favourite || false);
+        form.reset({
+          title: contentData.title || "",
+          type: contentData.type || "",
+          url: contentData.url || "",
+          body: contentData.body || "",
+        });
+      } catch (err: unknown) {
+        console.error("Error fetching content details:", err);
+        setContent(null);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [form, resetEditState]
+  );
+
+  const fetchContentTags = useCallback(async (id: string) => {
     setIsLoadingTags(true);
     try {
       const response = await axios.get<{ data: Tag[] }>(
@@ -192,70 +191,96 @@ export default function ContentDetail() {
     } finally {
       setIsLoadingTags(false);
     }
-  };
+  }, []);
 
-  const addTag = async () => {
-    const name = newTagValue.trim();
-    if (!name || isAddingTag) return;
+  useEffect(() => {
+    if (!contentId) return;
+    fetchContentDetails(contentId);
+    fetchContentTags(contentId);
+  }, [contentId, fetchContentDetails, fetchContentTags]);
 
-    setIsAddingTag(true);
-    try {
-      const response = await axios.post("/api/tags", { name });
-      if (response?.data) {
-        setTags((prev) => [...prev, response.data]);
-        await axios.post("/api/edit-content-tags", {
-          contentID: contentId,
-          tagID: response.data.id,
-        });
-        setNewTagValue("");
-      } else {
-        console.error("Add tag failed");
-      }
-    } catch (err) {
-      console.error("Error adding tag:", err);
-    } finally {
-      setIsAddingTag(false);
+  useEffect(() => {
+    if (content) {
+      resetEditState();
     }
-  };
+  }, [content, resetEditState]);
 
-  const fetchTagSuggestions = async () => {
+  const fetchTagSuggestions = useCallback(async () => {
     setIsLoadingSuggestions(true);
     try {
-      const response = await axios.get("/api/tags");
-      const data = response.data;
-
-      const filteredSuggestions = data.filter(
-        (suggestion: Tag) => !tags.some((tag) => tag.id === suggestion.id)
+      const response = await axios.get<Tag[]>("/api/tags");
+      const source = Array.isArray(response.data) ? response.data : [];
+      const filteredSuggestions = source.filter(
+        (suggestion) =>
+          !tags.some((tag) => tag.id === suggestion.id) &&
+          suggestion.name.trim() !== ""
       );
-
       setSuggestedTags(filteredSuggestions);
     } catch (error) {
       console.error("Error fetching tag suggestions:", error);
     } finally {
       setIsLoadingSuggestions(false);
     }
-  };
+  }, [tags]);
 
   const handleInputFocus = () => {
     setInputFocused(true);
-    fetchTagSuggestions();
+    void fetchTagSuggestions();
   };
 
-  const addTagFromSuggestion = async (tagName: string) => {
+  const attachExistingTag = async (tag: Tag) => {
+    if (isAddingTag || isEditing) return;
+
     setIsAddingTag(true);
     try {
-      const response = await axios.post("/api/tags", { name: tagName.trim() });
+      await axios.post("/api/edit-content-tags", {
+        contentID: contentId,
+        tagID: tag.id,
+      });
+      setTags((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, tag]));
+      setNewTagValue("");
+      setInputFocused(false);
+      notify("Tag added", "success");
+    } catch (err) {
+      console.error("Error adding existing tag:", err);
+      notify("Error adding tag", "error");
+    } finally {
+      setIsAddingTag(false);
+    }
+  };
+
+  const addTag = async () => {
+    const name = newTagValue.trim();
+    if (!name || isAddingTag || isEditing) return;
+
+    const existingSuggestion = suggestedTags.find(
+      (suggestion) => suggestion.name.toLowerCase() === name.toLowerCase()
+    );
+    if (existingSuggestion) {
+      await attachExistingTag(existingSuggestion);
+      return;
+    }
+
+    setIsAddingTag(true);
+    try {
+      const response = await axios.post<Tag>("/api/tags", { name });
       if (response?.data) {
-        setTags((prev) => [...prev, response.data]);
+        const createdTag = response.data;
         await axios.post("/api/edit-content-tags", {
           contentID: contentId,
-          tagID: response.data.id,
+          tagID: createdTag.id,
         });
+        setTags((prev) => [...prev, createdTag]);
+        setNewTagValue("");
+        notify("Tag created", "success");
+      } else {
+        console.error("Add tag failed");
+        notify("Error adding tag", "error");
       }
     } catch (err) {
       console.error("Error adding tag:", err);
+      notify("Error adding tag", "error");
     } finally {
-      setInputFocused(false);
       setIsAddingTag(false);
     }
   };
@@ -270,20 +295,21 @@ export default function ContentDetail() {
           tagID: tagId,
         },
       });
-      setTags((prev) => prev.filter((t) => t.id !== tagId));
+      setTags((prev) => prev.filter((tag) => tag.id !== tagId));
+      notify("Tag removed", "success");
     } catch (err) {
       console.error("Error deleting tag:", err);
+      notify("Error removing tag", "error");
     } finally {
-      fetchTagSuggestions();
+      void fetchTagSuggestions();
     }
   };
 
-  const toggleFavorite = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const toggleFavorite = async () => {
     if (!content || isEditing) return;
 
     const originalFavoriteState = isFavorite;
-    setIsFavorite(!isFavorite);
+    setIsFavorite(!originalFavoriteState);
 
     try {
       await axios.put(`/api/toggle-favourite/${content.id}`);
@@ -293,29 +319,26 @@ export default function ContentDetail() {
       await queryClient.invalidateQueries({
         queryKey: ["favourites", session.data?.user?.id],
       });
-      notify("Favourite status toggled successfully", "success");
+      notify("Favourite status updated", "success");
     } catch (error) {
-      notify("Error toggling favorite", "error");
       setIsFavorite(originalFavoriteState);
+      notify("Error toggling favourite", "error");
       throw error;
     }
   };
 
-  const shareContent = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const shareContent = async () => {
     if (!content || isEditing) return;
 
     setIsShareModalOpen(true);
-
     try {
       const response = await axios.get(`/api/share?id=${content.id}`);
       const { is_shared, share_url } = response.data;
-
-      setIsShared(is_shared);
-      setShareableLink(share_url);
+      setIsShared(Boolean(is_shared));
+      setShareableLink(share_url || "");
     } catch (error) {
       console.error("Error fetching share info:", error);
-      alert("Failed to fetch sharing info.");
+      notify("Failed to fetch sharing info", "error");
     }
   };
 
@@ -324,27 +347,36 @@ export default function ContentDetail() {
 
     try {
       const response = await axios.patch(`/api/share?id=${content.id}`);
-      if (response.status === 200) {
-        const getResponse = await axios.get(`/api/share?id=${content.id}`);
-        const { is_shared, share_url } = getResponse.data;
-        setIsShared(is_shared);
-        setShareableLink(share_url);
-      } else {
-        alert("Failed to update sharing status.");
+      if (response.status !== 200) {
+        notify("Failed to update sharing status", "error");
+        return;
       }
+
+      const getResponse = await axios.get(`/api/share?id=${content.id}`);
+      const { is_shared, share_url } = getResponse.data;
+      setIsShared(Boolean(is_shared));
+      setShareableLink(share_url || "");
+      notify(
+        is_shared ? "Public sharing enabled" : "Public sharing disabled",
+        "success"
+      );
     } catch (error) {
       console.error("Error toggling share:", error);
-      alert("An error occurred while updating sharing status.");
+      notify("Failed to update sharing status", "error");
     }
   };
 
   const copyToClipboard = async () => {
+    if (!shareableLink) return;
+
     try {
       await navigator.clipboard.writeText(shareableLink);
       setIsCopied(true);
+      notify("Share link copied", "success");
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
-      console.error("Failed to copy text: ", err);
+      console.error("Failed to copy text:", err);
+      notify("Could not copy share link", "error");
     }
   };
 
@@ -380,27 +412,20 @@ export default function ContentDetail() {
         updatedData
       );
 
-      if (response?.data) {
+      if (response?.data?.content) {
         setContent(response.data.content);
         setIsEditing(false);
+        notify("Content updated", "success");
       } else {
         console.error("Update failed: Invalid response structure");
+        notify("Failed to save content", "error");
       }
     } catch (err: unknown) {
       console.error("Error saving content:", err);
+      notify("Error saving content", "error");
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const renderDocumentBody = (body: string | null | undefined) => {
-    if (!body) return null;
-    return body.split("\n").map((line, index) => (
-      <span key={index}>
-        {line}
-        <br />
-      </span>
-    ));
   };
 
   const goBack = () => {
@@ -408,27 +433,23 @@ export default function ContentDetail() {
   };
 
   const renderLoading = () => (
-    <div className="flex items-center justify-center h-[50vh] w-full p-8">
-      <Loading text="Loading Content..." />
+    <div className="surface-soft flex min-h-[46vh] items-center justify-center rounded-2xl px-4 py-10">
+      <Loading text="Loading content..." />
     </div>
   );
 
   const renderError = () => (
-    <div className="flex flex-col items-center justify-center h-[50vh] text-center px-4 py-10 bg-[#18181b] rounded-xl shadow-lg border border-gray-800 max-w-2xl mx-auto">
-      <IconAlertTriangle size={48} stroke={1.5} className="text-red-400 mb-4" />
-      <h2 className="text-2xl font-bold text-red-400 mb-2">
+    <div className="surface-soft mx-auto flex min-h-[46vh] max-w-2xl flex-col items-center justify-center rounded-2xl px-6 py-10 text-center">
+      <IconAlertTriangle size={46} stroke={1.5} className="mb-4 text-destructive" />
+      <h2 className="text-fluid-xl font-semibold tracking-tight text-foreground">
         Content Not Found
       </h2>
-      <p className="text-gray-400 mb-6">
-        We couldn&apos;t find the content you&apos;re looking for. It may have
-        been deleted or is unavailable.
+      <p className="mt-2 max-w-md text-sm text-muted-foreground">
+        This item may have been deleted, or you may no longer have access to it.
       </p>
-      <Button
-        variant="outline"
-        onClick={goBack}
-        className="bg-gray-700 hover:bg-gray-600 border-gray-600 text-gray-200"
-      >
-        <IconArrowLeft size={16} className="mr-2" /> Go Back
+      <Button variant="outline" onClick={goBack} className="mt-6">
+        <IconArrowLeft size={15} />
+        Go Back
       </Button>
     </div>
   );
@@ -436,100 +457,105 @@ export default function ContentDetail() {
   const renderTagsSection = () => {
     if (isLoadingTags) {
       return (
-        <div className="flex items-center gap-2 text-sm text-gray-400">
-          <IconTag size={16} stroke={1.5} className="text-gray-500" />
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <IconTag size={15} stroke={1.5} />
           <span>Loading tags...</span>
         </div>
       );
     }
 
     return (
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-gray-300 tracking-wider flex items-center gap-2">
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           <IconTag size={14} stroke={1.5} />
           Tags
-        </h3>
+        </div>
 
-        <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex flex-wrap items-center gap-2">
           {tags.length > 0 ? (
             tags.map((tag) => (
               <Badge
                 key={tag.id}
-                className="bg-gray-700/60 border-gray-600 text-gray-300 px-3 py-1 rounded-md flex items-center gap-1.5"
+                variant="secondary"
+                className="gap-1 border border-border/80 bg-surface-2 px-2.5 py-1 text-foreground"
               >
                 <span>{tag.name}</span>
-                {!isEditing && (
+                {!isEditing ? (
                   <button
                     type="button"
                     onClick={() => deleteTag(tag.id)}
                     title="Remove tag"
-                    className="ml-1 text-gray-300 hover:text-red-400 transition-colors cursor-pointer"
+                    aria-label={`Remove tag ${tag.name}`}
+                    className="rounded-full p-0.5 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
                   >
-                    <IconX size={14} stroke={1.5} />
+                    <IconX size={12} stroke={1.8} />
                   </button>
-                )}
+                ) : null}
               </Badge>
             ))
           ) : (
-            <span className="text-gray-500 text-sm italic">No tags added</span>
-          )}
-
-          {!isEditing && (
-            <div className="flex items-center gap-1 relative">
-              <div className="relative w-full">
-                <Input
-                  type="text"
-                  value={newTagValue}
-                  onChange={(e) => setNewTagValue(e.target.value)}
-                  onFocus={handleInputFocus}
-                  onBlur={() => {
-                    setTimeout(() => setInputFocused(false), 200);
-                  }}
-                  placeholder="Add tag..."
-                  className="w-24 h-8 text-xs bg-gray-800 border-gray-600 text-gray-200 focus:border-accent focus:ring-accent"
-                  disabled={isAddingTag}
-                />
-
-                {inputFocused && (
-                  <div className="absolute top-full left-0 w-full mt-1 z-50 bg-gray-800 border border-gray-700 rounded-md shadow-lg">
-                    {isLoadingSuggestions ? (
-                      <div className="p-4 text-sm text-gray-400">
-                        Loading suggestions...
-                      </div>
-                    ) : suggestedTags.length > 0 ? (
-                      <div className="max-h-60 overflow-y-auto py-1">
-                        {suggestedTags.map((tag) => (
-                          <div
-                            key={tag.id}
-                            onClick={() => addTagFromSuggestion(tag.name)}
-                            className="px-3 py-2 text-sm text-gray-200 hover:bg-gray-700 cursor-pointer"
-                          >
-                            {tag.name}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="p-2 text-sm text-gray-400">
-                        No tags available
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <Button
-                type="submit"
-                onClick={addTag}
-                size="sm"
-                variant="ghost"
-                className="h-8 w-8 p-2 flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-gray-700/50 cursor-pointer"
-                disabled={!newTagValue.trim() || isAddingTag}
-              >
-                <IconPlus size={16} stroke={1.5} />
-              </Button>
-            </div>
+            <p className="text-sm italic text-muted-foreground">No tags added yet.</p>
           )}
         </div>
+
+        {!isEditing ? (
+          <div className="relative flex w-full max-w-sm items-center gap-2">
+            <div className="relative flex-1">
+              <Input
+                type="text"
+                value={newTagValue}
+                onChange={(event) => setNewTagValue(event.target.value)}
+                onFocus={handleInputFocus}
+                onBlur={() => {
+                  setTimeout(() => setInputFocused(false), 180);
+                }}
+                placeholder="Add tag..."
+                className="h-10"
+                disabled={isAddingTag}
+              />
+
+              {inputFocused ? (
+                <div className="absolute left-0 top-full z-30 mt-2 w-full overflow-hidden rounded-xl border border-border bg-popover shadow-lg">
+                  {isLoadingSuggestions ? (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      Loading suggestions...
+                    </div>
+                  ) : suggestedTags.length > 0 ? (
+                    <div className="max-h-52 overflow-y-auto py-1">
+                      {suggestedTags.map((tag) => (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() => attachExistingTag(tag)}
+                          className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-foreground transition hover:bg-accent"
+                        >
+                          <span className="truncate">{tag.name}</span>
+                          <IconPlus size={13} />
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      No suggestions
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+
+            <Button
+              type="button"
+              onClick={addTag}
+              size="icon"
+              variant="outline"
+              className="h-10 w-10 shrink-0"
+              disabled={!newTagValue.trim() || isAddingTag}
+              aria-label="Add tag"
+            >
+              <IconPlus size={16} stroke={1.6} />
+            </Button>
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -539,21 +565,69 @@ export default function ContentDetail() {
 
     const currentType = form.watch("type") || content.type;
     const isDocument = currentType?.toLowerCase() === "document";
-    const hasUrl = !!content.url;
+    const hasUrl = Boolean(content.url);
+    const TypeIcon = getContentTypeIcon(content.type);
+    const contentTypeAccent =
+      CONTENT_TYPE_ACCENTS[content.type] || CONTENT_TYPE_ACCENTS.document;
 
     return (
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <div className="max-w-full mx-auto px-2 py-2 space-y-2">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <Button
+              type="button"
               variant="ghost"
               onClick={goBack}
-              className="mb-2 text-gray-400 hover:text-gray-200 cursor-pointer"
+              className="h-9 px-2 text-muted-foreground"
             >
-              <IconArrowLeft size={16} className="mr-2" /> Back
+              <IconArrowLeft size={15} />
+              Back
             </Button>
 
-            <div className="p-4 space-y-2">
+            {!isEditing ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleFavorite}
+                  aria-pressed={isFavorite}
+                >
+                  <IconHeart
+                    size={16}
+                    stroke={1.5}
+                    className={
+                      isFavorite
+                        ? "fill-rose-500 text-rose-500"
+                        : "text-muted-foreground"
+                    }
+                  />
+                  {isFavorite ? "Favorited" : "Favorite"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={shareContent}
+                >
+                  <IconShare size={16} stroke={1.5} />
+                  Share
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleEditClick}
+                >
+                  <IconPencil size={16} stroke={1.5} />
+                  Edit
+                </Button>
+              </div>
+            ) : null}
+          </div>
+
+          <section className="surface-soft rounded-2xl p-4 sm:p-6">
+            <div className="space-y-5">
               {isEditing ? (
                 <FormField
                   control={form.control}
@@ -563,61 +637,45 @@ export default function ContentDetail() {
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder="Enter Title"
-                          className="text-3xl font-bold text-gray-100 bg-gray-800/50 border-gray-600 focus:border-accent focus:ring-accent"
+                          placeholder="Enter title"
+                          className="h-12 text-lg font-semibold sm:text-xl"
                           disabled={isSaving}
                         />
                       </FormControl>
-                      <FormMessage className="text-red-400 text-sm" />
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
               ) : (
-                <div className="flex items-center justify-start">
-                  <h1 className="text-3xl md:text-4xl font-bold text-white break-words">
-                    {content.title || "Untitled Content"}
-                  </h1>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleEditClick}
-                    className="text-gray-400 hover:text-white hover:cursor-pointer h-10 w-10 rounded-full"
-                    aria-label="Edit content details"
-                    title="Edit content details"
-                  >
-                    <IconPencil size={20} stroke={1.5} className="ml-3" />
-                  </Button>
-                </div>
+                <h1 className="text-fluid-2xl font-semibold tracking-tight text-foreground break-words">
+                  {content.title || "Untitled Content"}
+                </h1>
               )}
 
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-gray-400 mt-4">
+              <div className="flex flex-wrap items-center gap-2.5 text-sm text-muted-foreground">
                 {isEditing ? (
                   <FormField
                     control={form.control}
                     name="type"
                     render={({ field }) => (
-                      <FormItem className="w-[180px]">
+                      <FormItem className="w-[190px]">
                         <Select
                           onValueChange={field.onChange}
                           defaultValue={field.value}
                           disabled={isSaving}
                         >
                           <FormControl>
-                            <SelectTrigger className="bg-gray-800/50 border-gray-600 text-gray-300 focus:border-accent focus:ring-accent">
-                              <SelectValue placeholder="Select Type" />
+                            <SelectTrigger className="h-9 w-full bg-card">
+                              <SelectValue placeholder="Select type" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent className="bg-gray-800 border-gray-600 text-gray-200">
+                          <SelectContent>
                             {CONTENT_TYPES.map((type) => {
                               const Icon = getContentTypeIcon(type);
                               return (
-                                <SelectItem
-                                  key={type}
-                                  value={type}
-                                  className="capitalize hover:bg-gray-700 focus:bg-gray-700"
-                                >
+                                <SelectItem key={type} value={type}>
                                   <div className="flex items-center gap-2">
-                                    <Icon size={18} stroke={1.5} />
+                                    <Icon size={14} stroke={1.6} />
                                     {getContentTypeName(type)}
                                   </div>
                                 </SelectItem>
@@ -625,274 +683,180 @@ export default function ContentDetail() {
                             })}
                           </SelectContent>
                         </Select>
-                        <FormMessage className="text-red-400 text-sm" />
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
                 ) : (
-                  (() => {
-                    const Icon = getContentTypeIcon(content.type);
-                    return (
-                      <Badge className="bg-gray-700/60 border-gray-600 text-gray-300 flex items-center gap-1.5 px-3 py-1.5 rounded-md">
-                        <Icon size={16} stroke={1.5} />
-                        <span>{getContentTypeName(content.type)}</span>
-                      </Badge>
-                    );
-                  })()
+                  <Badge className={`gap-1.5 ${contentTypeAccent}`}>
+                    <TypeIcon size={13} />
+                    {getContentTypeName(content.type)}
+                  </Badge>
                 )}
 
                 <div
-                  className="flex items-center gap-1.5"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-xs sm:text-sm"
                   title={`Created on ${formatDate(content.created_at)}`}
                 >
-                  <IconCalendar
-                    size={16}
-                    stroke={1.5}
-                    className="text-gray-500"
-                  />
+                  <IconCalendar size={14} stroke={1.5} />
                   <span>{formatDate(content.created_at)}</span>
                 </div>
 
                 {content.updated_at &&
-                  new Date(content.updated_at) >
-                    new Date(content.created_at) && (
-                    <div
-                      className="flex items-center gap-1.5"
-                      title={`Last updated on ${formatDate(
-                        content.updated_at
-                      )}`}
+                new Date(content.updated_at) > new Date(content.created_at) ? (
+                  <div
+                    className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-xs sm:text-sm"
+                    title={`Updated on ${formatDate(content.updated_at)}`}
+                  >
+                    <IconPencil size={14} stroke={1.5} />
+                    <span>Updated {formatDate(content.updated_at)}</span>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="rounded-xl border border-border/75 bg-card/40 p-4">
+                {renderTagsSection()}
+              </div>
+            </div>
+          </section>
+
+          <section className="surface-soft rounded-2xl p-4 sm:p-6">
+            <div className="space-y-5">
+              {(hasUrl || isEditing) && !(isDocument && !hasUrl && !isEditing) ? (
+                <div className="space-y-2">
+                  <h3 className="flex items-center gap-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                    <IconLink size={14} stroke={1.5} />
+                    Source URL
+                  </h3>
+
+                  {isEditing ? (
+                    <FormField
+                      control={form.control}
+                      name="url"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="url"
+                              placeholder="https://example.com"
+                              disabled={isSaving}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ) : (
+                    <a
+                      href={content.url || "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/75 p-3.5 transition hover:border-border/90 hover:bg-accent/70"
+                      title={`Open link: ${content.url}`}
                     >
-                      <IconPencil
+                      <IconLink
                         size={16}
                         stroke={1.5}
-                        className="text-gray-500"
+                        className="shrink-0 text-muted-foreground"
                       />
-                      <span className="text-xs">
-                        Updated: {formatDate(content.updated_at)}
+                      <span className="truncate text-sm text-foreground">
+                        {content.url}
                       </span>
-                    </div>
+                      <IconExternalLink
+                        size={14}
+                        stroke={1.5}
+                        className="ml-auto shrink-0 text-muted-foreground transition group-hover:text-foreground"
+                      />
+                    </a>
                   )}
-              </div>
+                </div>
+              ) : null}
 
-              <div className="mt-4 pt-4">{renderTagsSection()}</div>
-            </div>
+              {content.body || (isDocument && (content.url || isEditing)) ? (
+                <div className="space-y-2">
+                  <h3 className="flex items-center gap-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                    <IconPencil size={14} stroke={1.5} />
+                    {isDocument ? "Document Content" : "Text Content"}
+                  </h3>
 
-            <div className="overflow-hidden">
-              <div className="p-2 md:p-4 space-y-4">
-                {(hasUrl || isEditing) &&
-                  !(isDocument && !hasUrl && !isEditing) && (
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-semibold text-gray-300 tracking-wider flex items-center gap-2">
-                        <IconLink
-                          size={16}
-                          stroke={1.5}
-                          className="text-accent"
-                        />
-                        Url
-                      </h3>
-                      {isEditing ? (
-                        <FormField
-                          control={form.control}
-                          name="url"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  type="url"
-                                  placeholder="Enter URL (optional)"
-                                  className="text-sm text-gray-100 bg-gray-800/50 border-gray-600 focus:border-accent focus:ring-accent w-full"
-                                  disabled={isSaving}
-                                />
-                              </FormControl>
-                              <FormMessage className="text-red-400 text-sm" />
-                            </FormItem>
-                          )}
-                        />
-                      ) : (
-                        <a
-                          href={content.url || "#"}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-3 bg-gradient-to-r from-gray-800/70 to-gray-800/50 p-4 rounded-lg border border-gray-700 hover:border-accent transition-colors group"
-                          title={`Open link: ${content.url}`}
-                        >
-                          <IconLink
-                            size={18}
-                            stroke={1.5}
-                            className="text-gray-400 group-hover:text-accent transition-colors shrink-0"
-                          />
-                          <span className="text-accent group-hover:text-accent/80 hover:underline text-sm flex-grow truncate break-all">
-                            {content.url}
-                          </span>
-                          <IconExternalLink
-                            size={16}
-                            stroke={1.5}
-                            className="text-gray-500 group-hover:text-accent transition-colors shrink-0"
-                          />
-                        </a>
+                  {isEditing && isDocument ? (
+                    <FormField
+                      control={form.control}
+                      name="body"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Textarea
+                              {...field}
+                              placeholder="Enter document content"
+                              className="min-h-[220px] font-mono"
+                              disabled={isSaving}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
                       )}
-                    </div>
-                  )}
-
-                {(content.body ||
-                  (isDocument && (content.url || isEditing))) && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold text-gray-300 tracking-wider flex items-center gap-2">
+                    />
+                  ) : (
+                    <div className="max-h-[58vh] overflow-y-auto rounded-xl border border-border bg-surface-2/70 p-4 text-sm leading-relaxed text-foreground sm:p-5">
                       {isDocument ? (
-                        <>
-                          <IconPencil
-                            size={16}
-                            stroke={1.5}
-                            className="text-accent"
-                          />
-                          Document Content
-                        </>
+                        <div className="whitespace-pre-line font-mono">
+                          {content.body}
+                          {!content.body && content.url && !isEditing ? (
+                            <p className="italic text-muted-foreground">
+                              This document is available at the source link above.
+                            </p>
+                          ) : null}
+                        </div>
                       ) : (
-                        <>
-                          <IconPencil
-                            size={16}
-                            stroke={1.5}
-                            className="text-accent"
-                          />
-                          Text Content
-                        </>
+                        <pre className="whitespace-pre-wrap font-mono text-sm">
+                          {content.body}
+                        </pre>
                       )}
-                    </h3>
-                    {isEditing && isDocument ? (
-                      <FormField
-                        control={form.control}
-                        name="body"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Textarea
-                                {...field}
-                                placeholder="Enter document content"
-                                className="text-sm text-gray-100 bg-gray-800/50 border-gray-600 focus:border-accent focus:ring-accent w-full font-serif"
-                                disabled={isSaving}
-                              />
-                            </FormControl>
-                            <FormMessage className="text-red-400 text-sm" />
-                          </FormItem>
-                        )}
-                      />
-                    ) : (
-                      <div className="max-h-screen bg-gradient-to-r from-gray-800/70 to-gray-800/50 p-6 rounded-lg border border-gray-700 overflow-y-auto text-gray-300 text-sm leading-relaxed">
-                        {isDocument ? (
-                          <div className="font-mono whitespace-pre-line">
-                            {renderDocumentBody(content.body)}
-                            {!content.body && content.url && !isEditing && (
-                              <p className="text-gray-400 italic">
-                                This document is available at the source link
-                                above.
-                              </p>
-                            )}
-                            {isEditing &&
-                              !form.watch("url") &&
-                              !content.body && (
-                                <p className="text-gray-400 italic">
-                                  Enter a Source Link or save with body content.
-                                </p>
-                              )}
-                          </div>
-                        ) : (
-                          <pre className="whitespace-pre-wrap font-mono">
-                            {content.body}
-                          </pre>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {!hasUrl && !content.body && !isEditing && (
-                  <div className="flex items-center justify-center py-12">
-                    <p className="text-gray-500 italic">
-                      No content body or source link provided for this item.
-                    </p>
-                  </div>
-                )}
-                {isEditing &&
-                  !form.watch("url") &&
-                  !content.body &&
-                  !(isDocument && content.body) && (
-                    <div className="flex items-center justify-center py-12">
-                      <p className="text-gray-500 italic">
-                        Enter a Title and either a Source Link or ensure body
-                        content exists.
-                      </p>
                     </div>
                   )}
-              </div>
+                </div>
+              ) : null}
 
-              <div className="p-6  flex items-center justify-end gap-3">
-                {isEditing ? (
-                  <>
-                    <Button
-                      type="submit"
-                      variant="outline"
-                      className="bg-accent hover:bg-accent/90 text-white focus:ring-accent cursor-pointer rounded-xl"
-                      disabled={isSaving || !form.formState.isValid}
-                    >
-                      <IconDeviceFloppy
-                        size={18}
-                        stroke={1.5}
-                        className="mr-2"
-                      />
-                      {isSaving ? "Saving..." : "Save Changes"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      className="bg-transparent border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300 focus:ring-accent cursor-pointer rounded-xl"
-                      onClick={handleCancelEdit}
-                      disabled={isSaving}
-                    >
-                      <IconX size={18} stroke={1.5} className="mr-2" />
-                      Cancel
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="bg-transparent border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300 focus:ring-accent cursor-pointer"
-                      onClick={toggleFavorite}
-                      aria-pressed={isFavorite}
-                    >
-                      <IconHeart
-                        size={18}
-                        stroke={1.5}
-                        className={`mr-2 transition-all duration-200 ${
-                          isFavorite
-                            ? "fill-rose-500 text-rose-500"
-                            : "text-gray-400"
-                        }`}
-                        aria-hidden="true"
-                      />
-                      {isFavorite ? "Favorited" : "Favorite"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="bg-transparent border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300 focus:ring-accent cursor-pointer"
-                      onClick={shareContent}
-                    >
-                      <IconShare
-                        size={18}
-                        stroke={1.5}
-                        className="mr-2 text-gray-400"
-                        aria-hidden="true"
-                      />
-                      Share
-                    </Button>
-                  </>
-                )}
-              </div>
+              {!hasUrl && !content.body && !isEditing ? (
+                <div className="flex items-center justify-center rounded-xl border border-dashed border-border px-4 py-10">
+                  <p className="text-sm italic text-muted-foreground">
+                    No content body or source URL has been provided for this item.
+                  </p>
+                </div>
+              ) : null}
+
+              {isEditing &&
+              !form.watch("url") &&
+              !content.body &&
+              !(isDocument && content.body) ? (
+                <div className="flex items-center justify-center rounded-xl border border-dashed border-border px-4 py-10">
+                  <p className="text-sm italic text-muted-foreground">
+                    Add a source URL, or provide document content before saving.
+                  </p>
+                </div>
+              ) : null}
             </div>
-          </div>
+          </section>
+
+          {isEditing ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleCancelEdit}
+                disabled={isSaving}
+              >
+                <IconX size={16} stroke={1.6} />
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSaving || !form.formState.isValid}>
+                <IconDeviceFloppy size={16} stroke={1.6} />
+                {isSaving ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          ) : null}
         </form>
       </Form>
     );
@@ -900,56 +864,49 @@ export default function ContentDetail() {
 
   const renderShareModal = () => (
     <Dialog open={isShareModalOpen} onOpenChange={setIsShareModalOpen}>
-      <DialogContent className="bg-[#1c1c1f] text-white border border-gray-700 shadow-xl sm:max-w-md w-[95vw] p-0 overflow-hidden rounded-lg">
-        <DialogHeader className="p-6 border-b border-gray-700 bg-[#1f1f23]">
-          <DialogTitle className="text-xl font-semibold text-gray-100">
-            Share Content
-          </DialogTitle>
+      <DialogContent className="max-w-md p-0">
+        <DialogHeader className="border-b border-border/80 px-6 py-5">
+          <DialogTitle>Share Content</DialogTitle>
         </DialogHeader>
-        <div className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-300 text-sm">Enable Sharing</span>
-            <Switch
-              checked={isShared}
-              onCheckedChange={handleToggleShare}
-              className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-600 cursor-pointer"
-            />
+
+        <div className="space-y-4 px-6 py-5">
+          <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2/70 px-3 py-2.5">
+            <span className="text-sm font-medium text-foreground">
+              Enable public link
+            </span>
+            <Switch checked={isShared} onCheckedChange={handleToggleShare} />
           </div>
 
-          {isShared && shareableLink && (
-            <>
-              <p className="text-gray-300 text-sm">
-                Share this link with others to give them access to this content:
+          {isShared && shareableLink ? (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Share this URL to provide read access.
               </p>
               <div className="flex gap-2">
-                <Input
-                  value={shareableLink}
-                  readOnly
-                  className="bg-gray-800 border-gray-600 text-gray-100"
-                />
+                <Input value={shareableLink} readOnly />
                 <Button
+                  type="button"
                   onClick={copyToClipboard}
                   variant="outline"
-                  className={`shrink-0 bg-gray-700 cursor-pointer ${
-                    isCopied ? "text-white" : "text-gray-200"
-                  }`}
+                  className="shrink-0"
                 >
                   {isCopied ? (
-                    <IconCheck size={18} stroke={1.5} className="mr-2" />
+                    <IconCheck size={16} stroke={1.6} />
                   ) : (
-                    <IconCopy size={18} stroke={1.5} className="mr-2" />
+                    <IconCopy size={16} stroke={1.6} />
                   )}
-                  {isCopied ? "Copied!" : "Copy"}
+                  {isCopied ? "Copied" : "Copy"}
                 </Button>
               </div>
-            </>
-          )}
+            </div>
+          ) : null}
         </div>
-        <DialogFooter className="border-t border-gray-700 p-4 bg-[#1f1f23]">
+
+        <DialogFooter className="border-t border-border/80 px-6 py-4">
           <Button
+            type="button"
             onClick={() => setIsShareModalOpen(false)}
             variant="ghost"
-            className="text-gray-400 hover:text-gray-300 cursor-pointer"
           >
             Close
           </Button>
@@ -959,8 +916,12 @@ export default function ContentDetail() {
   );
 
   return (
-    <div className="min-h-screen text-white pb-16">
-      {isLoading ? renderLoading() : renderContent()}
+    <div className="min-h-screen pb-20">
+      <PageShell>
+        <PageContainer className="max-w-4xl">
+          {isLoading ? renderLoading() : renderContent()}
+        </PageContainer>
+      </PageShell>
       {renderShareModal()}
     </div>
   );

@@ -266,12 +266,12 @@ export default function AddContentModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] bg-zinc-900 text-white border-zinc-800">
+      <DialogContent className="sm:max-w-[620px]">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">
             Add New Content
           </DialogTitle>
-          <DialogDescription className="text-zinc-400">
+          <DialogDescription>
             Add a new item to your collection. Fill in the details below.
           </DialogDescription>
         </DialogHeader>
@@ -288,7 +288,7 @@ export default function AddContentModal({
                     <Input
                       placeholder="Enter a title"
                       {...field}
-                      className="bg-zinc-800 border-zinc-700 text-white"
+                      className="bg-card"
                     />
                   </FormControl>
                   <FormMessage />
@@ -307,11 +307,11 @@ export default function AddContentModal({
                     defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
+                      <SelectTrigger className="bg-card">
                         <SelectValue placeholder="Select content type" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent className="bg-zinc-800 border-zinc-700 text-white">
+                    <SelectContent>
                       {contentTypes.map((type) => (
                         <SelectItem
                           key={type.value}
@@ -344,7 +344,7 @@ export default function AddContentModal({
                       <Input
                         placeholder="https://"
                         {...field}
-                        className="bg-zinc-800 border-zinc-700 text-white"
+                        className="bg-card"
                       />
                     </FormControl>
                     <FormMessage />
@@ -364,7 +364,7 @@ export default function AddContentModal({
                       <Textarea
                         placeholder="Enter your content here..."
                         {...field}
-                        className="bg-zinc-800 border-zinc-700 text-white min-h-[120px]"
+                        className="min-h-[120px] bg-card"
                       />
                     </FormControl>
                     <FormMessage />
@@ -381,13 +381,13 @@ export default function AddContentModal({
                     <Badge
                       key={tag.id}
                       variant="secondary"
-                      className="bg-zinc-700 text-white hover:bg-zinc-600"
+                      className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
                     >
                       {tag.name}
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-4 w-4 p-0 ml-1 text-zinc-400 hover:text-white hover:bg-transparent"
+                        className="ml-1 h-4 w-4 p-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
                         onClick={() => removeTag(tag.id)}
                       >
                         <IconX className="h-3 w-3" />
@@ -401,7 +401,7 @@ export default function AddContentModal({
                     placeholder="Add a tag"
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
-                    className="bg-zinc-800 border-zinc-700 text-white"
+                    className="bg-card"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -413,7 +413,7 @@ export default function AddContentModal({
                     type="button"
                     onClick={addTag}
                     variant="outline"
-                    className="border-zinc-700 bg-zinc-800 text-white hover:bg-zinc-700"
+                    className="border-border bg-card hover:bg-accent"
                   >
                     Add
                   </Button>
@@ -422,7 +422,7 @@ export default function AddContentModal({
 
               {filteredSuggestedTags.length > 0 && (
                 <div>
-                  <FormLabel className="text-sm text-zinc-400 flex items-center gap-2">
+                  <FormLabel className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>AI Suggested Tags</span>
                     {isLoadingSuggestions && (
                       <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-solid border-current border-r-transparent"></span>
@@ -440,8 +440,8 @@ export default function AddContentModal({
                           variant={isSelected ? "default" : "outline"}
                           className={`cursor-pointer relative ${
                             isSelected
-                              ? "bg-zinc-700 text-white hover:bg-zinc-600"
-                              : "border-transparent text-zinc-300 hover:bg-zinc-800"
+                              ? "bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                              : "border-transparent text-muted-foreground hover:bg-accent"
                           } overflow-hidden`}
                           style={{
                             padding: "0.25rem 0.5rem",
@@ -461,7 +461,7 @@ export default function AddContentModal({
                             }}
                           />
                           <span
-                            className="absolute inset-0.5 bg-zinc-800 rounded-sm"
+                            className="absolute inset-0.5 rounded-sm bg-card"
                             style={{ zIndex: -1 }}
                           />
                           <span className="relative">{tagName}</span>
@@ -487,7 +487,7 @@ export default function AddContentModal({
 
               {tags.length > 0 && (
                 <div>
-                  <FormLabel className="text-sm text-zinc-400">
+                  <FormLabel className="text-sm text-muted-foreground">
                     Existing Tags
                   </FormLabel>
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -501,8 +501,8 @@ export default function AddContentModal({
                         }
                         className={
                           selectedTags.some((t) => t.id === tag.id)
-                            ? "bg-zinc-700 text-white hover:bg-zinc-600 cursor-pointer"
-                            : "border-zinc-700 text-zinc-400 hover:bg-zinc-800 cursor-pointer"
+                            ? "cursor-pointer bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                            : "cursor-pointer border-border text-muted-foreground hover:bg-accent"
                         }
                         onClick={() => toggleTag(tag)}
                       >
@@ -519,7 +519,7 @@ export default function AddContentModal({
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="border-zinc-700 bg-zinc-800 text-white hover:bg-zinc-700 flex-1 sm:flex-none cursor-pointer"
+                className="flex-1 cursor-pointer border-border bg-card hover:bg-accent sm:flex-none"
                 disabled={isPending}
               >
                 Cancel

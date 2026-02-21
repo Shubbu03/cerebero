@@ -18,7 +18,14 @@ type ConvexFailure = {
 type ConvexResponse<T> = ConvexSuccess<T> | ConvexFailure;
 
 function getConvexUrl() {
-  return process.env.CONVEX_URL ?? process.env.NEXT_PUBLIC_CONVEX_URL;
+  const preferred =
+    process.env.NEXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL ?? "";
+
+  if (preferred.includes(".convex.site")) {
+    return preferred.replace(".convex.site", ".convex.cloud");
+  }
+
+  return preferred;
 }
 
 function getConvexHeaders() {

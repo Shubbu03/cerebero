@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import axios from "axios";
 import {
   IconEdit,
   IconTrash,
@@ -29,6 +28,12 @@ import Loading from "@/components/ui/loading";
 import TagContentModal from "@/components/TagContentModal";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { notify } from "@/lib/notify";
+import {
+  PageContainer,
+  PageShell,
+  SectionHeader,
+} from "@/components/layout/PageShell";
+import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api/client";
 
 interface TagData {
   id: string;
@@ -83,20 +88,20 @@ export default function TagsDashboard() {
       {
         queryKey: ["allTags"],
         queryFn: async () => {
-          const response = await axios.get<TagData[]>("/api/tags");
-          return response.data.sort((a, b) => a.name.localeCompare(b.name));
+          const response = await apiGet<TagData[]>("/api/tags");
+          return response.sort((a, b) => a.name.localeCompare(b.name));
         },
       },
       {
         queryKey: ["topTagsWithContent"],
         queryFn: async () => {
-          const response = await axios.get<{ topTags: TopTagData[] }>(
+          const response = await apiGet<{ topTags: TopTagData[] }>(
             "/api/tags/top-with-content",
             {
               params: { tagLimit: 5, contentLimit: 5 },
             }
           );
-          return response.data.topTags || [];
+          return response.topTags || [];
         },
       },
     ],
@@ -139,7 +144,7 @@ export default function TagsDashboard() {
       return;
     }
     try {
-      await axios.put<TagData>(`/api/tags/${tagId}`, {
+      await apiPut<TagData>(`/api/tags/${tagId}`, {
         name: newTagName.trim(),
       });
       await refetchAllTags();
@@ -157,7 +162,7 @@ export default function TagsDashboard() {
     if (!tagToDelete) return;
     setIsDeleting(true);
     try {
-      await axios.delete(`/api/tags/${tagToDelete.id}`);
+      await apiDelete(`/api/tags/${tagToDelete.id}`);
       await refetchAllTags();
       await refetchTopTags();
       notify("Tag deleted successfully", "success");
@@ -184,7 +189,7 @@ export default function TagsDashboard() {
     }
     setIsSubmittingCreate(true);
     try {
-      await axios.post("/api/tags", { name: trimmedName });
+      await apiPost("/api/tags", { name: trimmedName });
       await refetchAllTags();
       await refetchTopTags();
       notify("New tag created successfully", "success");
@@ -359,116 +364,122 @@ export default function TagsDashboard() {
   );
 
   return (
-    <div className="p-4 sm:p-6 text-neutral-200 min-h-screen">
-      <div className="flex items-center mb-6 sm:mb-8">
-        <IconTagsFilled className="h-5 w-5 mr-2" />
-        <h1 className="text-xl sm:text-2xl font-semibold text-neutral-100">
-          Tags
-        </h1>
-      </div>
-
-      <div className="mb-6 sm:mb-8">
-        <h2 className="text-base font-medium mb-3 text-neutral-400">
-          Top Tags
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {results[1].isPending ? (
-            <div className="flex items-center space-x-2 py-1 text-neutral-500 w-full">
-              <IconLoader2 className="h-4 w-4 animate-spin" stroke={1.5} />
-              <span className="text-sm">Loading top tags...</span>
+    <PageShell>
+      <PageContainer>
+        <SectionHeader
+          title="Tags"
+          subtitle="Organize your knowledge graph with reusable labels."
+          action={
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <IconTagsFilled className="h-4 w-4" />
+              <span>{allTags.length} total</span>
             </div>
-          ) : topTagsWithContent.length === 0 ? (
-            <p className="text-neutral-500 italic text-sm">
-              No tags have been used yet.
-            </p>
-          ) : (
-            topTagsWithContent.map((tag, index) => {
-              const colorClass = BADGE_COLORS[index % BADGE_COLORS.length];
-              return (
-                <Badge
-                  key={tag.tagId}
-                  variant="default"
-                  className={`px-2.5 py-0.5 cursor-pointer ${colorClass} text-white text-sm font-medium transition-colors`}
-                  onClick={() => handleTagClick(tag, colorClass)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      handleTagClick(tag, colorClass);
-                    }
-                  }}
-                >
-                  {tag.tagName}
-                  {tag.usageCount && (
-                    <span className="ml-1.5 text-xs opacity-80">
-                      ({tag.usageCount})
-                    </span>
-                  )}
-                </Badge>
-              );
-            })
-          )}
-        </div>
-      </div>
+          }
+        />
 
-      <div>
-        <div className="flex justify-between items-center mb-3 sm:mb-4">
-          <div className="flex items-center gap-4">
-            <h2 className="text-base font-medium text-neutral-400">All Tags</h2>
-            {!results[0].isPending && allTags.length > 0 && (
-              <div className="text-sm text-neutral-400">
-                Total tags: {allTags.length}
+        <div className="mb-6 sm:mb-8 surface-soft rounded-2xl p-4 sm:p-5">
+          <h2 className="mb-3 text-base font-medium text-muted-foreground">
+            Top Tags
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {results[1].isPending ? (
+              <div className="flex w-full items-center space-x-2 py-1 text-muted-foreground">
+                <IconLoader2 className="h-4 w-4 animate-spin" stroke={1.5} />
+                <span className="text-sm">Loading top tags...</span>
+              </div>
+            ) : topTagsWithContent.length === 0 ? (
+              <p className="text-sm italic text-muted-foreground">
+                No tags have been used yet.
+              </p>
+            ) : (
+              topTagsWithContent.map((tag, index) => {
+                const colorClass = BADGE_COLORS[index % BADGE_COLORS.length];
+                return (
+                  <Badge
+                    key={tag.tagId}
+                    variant="default"
+                    className={`cursor-pointer px-2.5 py-1 text-sm font-medium text-white transition-colors ${colorClass}`}
+                    onClick={() => handleTagClick(tag, colorClass)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleTagClick(tag, colorClass);
+                      }
+                    }}
+                  >
+                    {tag.tagName}
+                    {tag.usageCount ? (
+                      <span className="ml-1.5 text-xs opacity-80">
+                        ({tag.usageCount})
+                      </span>
+                    ) : null}
+                  </Badge>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="surface-soft rounded-2xl p-4 sm:p-5">
+          <div className="mb-3 flex items-center justify-between sm:mb-4">
+            <div className="flex items-center gap-4">
+              <h2 className="text-base font-medium text-muted-foreground">All Tags</h2>
+              {!results[0].isPending && allTags.length > 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  Total tags: {allTags.length}
+                </div>
+              ) : null}
+            </div>
+            {!isCreating ? (
+              <Button
+                variant="outline"
+                onClick={() => setIsCreating(true)}
+                className="h-8 cursor-pointer border-border/80 px-3 py-1 text-sm"
+                size="sm"
+              >
+                <IconCirclePlus className="mr-1.5 h-4 w-4" stroke={1.5} />
+                New Tag
+              </Button>
+            ) : null}
+          </div>
+
+          {isCreating ? renderTagCreationForm() : null}
+
+          <div className="space-y-2">
+            {results[0].isPending ? (
+              renderLoading("Loading tags...")
+            ) : allTags.length === 0 && !isCreating ? (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-border/70 bg-surface-2 py-10 px-4 text-center">
+                <p className="text-muted-foreground">No tags created yet.</p>
+                <Button
+                  variant="link"
+                  onClick={() => setIsCreating(true)}
+                  className="mt-2 px-0"
+                >
+                  Create your first tag
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+                {allTags.map(renderTagItem)}
               </div>
             )}
           </div>
-          {!isCreating && (
-            <Button
-              variant="outline"
-              onClick={() => setIsCreating(true)}
-              className="border-neutral-700 hover:bg-neutral-800 hover:text-neutral-100 text-neutral-300 py-1 px-3 h-8 text-sm cursor-pointer"
-              size="sm"
-            >
-              <IconCirclePlus className="h-4 w-4 mr-1.5" stroke={1.5} />
-              New Tag
-            </Button>
-          )}
         </div>
 
-        {isCreating && renderTagCreationForm()}
-
-        <div className="space-y-2">
-          {results[0].isPending ? (
-            renderLoading("Loading tags...")
-          ) : allTags.length === 0 && !isCreating ? (
-            <div className="flex flex-col items-center justify-center py-10 px-4 text-center bg-neutral-900 rounded-lg border border-neutral-800">
-              <p className="text-neutral-400">No tags created yet.</p>
-              <Button
-                variant="link"
-                onClick={() => setIsCreating(true)}
-                className="mt-2 text-blue-500 hover:text-blue-400 px-0"
-              >
-                Create your first tag
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              {allTags.map(renderTagItem)}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {selectedTagModal && (
-        <TagContentModal
-          isOpen={!!selectedTagModal}
-          onClose={closeModal}
-          tagName={selectedTagModal.tagName}
-          tagColor={selectedTagModal.colorClass}
-          content={selectedTagModal.content}
-          isLoading={false}
-        />
-      )}
-    </div>
+        {selectedTagModal ? (
+          <TagContentModal
+            isOpen={!!selectedTagModal}
+            onClose={closeModal}
+            tagName={selectedTagModal.tagName}
+            tagColor={selectedTagModal.colorClass}
+            content={selectedTagModal.content}
+            isLoading={false}
+          />
+        ) : null}
+      </PageContainer>
+    </PageShell>
   );
 }

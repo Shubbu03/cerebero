@@ -37,6 +37,7 @@ export default function NeuronBackground({
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isHovering, setIsHovering] = useState(false);
+  const [reducedVisuals, setReducedVisuals] = useState(false);
 
   const neuronsRef = useRef<Neuron[]>([]);
   const baseNeuronCountRef = useRef<number>(0);
@@ -44,7 +45,25 @@ export default function NeuronBackground({
   const requestRef = useRef<number | undefined>(undefined);
   const previousTimeRef = useRef<number | undefined>(undefined);
 
+  useEffect(() => {
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const mobileQuery = window.matchMedia("(max-width: 767px)");
+
+    const sync = () => {
+      setReducedVisuals(motionQuery.matches || mobileQuery.matches);
+    };
+
+    sync();
+    motionQuery.addEventListener("change", sync);
+    mobileQuery.addEventListener("change", sync);
+    return () => {
+      motionQuery.removeEventListener("change", sync);
+      mobileQuery.removeEventListener("change", sync);
+    };
+  }, []);
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (reducedVisuals) return;
     if (!containerRef.current) return;
 
     const rect = containerRef.current.getBoundingClientRect();
@@ -60,12 +79,43 @@ export default function NeuronBackground({
   };
 
   const handleMouseLeave = () => {
+    if (reducedVisuals) return;
     setIsHovering(false);
 
     if (onMouseLeave) {
       onMouseLeave();
     }
   };
+
+  function createNeuron(width: number, height: number): Neuron {
+    return {
+      x: Math.random() * width * window.devicePixelRatio,
+      y: Math.random() * height * window.devicePixelRatio,
+      radius: Math.random() * 2 + 1,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: (Math.random() - 0.5) * 0.5,
+      connections: [],
+      pulseSpeed: Math.random() * 0.02 + 0.01,
+      pulsePhase: Math.random() * Math.PI * 2,
+      color: Math.random() > 0.7 ? COLORS.cardinal : COLORS.silver,
+      opacity: 0.6 + Math.random() * 0.4,
+    };
+  }
+
+  function establishConnections(neurons: Neuron[]) {
+    for (let i = 0; i < neurons.length; i++) {
+      for (let j = i + 1; j < neurons.length; j++) {
+        const dx = neurons[i].x - neurons[j].x;
+        const dy = neurons[i].y - neurons[j].y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < 150 * window.devicePixelRatio) {
+          neurons[i].connections.push(j);
+          neurons[j].connections.push(i);
+        }
+      }
+    }
+  }
 
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
@@ -88,8 +138,8 @@ export default function NeuronBackground({
     window.addEventListener("resize", updateDimensions);
 
     const neuronCount = Math.max(
-      30,
-      Math.floor((dimensions.width * dimensions.height) / 20000)
+      16,
+      Math.floor((dimensions.width * dimensions.height) / 32000)
     );
     baseNeuronCountRef.current = neuronCount;
     const neurons: Neuron[] = [];
@@ -118,37 +168,7 @@ export default function NeuronBackground({
         cancelAnimationFrame(requestRef.current);
       }
     };
-  }, [dimensions.width, dimensions.height]);
-
-  const createNeuron = (width: number, height: number): Neuron => {
-    return {
-      x: Math.random() * width * window.devicePixelRatio,
-      y: Math.random() * height * window.devicePixelRatio,
-      radius: Math.random() * 2 + 1,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5,
-      connections: [],
-      pulseSpeed: Math.random() * 0.02 + 0.01,
-      pulsePhase: Math.random() * Math.PI * 2,
-      color: Math.random() > 0.7 ? COLORS.cardinal : COLORS.silver,
-      opacity: 0.6 + Math.random() * 0.4,
-    };
-  };
-
-  const establishConnections = (neurons: Neuron[]) => {
-    for (let i = 0; i < neurons.length; i++) {
-      for (let j = i + 1; j < neurons.length; j++) {
-        const dx = neurons[i].x - neurons[j].x;
-        const dy = neurons[i].y - neurons[j].y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        if (distance < 150 * window.devicePixelRatio) {
-          neurons[i].connections.push(j);
-          neurons[j].connections.push(i);
-        }
-      }
-    }
-  };
+  }, [dimensions.width, dimensions.height, reducedVisuals]);
 
   useEffect(() => {
     if (!canvasRef.current || neuronsRef.current.length === 0) return;
@@ -156,6 +176,13 @@ export default function NeuronBackground({
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    if (reducedVisuals) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = COLORS.raisinBlack;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
 
     const animate = (time: number) => {
       if (!previousTimeRef.current) {
@@ -369,7 +396,7 @@ export default function NeuronBackground({
         cancelAnimationFrame(requestRef.current);
       }
     };
-  }, [isHovering, mousePosition]);
+  }, [isHovering, mousePosition, reducedVisuals]);
 
   return (
     <div

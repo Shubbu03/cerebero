@@ -2,19 +2,21 @@
 
 import { useSession } from "next-auth/react";
 import { UserContent } from "../dashboard/page";
-import axios from "axios";
 import { ContentDetailCard } from "@/components/ContentDetailCard";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { notify } from "@/lib/notify";
+import { apiDelete, apiGet } from "@/lib/api/client";
+import { UserContentListResponse } from "@/lib/api/types";
+import {
+  PageContainer,
+  PageShell,
+  SectionHeader,
+} from "@/components/layout/PageShell";
 
 const fetchAllContent = async (): Promise<UserContent[]> => {
   try {
-    const response = await axios.get("/api/get-content");
-    if (response && response.data) {
-      return response.data.data || [];
-    } else {
-      return [];
-    }
+    const response = await apiGet<UserContentListResponse>("/api/get-content");
+    return response.data || [];
   } catch (error) {
     console.error("Error occured:", error);
     notify("Error occured while fetching content", "error");
@@ -36,7 +38,7 @@ export default function AllContent() {
 
   const handleContentDelete = async (id: string) => {
     try {
-      await axios.delete(`/api/delete-content/${id}`);
+      await apiDelete(`/api/delete-content/${id}`);
       await queryClient.invalidateQueries({
         queryKey: ["allContent"],
       });
@@ -50,15 +52,21 @@ export default function AllContent() {
 
   return (
     <>
-      <main className="p-4 md:p-6 text-white">
-        <ContentDetailCard
-          content={allContent.data}
-          isLoading={allContent.isLoading}
-          username={firstName}
-          origin="All_Content"
-          onDelete={handleContentDelete}
-        />
-      </main>
+      <PageShell>
+        <PageContainer>
+          <SectionHeader
+            title="All Content"
+            subtitle="A complete, chronologically ordered view of everything you saved."
+          />
+          <ContentDetailCard
+            content={allContent.data}
+            isLoading={allContent.isLoading}
+            username={firstName}
+            origin="All_Content"
+            onDelete={handleContentDelete}
+          />
+        </PageContainer>
+      </PageShell>
     </>
   );
 }
