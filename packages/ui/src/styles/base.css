@@ -1,0 +1,39 @@
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--border-subtle);
+  }
+
+  html {
+    min-width: 20rem;
+    background: var(--canvas);
+    font-family: var(--font-sans);
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    min-height: 100vh;
+    margin: 0;
+    background: var(--canvas);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+}

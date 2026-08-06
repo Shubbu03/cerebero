@@ -1,0 +1,13 @@
+@import '@fontsource-variable/newsreader';
+@import '@fontsource-variable/ibm-plex-sans';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import 'tailwindcss';
+
+@source '../../../../apps/web/src';
+@source '../';
+
+@import './tokens.css';
+@import './themes.css';
+@import './typography.css';
+@import './motion.css';
+@import './base.css';

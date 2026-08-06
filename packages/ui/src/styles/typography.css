@@ -1,0 +1,16 @@
+@utility text-balance {
+  text-wrap: balance;
+}
+
+@utility reading-measure {
+  max-inline-size: 68ch;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  p {
+    text-wrap: pretty;
+  }
+}

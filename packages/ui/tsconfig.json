@@ -1,0 +1,8 @@
+{
+  "extends": "../config/typescript/react.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true
+  },
+  "include": ["src", "test", "vitest.config.ts"]
+}

@@ -1,0 +1,38 @@
+{
+  "name": "cerebero",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.13",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "bun run build:packages && bun run --filter @cerebero/server build && bun run --filter @cerebero/web build",
+    "build:packages": "bun run --filter @cerebero/contracts build && bun run --filter @cerebero/db build && bun run --filter @cerebero/ui build",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build",
+    "db:check": "bun run --filter @cerebero/db db:check",
+    "db:migrate": "bun run --filter @cerebero/db db:migrate",
+    "dev": "bun run build:packages && concurrently --kill-others-on-fail --names server,web --prefix-colors green,blue \"bun run --filter @cerebero/server dev\" \"bun run --filter @cerebero/web dev\"",
+    "dev:worker": "bun run build:packages && bun run --filter @cerebero/server dev:worker",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "start:worker": "bun run --filter @cerebero/server start:worker",
+    "test": "bun run build:packages && bun run --filter @cerebero/contracts test && bun run --filter @cerebero/db test && bun run --filter @cerebero/ui test && bun run --filter @cerebero/server test && bun run --filter @cerebero/web test",
+    "typecheck": "bun run --filter @cerebero/contracts typecheck && bun run --filter @cerebero/db typecheck && bun run --filter @cerebero/ui typecheck && bun run --filter @cerebero/server typecheck && bun run --filter @cerebero/web typecheck"
+  },
+  "devDependencies": {
+    "@cerebero/config": "workspace:*",
+    "@types/node": "22",
+    "concurrently": "^10.0.4",
+    "eslint": "^10.8.0",
+    "prettier": "^3.9.6",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.10"
+  }
+}
