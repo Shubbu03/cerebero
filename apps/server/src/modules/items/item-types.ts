@@ -1,6 +1,8 @@
 import type {
   CaptureItemInput,
   DuplicateCandidate,
+  EnrichmentErrorCode,
+  EnrichmentState,
   ItemCommand,
   ItemPage,
   ItemStatus,
@@ -26,6 +28,7 @@ export function toUserId(value: string): UserId {
 export type ItemRecord = {
   authoredTitle: string | null
   createdAt: Date
+  enrichment: ItemEnrichmentRecord | null
   id: ItemId
   normalizedUrl: string | null
   noteMarkdown: string | null
@@ -36,6 +39,21 @@ export type ItemRecord = {
   trashedAt: Date | null
   updatedAt: Date
   version: number
+}
+
+export type ItemEnrichmentRecord = {
+  attemptCount: number
+  canonicalUrl: string | null
+  description: string | null
+  enrichedAt: Date | null
+  extractedTitle: string | null
+  faviconUrl: string | null
+  imageUrl: string | null
+  lastErrorCode: EnrichmentErrorCode | null
+  nextAttemptAt: Date | null
+  provider: string | null
+  siteName: string | null
+  state: EnrichmentState
 }
 
 export type ItemListCursor = {

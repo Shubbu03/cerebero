@@ -1,6 +1,7 @@
 import type {
   DuplicateCheckResponse,
   DuplicateItemResponse,
+  EnrichmentRetryResponse,
   ItemView,
 } from '@cerebero/contracts'
 import {
@@ -18,6 +19,8 @@ import type { z } from 'zod'
 import type { AppEnvironment } from '../environment.js'
 import { AppError } from '../errors.js'
 import type { ItemsModule } from '../../modules/items/item-types.js'
+import type { EnrichmentRetryModule } from '../../modules/enrichment/enrichment-retry.js'
+import { EnrichmentRetryError } from '../../modules/enrichment/enrichment-retry.js'
 import {
   ItemsError,
   toItemId,
@@ -61,6 +64,43 @@ async function callItems<T>(operation: () => Promise<T>): Promise<T> {
   } catch (error) {
     if (error instanceof ItemsError) {
       throw toAppError(error)
+    }
+
+    throw error
+  }
+}
+
+async function callEnrichmentRetry<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation()
+  } catch (error) {
+    if (error instanceof EnrichmentRetryError) {
+      switch (error.code) {
+        case 'NOT_FOUND':
+          throw new AppError({
+            code: error.code,
+            message: error.message,
+            status: 404,
+          })
+        case 'INVALID_ITEM_STATE':
+          throw new AppError({
+            code: error.code,
+            message: error.message,
+            status: 409,
+          })
+        case 'RATE_LIMITED':
+          if (error.retryAfterSeconds === null) {
+            throw new Error('A rate limit error requires a retry delay.', {
+              cause: error,
+            })
+          }
+          throw new AppError({
+            code: error.code,
+            message: error.message,
+            retryAfterSeconds: error.retryAfterSeconds,
+            status: 429,
+          })
+      }
     }
 
     throw error
@@ -144,7 +184,10 @@ const limitItemBody = bodyLimit({
   },
 })
 
-export function createItemsRoutes(items: ItemsModule): Hono<AppEnvironment> {
+export function createItemsRoutes(
+  items: ItemsModule,
+  enrichmentRetry?: EnrichmentRetryModule,
+): Hono<AppEnvironment> {
   const routes = new Hono<AppEnvironment>()
 
   routes.post('/duplicates/check', limitItemBody, async (context) => {
@@ -208,6 +251,17 @@ export function createItemsRoutes(items: ItemsModule): Hono<AppEnvironment> {
 
     return context.json(item)
   })
+
+  if (enrichmentRetry) {
+    routes.post('/:itemId/enrichment/retry', async (context) => {
+      const actor = requireActor(context.get('authSession'))
+      const enrichment = await callEnrichmentRetry(() =>
+        enrichmentRetry.retry(actor, parseItemId(context.req.param('itemId'))),
+      )
+      const response: EnrichmentRetryResponse = { enrichment }
+      return context.json(response)
+    })
+  }
 
   routes.patch('/:itemId', limitItemBody, async (context) => {
     const actor = requireActor(context.get('authSession'))

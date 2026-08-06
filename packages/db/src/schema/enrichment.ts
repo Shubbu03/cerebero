@@ -5,6 +5,7 @@ import {
   integer,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -12,6 +13,7 @@ import {
 } from 'drizzle-orm/pg-core'
 
 import { items } from './items.js'
+import { user } from './auth.js'
 
 export const enrichmentStateEnum = pgEnum('enrichment_state', [
   'pending',
@@ -182,6 +184,30 @@ export const enrichmentJobs = pgTable(
     index('enrichment_jobs_stale_lease_idx')
       .on(table.leaseExpiresAt)
       .where(sql`${table.status} = 'processing'`),
+  ],
+)
+
+export const enrichmentRetryRateLimits = pgTable(
+  'enrichment_retry_rate_limits',
+  {
+    ownerId: text('owner_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    requestCount: integer('request_count').notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date', withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    windowStartedAt: timestamp('window_started_at', {
+      mode: 'date',
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.ownerId] }),
+    check(
+      'enrichment_retry_rate_limits_count_positive',
+      sql`${table.requestCount} > 0`,
+    ),
   ],
 )
 

@@ -101,6 +101,31 @@ describe('Items module', () => {
     expect(repository.jobItemIds.has(toItemId(note.id))).toBe(false)
     expect(repository.enrichmentItemIds.has(toItemId(link.item.id))).toBe(true)
     expect(repository.jobItemIds.has(toItemId(link.item.id))).toBe(true)
+    expect(note.enrichment).toBeNull()
+    expect(link.item.enrichment).toMatchObject({
+      attemptCount: 0,
+      state: 'pending',
+    })
+  })
+
+  it('uses extracted metadata only when authored and note titles are absent', async () => {
+    const { items, repository } = createTestModule()
+    const result = await items.capture(USER_A, {
+      originalUrl: 'https://example.com/article',
+    })
+    if (result.outcome !== 'created') {
+      throw new Error('Expected the link Capture to succeed.')
+    }
+
+    const record = repository.records.get(toItemId(result.item.id))
+    if (!record?.enrichment) {
+      throw new Error('Expected an enrichment record.')
+    }
+    record.enrichment.extractedTitle = `Extracted article title ${'x'.repeat(400)}`
+
+    const item = await items.get(USER_A, record.id)
+    expect(item?.displayTitle.startsWith('Extracted article title')).toBe(true)
+    expect(item?.displayTitle).toHaveLength(300)
   })
 
   it('atomically resets or removes enrichment work when a URL changes', async () => {

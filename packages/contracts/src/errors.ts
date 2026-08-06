@@ -9,6 +9,7 @@ export const apiErrorCodeSchema = z.enum([
   'INVALID_ITEM_STATE',
   'NOT_FOUND',
   'PAYLOAD_TOO_LARGE',
+  'RATE_LIMITED',
   'SERVICE_UNAVAILABLE',
   'UNAUTHENTICATED',
   'UNSUPPORTED_MEDIA_TYPE',

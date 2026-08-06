@@ -1,4 +1,5 @@
 import type { DatabaseConnection } from '@cerebero/db'
+import { enrichmentErrorCodeSchema } from '@cerebero/contracts'
 import {
   enrichmentJobs,
   itemEnrichments,
@@ -10,11 +11,33 @@ import type { ItemRecord, ItemRepository } from './item-types.js'
 import { toItemId, toUserId } from './item-types.js'
 
 type ItemRow = typeof itemsTable.$inferSelect
+type ItemEnrichmentRow = typeof itemEnrichments.$inferSelect
 
-function toItemRecord(row: ItemRow): ItemRecord {
+function toItemRecord(
+  row: ItemRow,
+  enrichment: ItemEnrichmentRow | null,
+): ItemRecord {
   return {
     authoredTitle: row.authoredTitle,
     createdAt: row.createdAt,
+    enrichment: enrichment
+      ? {
+          attemptCount: enrichment.attemptCount,
+          canonicalUrl: enrichment.canonicalUrl,
+          description: enrichment.description,
+          enrichedAt: enrichment.enrichedAt,
+          extractedTitle: enrichment.extractedTitle,
+          faviconUrl: enrichment.faviconUrl,
+          imageUrl: enrichment.imageUrl,
+          lastErrorCode: enrichmentErrorCodeSchema
+            .nullable()
+            .parse(enrichment.lastErrorCode),
+          nextAttemptAt: enrichment.nextAttemptAt,
+          provider: enrichment.provider,
+          siteName: enrichment.siteName,
+          state: enrichment.state,
+        }
+      : null,
     id: toItemId(row.id),
     normalizedUrl: row.normalizedUrl,
     noteMarkdown: row.noteMarkdown,
@@ -36,9 +59,23 @@ export function createDrizzleItemsRepository(
   return {
     createCapture: (record) =>
       database.transaction(async (transaction) => {
+        const itemValues = {
+          authoredTitle: record.authoredTitle,
+          createdAt: record.createdAt,
+          id: record.id,
+          normalizedUrl: record.normalizedUrl,
+          noteMarkdown: record.noteMarkdown,
+          originalUrl: record.originalUrl,
+          ownerId: record.ownerId,
+          pinnedAt: record.pinnedAt,
+          status: record.status,
+          trashedAt: record.trashedAt,
+          updatedAt: record.updatedAt,
+          version: record.version,
+        }
         const [created] = await transaction
           .insert(itemsTable)
-          .values(record)
+          .values(itemValues)
           .returning()
 
         if (!created) {
@@ -62,23 +99,36 @@ export function createDrizzleItemsRepository(
           })
         }
 
-        return toItemRecord(created)
+        const [result] = await transaction
+          .select({ enrichment: itemEnrichments, item: itemsTable })
+          .from(itemsTable)
+          .leftJoin(itemEnrichments, eq(itemEnrichments.itemId, itemsTable.id))
+          .where(eq(itemsTable.id, created.id))
+          .limit(1)
+
+        if (!result) {
+          throw new Error('The created Item could not be reloaded.')
+        }
+
+        return toItemRecord(result.item, result.enrichment)
       }),
 
     findById: async (ownerId, itemId) => {
       const [record] = await database
-        .select()
+        .select({ enrichment: itemEnrichments, item: itemsTable })
         .from(itemsTable)
+        .leftJoin(itemEnrichments, eq(itemEnrichments.itemId, itemsTable.id))
         .where(and(eq(itemsTable.ownerId, ownerId), eq(itemsTable.id, itemId)))
         .limit(1)
 
-      return record ? toItemRecord(record) : null
+      return record ? toItemRecord(record.item, record.enrichment) : null
     },
 
     findDuplicates: async (ownerId, normalizedUrl, limit) => {
       const records = await database
-        .select()
+        .select({ enrichment: itemEnrichments, item: itemsTable })
         .from(itemsTable)
+        .leftJoin(itemEnrichments, eq(itemEnrichments.itemId, itemsTable.id))
         .where(
           and(
             eq(itemsTable.ownerId, ownerId),
@@ -89,7 +139,9 @@ export function createDrizzleItemsRepository(
         .orderBy(desc(itemsTable.createdAt), desc(itemsTable.id))
         .limit(limit)
 
-      return records.map(toItemRecord)
+      return records.map((record) =>
+        toItemRecord(record.item, record.enrichment),
+      )
     },
 
     list: async (ownerId, options) => {
@@ -104,8 +156,9 @@ export function createDrizzleItemsRepository(
         : undefined
 
       const records = await database
-        .select()
+        .select({ enrichment: itemEnrichments, item: itemsTable })
         .from(itemsTable)
+        .leftJoin(itemEnrichments, eq(itemEnrichments.itemId, itemsTable.id))
         .where(
           and(
             eq(itemsTable.ownerId, ownerId),
@@ -116,7 +169,9 @@ export function createDrizzleItemsRepository(
         .orderBy(desc(itemsTable.createdAt), desc(itemsTable.id))
         .limit(options.limit)
 
-      return records.map(toItemRecord)
+      return records.map((record) =>
+        toItemRecord(record.item, record.enrichment),
+      )
     },
 
     update: (ownerId, itemId, expectedVersion, patch, enrichmentMode) =>
@@ -168,7 +223,18 @@ export function createDrizzleItemsRepository(
           })
         }
 
-        return toItemRecord(updated)
+        const [result] = await transaction
+          .select({ enrichment: itemEnrichments, item: itemsTable })
+          .from(itemsTable)
+          .leftJoin(itemEnrichments, eq(itemEnrichments.itemId, itemsTable.id))
+          .where(eq(itemsTable.id, updated.id))
+          .limit(1)
+
+        if (!result) {
+          throw new Error('The updated Item could not be reloaded.')
+        }
+
+        return toItemRecord(result.item, result.enrichment)
       }),
   }
 }

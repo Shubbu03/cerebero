@@ -29,7 +29,9 @@ Phase 3A adds the durable enrichment boundary. Link Capture and URL edits transa
 
 Phase 3B adds the isolated restricted outbound HTTP client. It validates every resolved IPv4/IPv6 address, pins the selected public address to the socket, repeats validation for bounded redirects, sends no user credentials or cookies, applies connection/inactivity/total timeouts, and accepts at most 1 MiB of uncompressed HTML or XHTML. Phase 3C's worker is its only runtime caller.
 
-Phase 3C adds bounded metadata parsing and an independently runnable enrichment worker. The parser extracts only allowlisted plain text and validated metadata URLs from the document head. The worker processes at most four claimed jobs per batch by default, records stable retry/terminal classifications, reconciles stale leases, and drains active work during shutdown. Manual retry and enrichment UI remain later slices; live PostgreSQL and deliberate real-network acceptance are still pending.
+Phase 3C adds bounded metadata parsing and an independently runnable enrichment worker. The parser extracts only allowlisted plain text and validated metadata URLs from the document head. The worker processes at most four claimed jobs per batch by default, records stable retry/terminal classifications, reconciles stale leases, and drains active work during shutdown.
+
+Phase 3D exposes owner-scoped enrichment state on Item responses and adds transactional manual retry. Retry is allowed only from failed states, is limited to five accepted retries per User per hour in PostgreSQL, and safely serializes simultaneous attempts. Enrichment UI, live PostgreSQL acceptance, and deliberate real-network acceptance remain pending.
 
 With a real PostgreSQL database configured, run the worker separately from the HTTP and web processes:
 

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   apiErrorSchema,
   duplicateItemResponseSchema,
+  enrichmentRetryResponseSchema,
   itemViewSchema,
 } from '@cerebero/contracts'
 
@@ -10,6 +11,8 @@ import { createApp } from '../src/http/app.js'
 import type { AppLogger } from '../src/infrastructure/logging/logger.js'
 import type { ItemsModule } from '../src/modules/items/item-types.js'
 import { ItemsError } from '../src/modules/items/item-types.js'
+import type { EnrichmentRetryModule } from '../src/modules/enrichment/enrichment-retry.js'
+import { EnrichmentRetryError } from '../src/modules/enrichment/enrichment-retry.js'
 
 const ITEM_ID = '00000000-0000-4000-8000-000000000001'
 
@@ -32,6 +35,20 @@ const ITEM = {
   authoredTitle: null,
   createdAt: '2026-08-06T09:00:00.000Z',
   displayTitle: 'example.com',
+  enrichment: {
+    attemptCount: 0,
+    canonicalUrl: null,
+    description: null,
+    enrichedAt: null,
+    extractedTitle: null,
+    faviconUrl: null,
+    imageUrl: null,
+    lastErrorCode: null,
+    nextAttemptAt: '2026-08-06T09:00:00.000Z',
+    provider: null,
+    siteName: null,
+    state: 'pending' as const,
+  },
   id: ITEM_ID,
   kind: 'link' as const,
   noteMarkdown: null,
@@ -63,13 +80,17 @@ function createItems(overrides: Partial<ItemsModule> = {}): ItemsModule {
   }
 }
 
-function createAuthenticatedApp(items?: ItemsModule) {
+function createAuthenticatedApp(
+  items?: ItemsModule,
+  enrichmentRetry?: EnrichmentRetryModule,
+) {
   return createApp({
     auth: {
       getSession: vi.fn().mockResolvedValue(AUTH_SESSION),
       handler: vi.fn(),
     },
     checkReadiness: vi.fn().mockResolvedValue(undefined),
+    ...(enrichmentRetry ? { enrichmentRetry } : {}),
     ...(items ? { items } : {}),
     logger: createTestLogger(),
     trustedOrigin: 'http://localhost:5173',
@@ -219,5 +240,67 @@ describe('Items HTTP interface', () => {
     expect(invalidQuery.status).toBe(400)
     expect(items.get).not.toHaveBeenCalled()
     expect(items.list).not.toHaveBeenCalled()
+  })
+
+  it('derives retry ownership from the session without requiring a body', async () => {
+    const enrichmentRetry: EnrichmentRetryModule = {
+      retry: vi.fn().mockResolvedValue(ITEM.enrichment),
+    }
+    const app = createAuthenticatedApp(createItems(), enrichmentRetry)
+    const response = await app.request(
+      `/api/v1/items/${ITEM_ID}/enrichment/retry`,
+      { method: 'POST' },
+    )
+
+    expect(response.status).toBe(200)
+    expect(enrichmentRetryResponseSchema.parse(await response.json())).toEqual({
+      enrichment: ITEM.enrichment,
+    })
+    expect(enrichmentRetry.retry).toHaveBeenCalledWith(
+      'server-derived-user',
+      ITEM_ID,
+    )
+  })
+
+  it('returns a bounded retry delay when the per-user quota is exhausted', async () => {
+    const enrichmentRetry: EnrichmentRetryModule = {
+      retry: vi
+        .fn()
+        .mockRejectedValue(
+          new EnrichmentRetryError('RATE_LIMITED', 'Try again later.', 1_800),
+        ),
+    }
+    const app = createAuthenticatedApp(createItems(), enrichmentRetry)
+    const response = await app.request(
+      `/api/v1/items/${ITEM_ID}/enrichment/retry`,
+      { method: 'POST' },
+    )
+    const body = apiErrorSchema.parse(await response.json())
+
+    expect(response.status).toBe(429)
+    expect(response.headers.get('Retry-After')).toBe('1800')
+    expect(body.error.code).toBe('RATE_LIMITED')
+  })
+
+  it('keeps cross-tenant retry misses indistinguishable from absent Items', async () => {
+    const enrichmentRetry: EnrichmentRetryModule = {
+      retry: vi
+        .fn()
+        .mockRejectedValue(
+          new EnrichmentRetryError(
+            'NOT_FOUND',
+            'The requested Item was not found.',
+          ),
+        ),
+    }
+    const app = createAuthenticatedApp(createItems(), enrichmentRetry)
+    const response = await app.request(
+      `/api/v1/items/${ITEM_ID}/enrichment/retry`,
+      { method: 'POST' },
+    )
+    const body = apiErrorSchema.parse(await response.json())
+
+    expect(response.status).toBe(404)
+    expect(body.error.code).toBe('NOT_FOUND')
   })
 })

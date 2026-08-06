@@ -11,6 +11,17 @@ function cloneRecord(record: ItemRecord): ItemRecord {
   return {
     ...record,
     createdAt: new Date(record.createdAt),
+    enrichment: record.enrichment
+      ? {
+          ...record.enrichment,
+          enrichedAt: record.enrichment.enrichedAt
+            ? new Date(record.enrichment.enrichedAt)
+            : null,
+          nextAttemptAt: record.enrichment.nextAttemptAt
+            ? new Date(record.enrichment.nextAttemptAt)
+            : null,
+        }
+      : null,
     pinnedAt: record.pinnedAt ? new Date(record.pinnedAt) : null,
     trashedAt: record.trashedAt ? new Date(record.trashedAt) : null,
     updatedAt: new Date(record.updatedAt),
@@ -120,9 +131,24 @@ export class InMemoryItemsRepository implements ItemRepository {
     })
     this.records.set(itemId, updated)
     if (enrichmentMode === 'remove') {
+      updated.enrichment = null
       this.enrichmentItemIds.delete(itemId)
       this.jobItemIds.delete(itemId)
     } else if (enrichmentMode === 'reset') {
+      updated.enrichment = {
+        attemptCount: 0,
+        canonicalUrl: null,
+        description: null,
+        enrichedAt: null,
+        extractedTitle: null,
+        faviconUrl: null,
+        imageUrl: null,
+        lastErrorCode: null,
+        nextAttemptAt: patch.updatedAt ?? updated.updatedAt,
+        provider: null,
+        siteName: null,
+        state: 'pending',
+      }
       this.enrichmentItemIds.add(itemId)
       this.jobItemIds.add(itemId)
     }

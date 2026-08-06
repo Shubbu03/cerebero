@@ -14,11 +14,13 @@ import type { AppEnvironment } from './environment.js'
 import { createItemsRoutes } from './routes/items.js'
 import type { AppLogger } from '../infrastructure/logging/logger.js'
 import type { AuthRuntime } from '../modules/auth/auth.js'
+import type { EnrichmentRetryModule } from '../modules/enrichment/enrichment-retry.js'
 import type { ItemsModule } from '../modules/items/item-types.js'
 
 type AppOptions = {
   auth?: AuthRuntime
   checkReadiness: () => Promise<void>
+  enrichmentRetry?: EnrichmentRetryModule
   items?: ItemsModule
   logger: AppLogger
   trustedOrigin: string
@@ -26,7 +28,7 @@ type AppOptions = {
 
 const statusByErrorCode: Record<
   ApiErrorCode,
-  400 | 401 | 404 | 409 | 413 | 415 | 500 | 503
+  400 | 401 | 404 | 409 | 413 | 415 | 429 | 500 | 503
 > = {
   AUTH_UNAVAILABLE: 503,
   DUPLICATE_ITEM: 409,
@@ -36,6 +38,7 @@ const statusByErrorCode: Record<
   INVALID_ITEM_STATE: 409,
   NOT_FOUND: 404,
   PAYLOAD_TOO_LARGE: 413,
+  RATE_LIMITED: 429,
   SERVICE_UNAVAILABLE: 503,
   UNAUTHENTICATED: 401,
   UNSUPPORTED_MEDIA_TYPE: 415,
@@ -93,6 +96,7 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
       allowHeaders: ['Content-Type'],
       allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
       credentials: true,
+      exposeHeaders: ['Retry-After', 'X-Request-Id'],
       maxAge: 600,
       origin: options.trustedOrigin,
     }),
@@ -222,7 +226,10 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
   })
 
   if (options.items) {
-    app.route('/api/v1/items', createItemsRoutes(options.items))
+    app.route(
+      '/api/v1/items',
+      createItemsRoutes(options.items, options.enrichmentRetry),
+    )
   }
 
   app.notFound((context) =>
@@ -244,6 +251,10 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
         code: error.code,
         requestId,
       })
+      if (error.retryAfterSeconds !== null) {
+        context.header('Retry-After', String(error.retryAfterSeconds))
+      }
+
       return context.json(
         errorBody(error.code, error.message, requestId),
         error.status,

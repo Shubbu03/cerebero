@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import { getTableConfig } from 'drizzle-orm/pg-core'
 
-import { enrichmentJobs, itemEnrichments } from '../src/schema/index.js'
+import {
+  enrichmentJobs,
+  enrichmentRetryRateLimits,
+  itemEnrichments,
+} from '../src/schema/index.js'
 
 describe('Enrichment database schema', () => {
   it('bounds metadata and retry state at the database boundary', () => {
@@ -36,6 +40,16 @@ describe('Enrichment database schema', () => {
         'enrichment_jobs_claim_idx',
         'enrichment_jobs_stale_lease_idx',
       ]),
+    )
+  })
+
+  it('stores one positive manual-retry quota window per User', () => {
+    const rateLimits = getTableConfig(enrichmentRetryRateLimits)
+
+    expect(rateLimits.primaryKeys).toHaveLength(1)
+    expect(rateLimits.foreignKeys).toHaveLength(1)
+    expect(rateLimits.checks.map((constraint) => constraint.name)).toContain(
+      'enrichment_retry_rate_limits_count_positive',
     )
   })
 })

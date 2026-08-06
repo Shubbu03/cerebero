@@ -1,4 +1,11 @@
+import {
+  ENRICHMENT_ERROR_CODES,
+  type EnrichmentErrorCode,
+} from '@cerebero/contracts'
+
 import type { ItemId } from '../items/item-types.js'
+
+export { ENRICHMENT_ERROR_CODES, type EnrichmentErrorCode }
 
 declare const enrichmentJobIdBrand: unique symbol
 declare const leaseTokenBrand: unique symbol
@@ -15,18 +22,6 @@ export function toEnrichmentJobId(value: string): EnrichmentJobId {
 export function toLeaseToken(value: string): LeaseToken {
   return value as LeaseToken
 }
-
-export const ENRICHMENT_ERROR_CODES = [
-  'blocked_unsafe_url',
-  'invalid_metadata',
-  'lease_expired',
-  'response_too_large',
-  'timed_out',
-  'unavailable',
-  'unsupported_content',
-] as const
-
-export type EnrichmentErrorCode = (typeof ENRICHMENT_ERROR_CODES)[number]
 
 export type EnrichmentMetadata = {
   canonicalUrl: string | null

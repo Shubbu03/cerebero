@@ -123,6 +123,10 @@ function displayTitle(record: ItemRecord): string {
     }
   }
 
+  if (record.enrichment?.extractedTitle) {
+    return record.enrichment.extractedTitle.slice(0, 300)
+  }
+
   if (record.originalUrl) {
     return new URL(record.originalUrl).hostname
   }
@@ -135,6 +139,13 @@ function toItemView(record: ItemRecord): ItemView {
     authoredTitle: record.authoredTitle,
     createdAt: record.createdAt.toISOString(),
     displayTitle: displayTitle(record),
+    enrichment: record.enrichment
+      ? {
+          ...record.enrichment,
+          enrichedAt: record.enrichment.enrichedAt?.toISOString() ?? null,
+          nextAttemptAt: record.enrichment.nextAttemptAt?.toISOString() ?? null,
+        }
+      : null,
     id: record.id,
     kind: record.originalUrl ? 'link' : 'note',
     noteMarkdown: record.noteMarkdown,
@@ -325,6 +336,22 @@ export function createItemsModule(options: ItemsModuleOptions): ItemsModule {
       const created = await options.repository.createCapture({
         authoredTitle,
         createdAt: now,
+        enrichment: url.originalUrl
+          ? {
+              attemptCount: 0,
+              canonicalUrl: null,
+              description: null,
+              enrichedAt: null,
+              extractedTitle: null,
+              faviconUrl: null,
+              imageUrl: null,
+              lastErrorCode: null,
+              nextAttemptAt: now,
+              provider: null,
+              siteName: null,
+              state: 'pending',
+            }
+          : null,
         id: toItemId(createId()),
         normalizedUrl: url.normalizedUrl,
         noteMarkdown,

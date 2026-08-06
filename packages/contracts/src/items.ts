@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { apiErrorSchema } from './errors.js'
+import { enrichmentViewSchema } from './enrichment.js'
 
 export const MAX_ITEM_TITLE_LENGTH = 300
 export const MAX_ITEM_NOTE_LENGTH = 100_000
@@ -49,6 +50,7 @@ export const itemViewSchema = z
     authoredTitle: z.string().min(1).max(MAX_ITEM_TITLE_LENGTH).nullable(),
     createdAt: z.string().datetime(),
     displayTitle: z.string().min(1).max(MAX_ITEM_TITLE_LENGTH),
+    enrichment: enrichmentViewSchema.nullable(),
     id: itemIdSchema,
     kind: itemKindSchema,
     noteMarkdown: z.string().max(MAX_ITEM_NOTE_LENGTH).nullable(),

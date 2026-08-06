@@ -10,6 +10,8 @@ import {
 import { parseEnvironment } from '../config.js'
 import { createApp } from '../http/app.js'
 import { createLogger } from '../infrastructure/logging/logger.js'
+import { createDrizzleEnrichmentRetryRepository } from '../modules/enrichment/drizzle-enrichment-retry-repository.js'
+import { createEnrichmentRetryModule } from '../modules/enrichment/enrichment-retry.js'
 import { createDrizzleItemsRepository } from '../modules/items/drizzle-items-repository.js'
 import { createItemsModule } from '../modules/items/items.js'
 
@@ -21,6 +23,11 @@ const database = environment.DATABASE_URL
 const items = database
   ? createItemsModule({ repository: createDrizzleItemsRepository(database) })
   : undefined
+const enrichmentRetry = database
+  ? createEnrichmentRetryModule({
+      repository: createDrizzleEnrichmentRetryRepository(database),
+    })
+  : undefined
 
 const app = createApp({
   checkReadiness: async () => {
@@ -30,6 +37,7 @@ const app = createApp({
 
     await checkDatabaseConnection(database)
   },
+  ...(enrichmentRetry ? { enrichmentRetry } : {}),
   ...(items ? { items } : {}),
   logger,
   trustedOrigin: environment.APP_ORIGIN,

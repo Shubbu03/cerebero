@@ -12,6 +12,17 @@ export {
   type ApiError,
   type ApiErrorCode,
 } from './errors.js'
+export {
+  ENRICHMENT_ERROR_CODES,
+  enrichmentErrorCodeSchema,
+  enrichmentRetryResponseSchema,
+  enrichmentStateSchema,
+  enrichmentViewSchema,
+  type EnrichmentErrorCode,
+  type EnrichmentRetryResponse,
+  type EnrichmentState,
+  type EnrichmentView,
+} from './enrichment.js'
 export { healthResponseSchema, type HealthResponse } from './health.js'
 export {
   MAX_ITEM_NOTE_LENGTH,
