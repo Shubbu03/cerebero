@@ -32,11 +32,14 @@ describe('Items database schema', () => {
     const duplicateIndex = indexesByName.get(
       'items_owner_active_normalized_url_idx',
     )
+    const trashIndex = indexesByName.get('items_trashed_at_idx')
 
     expect(listIndex?.config.columns[0]).toMatchObject({ name: 'owner_id' })
     expect(duplicateIndex?.config.columns[0]).toMatchObject({
       name: 'owner_id',
     })
     expect(duplicateIndex?.config.where).toBeDefined()
+    expect(trashIndex?.config.where).toBeDefined()
+    expect(trashIndex?.config.columns[0]).toMatchObject({ name: 'trashed_at' })
   })
 })

@@ -60,6 +60,27 @@ export class InMemoryItemsRepository implements ItemRepository {
     return Promise.resolve(cloneRecord(stored))
   }
 
+  async deletePermanently(
+    ownerId: UserId,
+    itemId: ItemId,
+    expectedVersion: number,
+  ): Promise<boolean> {
+    const current = this.records.get(itemId)
+    if (
+      !current ||
+      current.ownerId !== ownerId ||
+      current.version !== expectedVersion ||
+      current.status !== 'trashed'
+    ) {
+      return Promise.resolve(false)
+    }
+
+    this.records.delete(itemId)
+    this.enrichmentItemIds.delete(itemId)
+    this.jobItemIds.delete(itemId)
+    return Promise.resolve(true)
+  }
+
   async findById(ownerId: UserId, itemId: ItemId): Promise<ItemRecord | null> {
     const record = this.records.get(itemId)
     return Promise.resolve(
@@ -96,12 +117,35 @@ export class InMemoryItemsRepository implements ItemRepository {
   ): Promise<readonly ItemRecord[]> {
     return Promise.resolve(
       [...this.records.values()]
-        .filter(
-          (record) =>
-            record.ownerId === ownerId &&
-            record.status === options.status &&
-            isAfterCursor(record, options),
-        )
+        .filter((record) => {
+          if (record.ownerId !== ownerId || record.status !== options.status) {
+            return false
+          }
+          if (!isAfterCursor(record, options)) {
+            return false
+          }
+          if (options.kind === 'link' && !record.originalUrl) {
+            return false
+          }
+          if (options.kind === 'note' && record.originalUrl) {
+            return false
+          }
+          if (options.pinned === true && !record.pinnedAt) {
+            return false
+          }
+          if (options.pinned === false && record.pinnedAt) {
+            return false
+          }
+          if (options.tagIds && options.tagIds.length > 0) {
+            const attached = new Set(
+              record.tags.map((tag) => tag.id as string),
+            )
+            if (!options.tagIds.every((tagId) => attached.has(tagId))) {
+              return false
+            }
+          }
+          return true
+        })
         .sort(
           (left, right) =>
             right.createdAt.getTime() - left.createdAt.getTime() ||

@@ -1,0 +1,1 @@
+CREATE INDEX "items_trashed_at_idx" ON "items" USING btree ("trashed_at","id") WHERE "items"."status" = 'trashed' and "items"."trashed_at" is not null;

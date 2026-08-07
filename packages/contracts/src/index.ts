@@ -71,3 +71,10 @@ export {
   type TagList,
   type TagView,
 } from './tags.js'
+export {
+  MAX_SEARCH_QUERY_LENGTH,
+  searchQuerySchema,
+  searchResponseSchema,
+  type SearchQuery,
+  type SearchResponse,
+} from './search.js'

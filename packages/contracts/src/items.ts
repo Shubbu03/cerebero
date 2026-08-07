@@ -59,6 +59,7 @@ export const itemViewSchema = z
     pinnedAt: z.iso.datetime().nullable(),
     status: itemStatusSchema,
     tags: z.array(tagViewSchema),
+    trashedAt: z.iso.datetime().nullable(),
     updatedAt: z.iso.datetime(),
     version: z.number().int().positive(),
   })
@@ -122,14 +123,36 @@ export const itemCommandTypeSchema = z.enum([
   'move_to_inbox',
   'pin',
   'unpin',
+  'archive',
+  'trash',
+  'restore',
+  'delete_permanently',
 ])
 
 export const itemCommandSchema = z
   .object({
+    confirm: z.literal(true).optional(),
     expectedVersion: z.number().int().positive(),
     type: itemCommandTypeSchema,
   })
   .strict()
+  .superRefine((command, context) => {
+    if (command.type === 'delete_permanently' && command.confirm !== true) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Permanent deletion requires explicit confirmation.',
+        path: ['confirm'],
+      })
+    }
+
+    if (command.type !== 'delete_permanently' && command.confirm !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Confirmation is only valid for permanent deletion.',
+        path: ['confirm'],
+      })
+    }
+  })
 
 export const duplicateCheckInputSchema = z
   .object({
@@ -155,13 +178,42 @@ export const duplicateItemResponseSchema = apiErrorSchema.extend({
   candidates: z.array(duplicateCandidateSchema).max(10),
 })
 
+function toOptionalStringArray(value: unknown): string[] | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) =>
+      typeof entry === 'string' ? entry.split(',') : [],
+    )
+  }
+
+  if (typeof value === 'string') {
+    return value.split(',')
+  }
+
+  return undefined
+}
+
 export const listItemsQuerySchema = z
   .object({
     cursor: z.string().max(512).optional(),
+    kind: itemKindSchema.optional(),
     limit: z.coerce.number().int().min(1).max(MAX_ITEM_PAGE_SIZE).default(25),
-    status: z.enum(['inbox', 'library']).default('inbox'),
+    pinned: z.enum(['true', 'false']).optional(),
+    status: itemStatusSchema.default('inbox'),
+    tag: z.preprocess(
+      toOptionalStringArray,
+      z.array(z.string().uuid()).max(10).optional(),
+    ),
   })
   .strict()
+  .transform((query) => ({
+    ...query,
+    pinned:
+      query.pinned === undefined ? undefined : query.pinned === 'true',
+  }))
 
 export const itemPageSchema = z
   .object({
@@ -183,5 +235,12 @@ export type ItemKind = z.infer<typeof itemKindSchema>
 export type ItemPage = z.infer<typeof itemPageSchema>
 export type ItemStatus = z.infer<typeof itemStatusSchema>
 export type ItemView = z.infer<typeof itemViewSchema>
-export type ListItemsQuery = z.infer<typeof listItemsQuerySchema>
+export type ListItemsQuery = {
+  cursor?: string | undefined
+  kind?: ItemKind | undefined
+  limit: number
+  pinned?: boolean | undefined
+  status: ItemStatus
+  tag?: string[] | undefined
+}
 export type UpdateItemInput = z.infer<typeof updateItemInputSchema>

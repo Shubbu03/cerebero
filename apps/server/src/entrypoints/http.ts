@@ -14,6 +14,8 @@ import { createDrizzleEnrichmentRetryRepository } from '../modules/enrichment/dr
 import { createEnrichmentRetryModule } from '../modules/enrichment/enrichment-retry.js'
 import { createDrizzleItemsRepository } from '../modules/items/drizzle-items-repository.js'
 import { createItemsModule } from '../modules/items/items.js'
+import { createDrizzleSearchRepository } from '../modules/search/drizzle-search-repository.js'
+import { createSearchModule } from '../modules/search/search.js'
 import { createDrizzleTagsRepository } from '../modules/tags/drizzle-tags-repository.js'
 import { createTagsModule } from '../modules/tags/tags.js'
 
@@ -27,6 +29,11 @@ const items = database
   : undefined
 const tags = database
   ? createTagsModule({ repository: createDrizzleTagsRepository(database) })
+  : undefined
+const search = database
+  ? createSearchModule({
+      repository: createDrizzleSearchRepository(database),
+    })
   : undefined
 const enrichmentRetry = database
   ? createEnrichmentRetryModule({
@@ -44,6 +51,7 @@ const app = createApp({
   },
   ...(enrichmentRetry ? { enrichmentRetry } : {}),
   ...(items ? { items } : {}),
+  ...(search ? { search } : {}),
   ...(tags ? { tags } : {}),
   logger,
   trustedOrigin: environment.APP_ORIGIN,

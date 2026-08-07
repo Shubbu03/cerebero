@@ -1,4 +1,5 @@
 import type { AppLogger } from '../../infrastructure/logging/logger.js'
+import type { TrashCleanupModule } from '../cleanup/cleanup-types.js'
 import type {
   ClaimedEnrichmentJob,
   EnrichmentQueue,
@@ -13,8 +14,11 @@ const DEFAULT_CONCURRENCY = 4
 const DEFAULT_IDLE_POLL_INTERVAL_MS = 1_000
 const DEFAULT_RECONCILIATION_BATCH_SIZE = 100
 const DEFAULT_RECONCILIATION_INTERVAL_MS = 60_000
+const DEFAULT_TRASH_CLEANUP_BATCH_SIZE = 100
+const DEFAULT_TRASH_CLEANUP_INTERVAL_MS = 300_000
 const MAX_CONCURRENCY = 32
 const MAX_RECONCILIATION_BATCH_SIZE = 500
+const MAX_TRASH_CLEANUP_BATCH_SIZE = 500
 
 type Sleep = (milliseconds: number, signal: AbortSignal) => Promise<void>
 
@@ -28,6 +32,9 @@ export type EnrichmentWorkerOptions = Readonly<{
   reconciliationBatchSize?: number
   reconciliationIntervalMs?: number
   sleep?: Sleep
+  trashCleanup?: TrashCleanupModule
+  trashCleanupBatchSize?: number
+  trashCleanupIntervalMs?: number
 }>
 
 export interface EnrichmentWorker {
@@ -137,6 +144,16 @@ export function createEnrichmentWorker(
     options.reconciliationIntervalMs ?? DEFAULT_RECONCILIATION_INTERVAL_MS,
     'reconciliationIntervalMs',
   )
+  const trashCleanupBatchSize = requireIntegerBetween(
+    options.trashCleanupBatchSize ?? DEFAULT_TRASH_CLEANUP_BATCH_SIZE,
+    'trashCleanupBatchSize',
+    1,
+    MAX_TRASH_CLEANUP_BATCH_SIZE,
+  )
+  const trashCleanupIntervalMs = requirePositiveInteger(
+    options.trashCleanupIntervalMs ?? DEFAULT_TRASH_CLEANUP_INTERVAL_MS,
+    'trashCleanupIntervalMs',
+  )
   const sleep = options.sleep ?? defaultSleep
   let isRunning = false
 
@@ -187,6 +204,23 @@ export function createEnrichmentWorker(
     }
   }
 
+  async function purgeExpiredTrash(): Promise<void> {
+    if (!options.trashCleanup) {
+      return
+    }
+
+    try {
+      const result = await options.trashCleanup.purgeExpiredTrash(
+        trashCleanupBatchSize,
+      )
+      if (result.deletedCount > 0) {
+        options.logger.info('cleanup.trash.purged', result)
+      }
+    } catch {
+      options.logger.error('cleanup.trash.failed')
+    }
+  }
+
   return {
     processAvailableBatch,
     async run(signal) {
@@ -196,6 +230,7 @@ export function createEnrichmentWorker(
 
       isRunning = true
       let nextReconciliationAt = 0
+      let nextTrashCleanupAt = 0
       options.logger.info('enrichment.worker.started', { concurrency })
 
       try {
@@ -204,6 +239,10 @@ export function createEnrichmentWorker(
           if (now >= nextReconciliationAt) {
             await reconcile()
             nextReconciliationAt = clock() + reconciliationIntervalMs
+          }
+          if (now >= nextTrashCleanupAt) {
+            await purgeExpiredTrash()
+            nextTrashCleanupAt = clock() + trashCleanupIntervalMs
           }
 
           const claimed = await processAvailableBatch(signal)

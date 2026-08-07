@@ -251,8 +251,8 @@ describe('Items module', () => {
     ).rejects.toMatchObject({ code: 'INVALID_REQUEST' })
   })
 
-  it('enforces Phase 2 lifecycle and pin transitions', async () => {
-    const { items } = createTestModule()
+  it('enforces lifecycle, pin, archive, trash, restore, and permanent delete', async () => {
+    const { items, repository } = createTestModule()
     const captured = await captureNote(items)
     const itemId = toItemId(captured.id)
 
@@ -268,26 +268,122 @@ describe('Items module', () => {
     })
     expect(pinned.pinnedAt).toBeTruthy()
 
-    const moved = await items.act(USER_A, itemId, {
+    const archived = await items.act(USER_A, itemId, {
       expectedVersion: 3,
-      type: 'move_to_inbox',
+      type: 'archive',
     })
-    expect(moved).toMatchObject({ status: 'inbox', version: 4 })
+    expect(archived).toMatchObject({
+      pinnedAt: null,
+      status: 'archived',
+      trashedAt: null,
+      version: 4,
+    })
 
-    const unpinned = await items.act(USER_A, itemId, {
+    const restoredFromArchive = await items.act(USER_A, itemId, {
       expectedVersion: 4,
-      type: 'unpin',
+      type: 'restore',
     })
-    expect(unpinned).toMatchObject({ pinnedAt: null, version: 5 })
+    expect(restoredFromArchive).toMatchObject({
+      status: 'library',
+      version: 5,
+    })
+
+    const trashed = await items.act(USER_A, itemId, {
+      expectedVersion: 5,
+      type: 'trash',
+    })
+    expect(trashed).toMatchObject({
+      pinnedAt: null,
+      status: 'trashed',
+      version: 6,
+    })
+    expect(trashed.trashedAt).toBeTruthy()
 
     await expect(
       items.act(USER_A, itemId, {
-        expectedVersion: 5,
-        type: 'unpin',
+        expectedVersion: 6,
+        type: 'pin',
       }),
-    ).rejects.toMatchObject({
-      code: 'INVALID_ITEM_STATE',
+    ).rejects.toMatchObject({ code: 'INVALID_ITEM_STATE' })
+
+    const restoredFromTrash = await items.act(USER_A, itemId, {
+      expectedVersion: 6,
+      type: 'restore',
     })
+    expect(restoredFromTrash).toMatchObject({
+      pinnedAt: null,
+      status: 'library',
+      trashedAt: null,
+      version: 7,
+    })
+
+    const trashedAgain = await items.act(USER_A, itemId, {
+      expectedVersion: 7,
+      type: 'trash',
+    })
+    await items.act(USER_A, itemId, {
+      confirm: true,
+      expectedVersion: trashedAgain.version,
+      type: 'delete_permanently',
+    })
+    expect(repository.records.has(itemId)).toBe(false)
+    await expect(items.get(USER_A, itemId)).resolves.toBeNull()
+  })
+
+  it('rejects permanent delete outside Trash and ownership boundaries', async () => {
+    const { items } = createTestModule()
+    const item = await captureNote(items)
+    const itemId = toItemId(item.id)
+
+    await expect(
+      items.act(USER_A, itemId, {
+        confirm: true,
+        expectedVersion: 1,
+        type: 'delete_permanently',
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_ITEM_STATE' })
+
+    await items.act(USER_A, itemId, { expectedVersion: 1, type: 'trash' })
+    await expect(
+      items.act(USER_B, itemId, {
+        confirm: true,
+        expectedVersion: 2,
+        type: 'delete_permanently',
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  })
+
+  it('lists archived and trashed Items within the ownership boundary', async () => {
+    const { items } = createTestModule()
+    const first = await captureNote(items, USER_A)
+    const second = await captureNote(items, USER_A)
+    await captureNote(items, USER_B)
+
+    await items.act(USER_A, toItemId(first.id), {
+      expectedVersion: 1,
+      type: 'archive',
+    })
+    await items.act(USER_A, toItemId(second.id), {
+      expectedVersion: 1,
+      type: 'trash',
+    })
+
+    const archived = await items.list(USER_A, {
+      limit: 25,
+      status: 'archived',
+    })
+    expect(archived.items.map((item) => item.id)).toEqual([first.id])
+
+    const trashed = await items.list(USER_A, {
+      limit: 25,
+      status: 'trashed',
+    })
+    expect(trashed.items).toHaveLength(1)
+    expect(trashed.items[0]).toMatchObject({
+      id: second.id,
+      status: 'trashed',
+    })
+    expect(trashed.items[0]?.trashedAt).toBeTruthy()
   })
 
   it('paginates newest-first without including another User records', async () => {
@@ -311,6 +407,64 @@ describe('Items module', () => {
     expect(secondPage.items).toHaveLength(1)
     expect(secondPage.items[0]?.id).not.toBe(firstPage.items[0]?.id)
     expect(secondPage.nextCursor).toBeNull()
+  })
+
+  it('filters Library lists by kind, pin state, and Tags', async () => {
+    const { items, repository } = createTestModule()
+    const note = await captureNote(items)
+    const link = await items.capture(USER_A, {
+      originalUrl: 'https://example.com/article',
+    })
+    if (link.outcome !== 'created') {
+      throw new Error('Expected link Capture to succeed.')
+    }
+
+    await items.act(USER_A, toItemId(note.id), {
+      expectedVersion: 1,
+      type: 'file',
+    })
+    await items.act(USER_A, toItemId(link.item.id), {
+      expectedVersion: 1,
+      type: 'file',
+    })
+    await items.act(USER_A, toItemId(link.item.id), {
+      expectedVersion: 2,
+      type: 'pin',
+    })
+
+    const tagId = toTagId('00000000-0000-4000-8000-000000000201')
+    const noteRecord = repository.records.get(toItemId(note.id))
+    if (!noteRecord) {
+      throw new Error('Expected note record.')
+    }
+    noteRecord.tags = [
+      {
+        createdAt: new Date(Date.UTC(2026, 7, 7, 12, 0, 0)),
+        id: tagId,
+        name: 'Research',
+      },
+    ]
+
+    const notes = await items.list(USER_A, {
+      kind: 'note',
+      limit: 25,
+      status: 'library',
+    })
+    expect(notes.items.map((item) => item.id)).toEqual([note.id])
+
+    const pinned = await items.list(USER_A, {
+      limit: 25,
+      pinned: true,
+      status: 'library',
+    })
+    expect(pinned.items.map((item) => item.id)).toEqual([link.item.id])
+
+    const tagged = await items.list(USER_A, {
+      limit: 25,
+      status: 'library',
+      tag: [tagId],
+    })
+    expect(tagged.items.map((item) => item.id)).toEqual([note.id])
   })
 
   it('rejects malformed and cross-status cursors', async () => {

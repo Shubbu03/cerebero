@@ -5,6 +5,8 @@ import { closeDatabaseConnection, createDatabase } from '@cerebero/db'
 import { parseEnvironment } from '../config.js'
 import { createRestrictedHttpClient } from '../infrastructure/outbound-http/restricted-http-client.js'
 import { createLogger } from '../infrastructure/logging/logger.js'
+import { createDrizzleTrashCleanupRepository } from '../modules/cleanup/drizzle-trash-cleanup-repository.js'
+import { createTrashCleanupModule } from '../modules/cleanup/trash-cleanup.js'
 import { createDrizzleEnrichmentQueueRepository } from '../modules/enrichment/drizzle-enrichment-queue-repository.js'
 import { createEnrichmentProcessor } from '../modules/enrichment/enrichment-processor.js'
 import { createEnrichmentQueue } from '../modules/enrichment/enrichment-queue.js'
@@ -30,7 +32,15 @@ async function main(): Promise<void> {
     httpClient: createRestrictedHttpClient(),
     queue,
   })
-  const worker = createEnrichmentWorker({ logger, processor, queue })
+  const trashCleanup = createTrashCleanupModule({
+    repository: createDrizzleTrashCleanupRepository(database),
+  })
+  const worker = createEnrichmentWorker({
+    logger,
+    processor,
+    queue,
+    trashCleanup,
+  })
   const controller = new AbortController()
 
   const stop = (signal: NodeJS.Signals): void => {

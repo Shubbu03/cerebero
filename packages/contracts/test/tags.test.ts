@@ -62,6 +62,7 @@ describe('Tag contracts', () => {
       pinnedAt: null,
       status: 'inbox' as const,
       tags: [TAG],
+      trashedAt: null,
       updatedAt: '2026-08-06T09:00:00.000Z',
       version: 1,
     }
@@ -78,6 +79,7 @@ describe('Tag contracts', () => {
       originalUrl: item.originalUrl,
       pinnedAt: item.pinnedAt,
       status: item.status,
+      trashedAt: item.trashedAt,
       updatedAt: item.updatedAt,
       version: item.version,
     }

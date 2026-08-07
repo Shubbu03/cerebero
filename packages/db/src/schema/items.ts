@@ -1,6 +1,7 @@
 import { relations, sql } from 'drizzle-orm'
 import {
   check,
+  customType,
   index,
   integer,
   pgEnum,
@@ -18,6 +19,12 @@ export const itemStatusEnum = pgEnum('item_status', [
   'archived',
   'trashed',
 ])
+
+const tsvector = customType<{ data: string; driverData: string }>({
+  dataType() {
+    return 'tsvector'
+  },
+})
 
 export const items = pgTable(
   'items',
@@ -40,6 +47,16 @@ export const items = pgTable(
     updatedAt: timestamp('updated_at', { mode: 'date', withTimezone: true })
       .defaultNow()
       .notNull(),
+    // Weighted core document for FTS: A=authored title, B=note, D=URLs.
+    // Extracted metadata and tag names are merged at query time.
+    searchDocument: tsvector('search_document').generatedAlwaysAs(
+      sql`
+        setweight(to_tsvector('english', coalesce(${sql.raw('"authored_title"')}, '')), 'A')
+        || setweight(to_tsvector('english', coalesce(${sql.raw('"note_markdown"')}, '')), 'B')
+        || setweight(to_tsvector('english', coalesce(${sql.raw('"original_url"')}, '')), 'D')
+        || setweight(to_tsvector('english', coalesce(${sql.raw('"normalized_url"')}, '')), 'D')
+      `,
+    ),
   },
   (table) => [
     check(
@@ -74,6 +91,27 @@ export const items = pgTable(
       .where(
         sql`${table.normalizedUrl} is not null and ${table.status} <> 'trashed'`,
       ),
+    index('items_trashed_at_idx')
+      .on(table.trashedAt, table.id)
+      .where(sql`${table.status} = 'trashed' and ${table.trashedAt} is not null`),
+    index('items_owner_status_pinned_created_id_idx')
+      .on(
+        table.ownerId,
+        table.status,
+        table.pinnedAt.desc(),
+        table.createdAt.desc(),
+        table.id.desc(),
+      )
+      .where(sql`${table.pinnedAt} is not null`),
+    index('items_search_document_gin_idx').using('gin', table.searchDocument),
+    index('items_authored_title_trgm_idx').using(
+      'gin',
+      sql`coalesce(${table.authoredTitle}, '') gin_trgm_ops`,
+    ),
+    index('items_normalized_url_trgm_idx').using(
+      'gin',
+      sql`coalesce(${table.normalizedUrl}, '') gin_trgm_ops`,
+    ),
   ],
 )
 

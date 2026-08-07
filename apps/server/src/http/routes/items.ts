@@ -270,7 +270,17 @@ export function createItemsRoutes(
 
   routes.get('/', async (context) => {
     const actor = requireActor(context.get('authSession'))
-    const parsedQuery = listItemsQuerySchema.safeParse(context.req.query())
+    // Prefer multi-value query maps so repeated `tag` params survive.
+    const rawQuery = context.req.queries()
+    const queryInput: Record<string, string | string[] | undefined> = {}
+    for (const [key, values] of Object.entries(rawQuery)) {
+      if (values.length === 1) {
+        queryInput[key] = values[0]
+      } else if (values.length > 1) {
+        queryInput[key] = values
+      }
+    }
+    const parsedQuery = listItemsQuerySchema.safeParse(queryInput)
     if (!parsedQuery.success) {
       throw new AppError({
         code: 'INVALID_REQUEST',
@@ -328,6 +338,10 @@ export function createItemsRoutes(
     const item: ItemView = await callItems(() =>
       items.act(actor, itemId, command),
     )
+    if (command.type === 'delete_permanently') {
+      return context.body(null, 204)
+    }
+
     return context.json(item)
   })
 

@@ -66,8 +66,11 @@ export type ItemListCursor = {
 
 export type ItemListOptions = {
   cursor: ItemListCursor | null
+  kind: 'link' | 'note' | null
   limit: number
-  status: 'inbox' | 'library'
+  pinned: boolean | null
+  status: ItemStatus
+  tagIds: readonly string[] | null
 }
 
 export type ItemRecordPatch = Partial<
@@ -88,6 +91,11 @@ export type EnrichmentPersistenceMode = 'preserve' | 'remove' | 'reset'
 
 export interface ItemRepository {
   createCapture(record: ItemRecord): Promise<ItemRecord>
+  deletePermanently(
+    ownerId: UserId,
+    itemId: ItemId,
+    expectedVersion: number,
+  ): Promise<boolean>
   findById(ownerId: UserId, itemId: ItemId): Promise<ItemRecord | null>
   findDuplicates(
     ownerId: UserId,

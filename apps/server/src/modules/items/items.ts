@@ -26,9 +26,11 @@ const itemCursorSchema = z
   .object({
     createdAt: z.string().datetime(),
     id: z.string().uuid(),
-    status: z.enum(['inbox', 'library']),
+    status: z.enum(['inbox', 'library', 'archived', 'trashed']),
   })
   .strict()
+
+export const TRASH_RETENTION_DAYS = 30
 
 type ItemsModuleOptions = {
   clock?: () => Date
@@ -163,6 +165,7 @@ function toItemView(record: ItemRecord): ItemView {
           left.name.localeCompare(right.name, 'en', { sensitivity: 'base' }) ||
           left.id.localeCompare(right.id),
       ),
+    trashedAt: record.trashedAt?.toISOString() ?? null,
     updatedAt: record.updatedAt.toISOString(),
     version: record.version,
   }
@@ -182,7 +185,10 @@ function toDuplicateCandidate(record: ItemRecord): DuplicateCandidate {
   }
 }
 
-function encodeCursor(record: ItemRecord, status: 'inbox' | 'library'): string {
+function encodeCursor(
+  record: ItemRecord,
+  status: ItemRecord['status'],
+): string {
   return Buffer.from(
     JSON.stringify({
       createdAt: record.createdAt.toISOString(),
@@ -192,7 +198,10 @@ function encodeCursor(record: ItemRecord, status: 'inbox' | 'library'): string {
   ).toString('base64url')
 }
 
-function decodeCursor(cursor: string | undefined, status: 'inbox' | 'library') {
+function decodeCursor(
+  cursor: string | undefined,
+  status: ItemRecord['status'],
+) {
   if (!cursor) {
     return null
   }
@@ -267,6 +276,50 @@ function commandPatch(
         break
       }
       return { pinnedAt: null, updatedAt: now }
+    case 'archive':
+      if (record.status !== 'inbox' && record.status !== 'library') {
+        break
+      }
+      return {
+        pinnedAt: null,
+        status: 'archived',
+        trashedAt: null,
+        updatedAt: now,
+      }
+    case 'trash':
+      if (
+        record.status !== 'inbox' &&
+        record.status !== 'library' &&
+        record.status !== 'archived'
+      ) {
+        break
+      }
+      return {
+        pinnedAt: null,
+        status: 'trashed',
+        trashedAt: now,
+        updatedAt: now,
+      }
+    case 'restore':
+      if (record.status === 'archived') {
+        return {
+          status: 'library',
+          trashedAt: null,
+          updatedAt: now,
+        }
+      }
+      if (record.status === 'trashed') {
+        return {
+          pinnedAt: null,
+          status: 'library',
+          trashedAt: null,
+          updatedAt: now,
+        }
+      }
+      break
+    case 'delete_permanently':
+      // Handled separately so the repository can remove the row.
+      break
   }
 
   throw new ItemsError(
@@ -319,6 +372,33 @@ export function createItemsModule(options: ItemsModuleOptions): ItemsModule {
     act: async (actor, itemId, command) => {
       const record = await getOwnedRecord(actor, itemId)
       assertExpectedVersion(record, command.expectedVersion)
+
+      if (command.type === 'delete_permanently') {
+        if (record.status !== 'trashed') {
+          throw new ItemsError(
+            'INVALID_ITEM_STATE',
+            'Only trashed Items can be permanently deleted.',
+          )
+        }
+
+        const deleted = await options.repository.deletePermanently(
+          actor,
+          record.id,
+          command.expectedVersion,
+        )
+        if (!deleted) {
+          throw new ItemsError(
+            'EDIT_CONFLICT',
+            'The Item changed since it was loaded. Refresh and try again.',
+          )
+        }
+
+        // Permanent deletion has no remaining projection; callers treat 204 as success.
+        // Keep the act signature returning ItemView for non-delete commands by
+        // returning the pre-delete view for clients that still parse a body.
+        return toItemView(record)
+      }
+
       const patch = commandPatch(record, command, clock())
       return persistUpdate(actor, record, command.expectedVersion, patch)
     },
@@ -396,10 +476,14 @@ export function createItemsModule(options: ItemsModuleOptions): ItemsModule {
 
     list: async (actor, query): Promise<ItemPage> => {
       const cursor = decodeCursor(query.cursor, query.status)
+      const tagIds = query.tag?.length ? query.tag : null
       const records = await options.repository.list(actor, {
         cursor,
+        kind: query.kind ?? null,
         limit: query.limit + 1,
+        pinned: query.pinned ?? null,
         status: query.status,
+        tagIds,
       })
       const hasNextPage = records.length > query.limit
       const pageRecords = hasNextPage ? records.slice(0, query.limit) : records

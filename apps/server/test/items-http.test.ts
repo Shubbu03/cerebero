@@ -56,6 +56,7 @@ const ITEM = {
   pinnedAt: null,
   status: 'inbox' as const,
   tags: [],
+  trashedAt: null,
   updatedAt: '2026-08-06T09:00:00.000Z',
   version: 1,
 }

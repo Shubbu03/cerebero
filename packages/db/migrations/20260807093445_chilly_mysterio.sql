@@ -1,0 +1,1 @@
+CREATE INDEX "items_owner_status_pinned_created_id_idx" ON "items" USING btree ("owner_id","status","pinned_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST) WHERE "items"."pinned_at" is not null;

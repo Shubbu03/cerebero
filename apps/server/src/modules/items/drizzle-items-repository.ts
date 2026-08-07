@@ -7,7 +7,19 @@ import {
   items as itemsTable,
   tags as tagsTable,
 } from '@cerebero/db/schema'
-import { and, asc, desc, eq, inArray, lt, ne, or, sql } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  ne,
+  or,
+  sql,
+} from 'drizzle-orm'
 
 import type { TagSummary } from '../tags/tag-types.js'
 import { toTagId } from '../tags/tag-types.js'
@@ -182,6 +194,22 @@ export function createDrizzleItemsRepository(
         return toItemRecord(result.item, result.enrichment, [])
       }),
 
+    deletePermanently: async (ownerId, itemId, expectedVersion) => {
+      const deleted = await database
+        .delete(itemsTable)
+        .where(
+          and(
+            eq(itemsTable.ownerId, ownerId),
+            eq(itemsTable.id, itemId),
+            eq(itemsTable.version, expectedVersion),
+            eq(itemsTable.status, 'trashed'),
+          ),
+        )
+        .returning({ id: itemsTable.id })
+
+      return deleted.length > 0
+    },
+
     findById: async (ownerId, itemId) => {
       const [record] = await database
         .select({ enrichment: itemEnrichments, item: itemsTable })
@@ -227,6 +255,40 @@ export function createDrizzleItemsRepository(
           )
         : undefined
 
+      const kindCondition =
+        options.kind === 'link'
+          ? isNotNull(itemsTable.originalUrl)
+          : options.kind === 'note'
+            ? isNull(itemsTable.originalUrl)
+            : undefined
+
+      const pinnedCondition =
+        options.pinned === true
+          ? isNotNull(itemsTable.pinnedAt)
+          : options.pinned === false
+            ? isNull(itemsTable.pinnedAt)
+            : undefined
+
+      const tagCondition =
+        options.tagIds && options.tagIds.length > 0
+          ? inArray(
+              itemsTable.id,
+              database
+                .select({ itemId: itemTags.itemId })
+                .from(itemTags)
+                .where(
+                  and(
+                    eq(itemTags.ownerId, ownerId),
+                    inArray(itemTags.tagId, [...options.tagIds]),
+                  ),
+                )
+                .groupBy(itemTags.itemId)
+                .having(
+                  sql`count(distinct ${itemTags.tagId}) = ${options.tagIds.length}`,
+                ),
+            )
+          : undefined
+
       const records = await database
         .select({ enrichment: itemEnrichments, item: itemsTable })
         .from(itemsTable)
@@ -236,6 +298,9 @@ export function createDrizzleItemsRepository(
             eq(itemsTable.ownerId, ownerId),
             eq(itemsTable.status, options.status),
             cursorCondition,
+            kindCondition,
+            pinnedCondition,
+            tagCondition,
           ),
         )
         .orderBy(desc(itemsTable.createdAt), desc(itemsTable.id))
