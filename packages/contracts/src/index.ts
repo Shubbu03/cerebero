@@ -78,3 +78,15 @@ export {
   type SearchQuery,
   type SearchResponse,
 } from './search.js'
+export {
+  publicSharedItemSchema,
+  shareLinkCreatedSchema,
+  shareLinkStatusSchema,
+  shareLinkViewSchema,
+  shareTokenSchema,
+  type PublicSharedItem,
+  type ShareLinkCreated,
+  type ShareLinkStatus,
+  type ShareLinkView,
+  type ShareToken,
+} from './sharing.js'

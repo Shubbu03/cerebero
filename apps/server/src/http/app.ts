@@ -13,12 +13,14 @@ import { AppError } from './errors.js'
 import type { AppEnvironment } from './environment.js'
 import { createItemsRoutes } from './routes/items.js'
 import { createSearchRoutes } from './routes/search.js'
+import { createPublicSharingRoutes } from './routes/sharing.js'
 import { createTagsRoutes } from './routes/tags.js'
 import type { AppLogger } from '../infrastructure/logging/logger.js'
 import type { AuthRuntime } from '../modules/auth/auth.js'
 import type { EnrichmentRetryModule } from '../modules/enrichment/enrichment-retry.js'
 import type { ItemsModule } from '../modules/items/item-types.js'
 import type { SearchModule } from '../modules/search/search-types.js'
+import type { SharingModule } from '../modules/sharing/share-types.js'
 import type { TagsModule } from '../modules/tags/tag-types.js'
 
 type AppOptions = {
@@ -28,6 +30,7 @@ type AppOptions = {
   items?: ItemsModule
   logger: AppLogger
   search?: SearchModule
+  sharing?: SharingModule
   tags?: TagsModule
   trustedOrigin: string
 }
@@ -73,6 +76,15 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
     context.set('requestId', requestId)
     context.header('X-Request-Id', requestId)
     await next()
+  })
+
+  // Outermost for public shares so privacy headers win over global defaults.
+  app.use('/api/v1/public/*', async (context, next) => {
+    await next()
+    context.header('X-Robots-Tag', 'noindex, nofollow')
+    context.header('Cache-Control', 'private, no-store')
+    context.header('Referrer-Policy', 'no-referrer')
+    context.header('Cross-Origin-Resource-Policy', 'same-site')
   })
 
   app.use(
@@ -263,12 +275,25 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
   if (options.items) {
     app.route(
       '/api/v1/items',
-      createItemsRoutes(options.items, options.enrichmentRetry, options.tags),
+      createItemsRoutes(
+        options.items,
+        options.enrichmentRetry,
+        options.tags,
+        options.sharing,
+      ),
     )
   }
 
   if (options.tags) {
     app.route('/api/v1/tags', createTagsRoutes(options.tags))
+  }
+
+  if (options.sharing) {
+    // Public shares are intentionally unauthenticated.
+    app.route(
+      '/api/v1/public/shares',
+      createPublicSharingRoutes(options.sharing),
+    )
   }
 
   app.use('/api/v1/search*', async (context, next) => {

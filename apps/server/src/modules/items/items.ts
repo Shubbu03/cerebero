@@ -35,6 +35,11 @@ export const TRASH_RETENTION_DAYS = 30
 type ItemsModuleOptions = {
   clock?: () => Date
   createId?: () => string
+  /**
+   * Revokes active Share Links when an Item leaves the shareable surface
+   * (archive, trash, or permanent delete). Injected to avoid a hard module cycle.
+   */
+  revokeShareLinks?: (itemId: ItemId) => Promise<void>
   repository: ItemRepository
 }
 
@@ -368,6 +373,12 @@ export function createItemsModule(options: ItemsModuleOptions): ItemsModule {
     return toItemView(updated)
   }
 
+  async function revokeShares(itemId: ItemId): Promise<void> {
+    if (options.revokeShareLinks) {
+      await options.revokeShareLinks(itemId)
+    }
+  }
+
   return {
     act: async (actor, itemId, command) => {
       const record = await getOwnedRecord(actor, itemId)
@@ -393,6 +404,8 @@ export function createItemsModule(options: ItemsModuleOptions): ItemsModule {
           )
         }
 
+        await revokeShares(record.id)
+
         // Permanent deletion has no remaining projection; callers treat 204 as success.
         // Keep the act signature returning ItemView for non-delete commands by
         // returning the pre-delete view for clients that still parse a body.
@@ -400,7 +413,18 @@ export function createItemsModule(options: ItemsModuleOptions): ItemsModule {
       }
 
       const patch = commandPatch(record, command, clock())
-      return persistUpdate(actor, record, command.expectedVersion, patch)
+      const updated = await persistUpdate(
+        actor,
+        record,
+        command.expectedVersion,
+        patch,
+      )
+
+      if (command.type === 'archive' || command.type === 'trash') {
+        await revokeShares(record.id)
+      }
+
+      return updated
     },
 
     capture: async (actor, input): Promise<CaptureResult> => {

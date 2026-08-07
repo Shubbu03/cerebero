@@ -27,8 +27,10 @@ import {
   toItemId,
   toUserId,
 } from '../../modules/items/item-types.js'
+import type { SharingModule } from '../../modules/sharing/share-types.js'
 import type { TagsModule } from '../../modules/tags/tag-types.js'
 import { TagsError, toTagId } from '../../modules/tags/tag-types.js'
+import { createItemSharingRoutes } from './sharing.js'
 
 const MAX_ITEM_REQUEST_BYTES = 128 * 1_024
 
@@ -235,8 +237,13 @@ export function createItemsRoutes(
   items: ItemsModule,
   enrichmentRetry?: EnrichmentRetryModule,
   tags?: TagsModule,
+  sharing?: SharingModule,
 ): Hono<AppEnvironment> {
   const routes = new Hono<AppEnvironment>()
+
+  if (sharing) {
+    routes.route('/', createItemSharingRoutes(sharing))
+  }
 
   routes.post('/duplicates/check', limitItemBody, async (context) => {
     const actor = requireActor(context.get('authSession'))
