@@ -37,7 +37,6 @@ function isSafeMetadataUrl(value: string | null): boolean {
 }
 
 const metadataUrlSchema = z
-  .string()
   .url()
   .max(2_048)
   .nullable()
@@ -48,12 +47,12 @@ export const enrichmentViewSchema = z
     attemptCount: z.number().int().nonnegative(),
     canonicalUrl: metadataUrlSchema,
     description: z.string().min(1).max(2_000).nullable(),
-    enrichedAt: z.string().datetime().nullable(),
+    enrichedAt: z.iso.datetime().nullable(),
     extractedTitle: z.string().min(1).max(500).nullable(),
     faviconUrl: metadataUrlSchema,
     imageUrl: metadataUrlSchema,
     lastErrorCode: enrichmentErrorCodeSchema.nullable(),
-    nextAttemptAt: z.string().datetime().nullable(),
+    nextAttemptAt: z.iso.datetime().nullable(),
     provider: z.string().min(1).max(100).nullable(),
     siteName: z.string().min(1).max(200).nullable(),
     state: enrichmentStateSchema,

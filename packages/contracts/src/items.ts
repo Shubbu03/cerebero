@@ -48,16 +48,16 @@ export const itemKindSchema = z.enum(['link', 'note'])
 export const itemViewSchema = z
   .object({
     authoredTitle: z.string().min(1).max(MAX_ITEM_TITLE_LENGTH).nullable(),
-    createdAt: z.string().datetime(),
+    createdAt: z.iso.datetime(),
     displayTitle: z.string().min(1).max(MAX_ITEM_TITLE_LENGTH),
     enrichment: enrichmentViewSchema.nullable(),
     id: itemIdSchema,
     kind: itemKindSchema,
     noteMarkdown: z.string().max(MAX_ITEM_NOTE_LENGTH).nullable(),
     originalUrl: z.string().url().max(MAX_ITEM_URL_LENGTH).nullable(),
-    pinnedAt: z.string().datetime().nullable(),
+    pinnedAt: z.iso.datetime().nullable(),
     status: itemStatusSchema,
-    updatedAt: z.string().datetime(),
+    updatedAt: z.iso.datetime(),
     version: z.number().int().positive(),
   })
   .strict()

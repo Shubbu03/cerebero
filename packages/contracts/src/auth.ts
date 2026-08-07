@@ -1,15 +1,15 @@
 import { z } from 'zod'
 
 export const publicUserSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   emailVerified: z.boolean(),
   id: z.string().min(1),
-  image: z.string().url().nullable(),
+  image: z.url().nullable(),
   name: z.string().min(1),
 })
 
 export const publicSessionSchema = z.object({
-  expiresAt: z.string().datetime(),
+  expiresAt: z.iso.datetime(),
   id: z.string().min(1),
   userId: z.string().min(1),
 })
