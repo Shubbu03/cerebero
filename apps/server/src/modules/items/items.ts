@@ -152,6 +152,17 @@ function toItemView(record: ItemRecord): ItemView {
     originalUrl: record.originalUrl,
     pinnedAt: record.pinnedAt?.toISOString() ?? null,
     status: record.status,
+    tags: [...record.tags]
+      .map((tag) => ({
+        createdAt: tag.createdAt.toISOString(),
+        id: tag.id,
+        name: tag.name,
+      }))
+      .sort(
+        (left, right) =>
+          left.name.localeCompare(right.name, 'en', { sensitivity: 'base' }) ||
+          left.id.localeCompare(right.id),
+      ),
     updatedAt: record.updatedAt.toISOString(),
     version: record.version,
   }
@@ -359,6 +370,7 @@ export function createItemsModule(options: ItemsModuleOptions): ItemsModule {
         ownerId: actor,
         pinnedAt: null,
         status: 'inbox',
+        tags: [],
         trashedAt: null,
         updatedAt: now,
         version: 1,

@@ -36,6 +36,13 @@
       "when": 1786023579807,
       "tag": "20260806133939_cloudy_earthquake",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786090160640,
+      "tag": "20260807080920_broken_komodo",
+      "breakpoints": true
     }
   ]
 }

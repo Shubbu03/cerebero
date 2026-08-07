@@ -11,6 +11,8 @@ import type {
   UpdateItemInput,
 } from '@cerebero/contracts'
 
+import type { TagSummary } from '../tags/tag-types.js'
+
 declare const itemIdBrand: unique symbol
 declare const userIdBrand: unique symbol
 
@@ -36,6 +38,7 @@ export type ItemRecord = {
   ownerId: UserId
   pinnedAt: Date | null
   status: ItemStatus
+  tags: readonly TagSummary[]
   trashedAt: Date | null
   updatedAt: Date
   version: number

@@ -14,6 +14,8 @@ import { createDrizzleEnrichmentRetryRepository } from '../modules/enrichment/dr
 import { createEnrichmentRetryModule } from '../modules/enrichment/enrichment-retry.js'
 import { createDrizzleItemsRepository } from '../modules/items/drizzle-items-repository.js'
 import { createItemsModule } from '../modules/items/items.js'
+import { createDrizzleTagsRepository } from '../modules/tags/drizzle-tags-repository.js'
+import { createTagsModule } from '../modules/tags/tags.js'
 
 const environment = parseEnvironment(process.env)
 const logger = createLogger(environment.LOG_LEVEL)
@@ -22,6 +24,9 @@ const database = environment.DATABASE_URL
   : null
 const items = database
   ? createItemsModule({ repository: createDrizzleItemsRepository(database) })
+  : undefined
+const tags = database
+  ? createTagsModule({ repository: createDrizzleTagsRepository(database) })
   : undefined
 const enrichmentRetry = database
   ? createEnrichmentRetryModule({
@@ -39,6 +44,7 @@ const app = createApp({
   },
   ...(enrichmentRetry ? { enrichmentRetry } : {}),
   ...(items ? { items } : {}),
+  ...(tags ? { tags } : {}),
   logger,
   trustedOrigin: environment.APP_ORIGIN,
 })

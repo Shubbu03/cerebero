@@ -3,11 +3,15 @@ import { enrichmentErrorCodeSchema } from '@cerebero/contracts'
 import {
   enrichmentJobs,
   itemEnrichments,
+  itemTags,
   items as itemsTable,
+  tags as tagsTable,
 } from '@cerebero/db/schema'
-import { and, desc, eq, lt, ne, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, lt, ne, or, sql } from 'drizzle-orm'
 
-import type { ItemRecord, ItemRepository } from './item-types.js'
+import type { TagSummary } from '../tags/tag-types.js'
+import { toTagId } from '../tags/tag-types.js'
+import type { ItemId, ItemRecord, ItemRepository, UserId } from './item-types.js'
 import { toItemId, toUserId } from './item-types.js'
 
 type ItemRow = typeof itemsTable.$inferSelect
@@ -16,6 +20,7 @@ type ItemEnrichmentRow = typeof itemEnrichments.$inferSelect
 function toItemRecord(
   row: ItemRow,
   enrichment: ItemEnrichmentRow | null,
+  tags: readonly TagSummary[] = [],
 ): ItemRecord {
   return {
     authoredTitle: row.authoredTitle,
@@ -45,6 +50,7 @@ function toItemRecord(
     ownerId: toUserId(row.ownerId),
     pinnedAt: row.pinnedAt,
     status: row.status,
+    tags,
     trashedAt: row.trashedAt,
     updatedAt: row.updatedAt,
     version: row.version,
@@ -55,6 +61,69 @@ export function createDrizzleItemsRepository(
   connection: DatabaseConnection,
 ): ItemRepository {
   const database = connection.database
+
+  async function loadTagsByItemIds(
+    ownerId: UserId,
+    itemIds: readonly ItemId[],
+  ): Promise<Map<ItemId, TagSummary[]>> {
+    const tagsByItemId = new Map<ItemId, TagSummary[]>()
+    for (const itemId of itemIds) {
+      tagsByItemId.set(itemId, [])
+    }
+
+    if (itemIds.length === 0) {
+      return tagsByItemId
+    }
+
+    const rows = await database
+      .select({
+        createdAt: tagsTable.createdAt,
+        id: tagsTable.id,
+        itemId: itemTags.itemId,
+        name: tagsTable.name,
+      })
+      .from(itemTags)
+      .innerJoin(tagsTable, eq(tagsTable.id, itemTags.tagId))
+      .where(
+        and(
+          eq(itemTags.ownerId, ownerId),
+          inArray(itemTags.itemId, [...itemIds]),
+          eq(tagsTable.ownerId, ownerId),
+        ),
+      )
+      .orderBy(asc(tagsTable.normalizedName), asc(tagsTable.id))
+
+    for (const row of rows) {
+      const itemId = toItemId(row.itemId)
+      const current = tagsByItemId.get(itemId) ?? []
+      current.push({
+        createdAt: row.createdAt,
+        id: toTagId(row.id),
+        name: row.name,
+      })
+      tagsByItemId.set(itemId, current)
+    }
+
+    return tagsByItemId
+  }
+
+  async function withTags(
+    ownerId: UserId,
+    records: readonly {
+      enrichment: ItemEnrichmentRow | null
+      item: ItemRow
+    }[],
+  ): Promise<ItemRecord[]> {
+    const itemIds = records.map((record) => toItemId(record.item.id))
+    const tagsByItemId = await loadTagsByItemIds(ownerId, itemIds)
+    return records.map((record) =>
+      toItemRecord(
+        record.item,
+        record.enrichment,
+        tagsByItemId.get(toItemId(record.item.id)) ?? [],
+      ),
+    )
+  }
 
   return {
     createCapture: (record) =>
@@ -110,7 +179,7 @@ export function createDrizzleItemsRepository(
           throw new Error('The created Item could not be reloaded.')
         }
 
-        return toItemRecord(result.item, result.enrichment)
+        return toItemRecord(result.item, result.enrichment, [])
       }),
 
     findById: async (ownerId, itemId) => {
@@ -121,7 +190,12 @@ export function createDrizzleItemsRepository(
         .where(and(eq(itemsTable.ownerId, ownerId), eq(itemsTable.id, itemId)))
         .limit(1)
 
-      return record ? toItemRecord(record.item, record.enrichment) : null
+      if (!record) {
+        return null
+      }
+
+      const [hydrated] = await withTags(ownerId, [record])
+      return hydrated ?? null
     },
 
     findDuplicates: async (ownerId, normalizedUrl, limit) => {
@@ -139,9 +213,7 @@ export function createDrizzleItemsRepository(
         .orderBy(desc(itemsTable.createdAt), desc(itemsTable.id))
         .limit(limit)
 
-      return records.map((record) =>
-        toItemRecord(record.item, record.enrichment),
-      )
+      return withTags(ownerId, records)
     },
 
     list: async (ownerId, options) => {
@@ -169,9 +241,7 @@ export function createDrizzleItemsRepository(
         .orderBy(desc(itemsTable.createdAt), desc(itemsTable.id))
         .limit(options.limit)
 
-      return records.map((record) =>
-        toItemRecord(record.item, record.enrichment),
-      )
+      return withTags(ownerId, records)
     },
 
     update: (ownerId, itemId, expectedVersion, patch, enrichmentMode) =>
@@ -234,7 +304,12 @@ export function createDrizzleItemsRepository(
           throw new Error('The updated Item could not be reloaded.')
         }
 
-        return toItemRecord(result.item, result.enrichment)
+        const tagsByItemId = await loadTagsByItemIds(ownerId, [itemId])
+        return toItemRecord(
+          result.item,
+          result.enrichment,
+          tagsByItemId.get(itemId) ?? [],
+        )
       }),
   }
 }

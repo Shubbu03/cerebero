@@ -57,3 +57,17 @@ export {
   type ListItemsQuery,
   type UpdateItemInput,
 } from './items.js'
+export {
+  MAX_TAG_NAME_LENGTH,
+  MAX_TAGS_PER_ITEM,
+  createTagInputSchema,
+  renameTagInputSchema,
+  tagIdSchema,
+  tagListSchema,
+  tagViewSchema,
+  type CreateTagInput,
+  type RenameTagInput,
+  type TagId,
+  type TagList,
+  type TagView,
+} from './tags.js'

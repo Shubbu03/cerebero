@@ -10,6 +10,7 @@ import {
   itemCommandSchema,
   itemIdSchema,
   listItemsQuerySchema,
+  tagIdSchema,
   updateItemInputSchema,
 } from '@cerebero/contracts'
 import { Hono } from 'hono'
@@ -26,6 +27,8 @@ import {
   toItemId,
   toUserId,
 } from '../../modules/items/item-types.js'
+import type { TagsModule } from '../../modules/tags/tag-types.js'
+import { TagsError, toTagId } from '../../modules/tags/tag-types.js'
 
 const MAX_ITEM_REQUEST_BYTES = 128 * 1_024
 
@@ -64,6 +67,37 @@ async function callItems<T>(operation: () => Promise<T>): Promise<T> {
   } catch (error) {
     if (error instanceof ItemsError) {
       throw toAppError(error)
+    }
+
+    throw error
+  }
+}
+
+async function callTags<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation()
+  } catch (error) {
+    if (error instanceof TagsError) {
+      switch (error.code) {
+        case 'DUPLICATE_TAG':
+          throw new AppError({
+            code: error.code,
+            message: error.message,
+            status: 409,
+          })
+        case 'INVALID_REQUEST':
+          throw new AppError({
+            code: error.code,
+            message: error.message,
+            status: 400,
+          })
+        case 'NOT_FOUND':
+          throw new AppError({
+            code: error.code,
+            message: error.message,
+            status: 404,
+          })
+      }
     }
 
     throw error
@@ -161,6 +195,19 @@ function parseItemId(value: string) {
   return toItemId(result.data)
 }
 
+function parseTagId(value: string) {
+  const result = tagIdSchema.safeParse(value)
+  if (!result.success) {
+    throw new AppError({
+      code: 'INVALID_REQUEST',
+      message: 'The Tag ID is invalid.',
+      status: 400,
+    })
+  }
+
+  return toTagId(result.data)
+}
+
 function requireActor(session: AppEnvironment['Variables']['authSession']) {
   if (!session) {
     throw new AppError({
@@ -187,6 +234,7 @@ const limitItemBody = bodyLimit({
 export function createItemsRoutes(
   items: ItemsModule,
   enrichmentRetry?: EnrichmentRetryModule,
+  tags?: TagsModule,
 ): Hono<AppEnvironment> {
   const routes = new Hono<AppEnvironment>()
 
@@ -282,6 +330,42 @@ export function createItemsRoutes(
     )
     return context.json(item)
   })
+
+  if (tags) {
+    routes.put('/:itemId/tags/:tagId', async (context) => {
+      const actor = requireActor(context.get('authSession'))
+      const itemId = parseItemId(context.req.param('itemId'))
+      const tagId = parseTagId(context.req.param('tagId'))
+      await callTags(() => tags.attach(actor, itemId, tagId))
+      const item = await callItems(() => items.get(actor, itemId))
+      if (!item) {
+        throw new AppError({
+          code: 'NOT_FOUND',
+          message: 'The requested Item was not found.',
+          status: 404,
+        })
+      }
+
+      return context.json(item)
+    })
+
+    routes.delete('/:itemId/tags/:tagId', async (context) => {
+      const actor = requireActor(context.get('authSession'))
+      const itemId = parseItemId(context.req.param('itemId'))
+      const tagId = parseTagId(context.req.param('tagId'))
+      await callTags(() => tags.detach(actor, itemId, tagId))
+      const item = await callItems(() => items.get(actor, itemId))
+      if (!item) {
+        throw new AppError({
+          code: 'NOT_FOUND',
+          message: 'The requested Item was not found.',
+          status: 404,
+        })
+      }
+
+      return context.json(item)
+    })
+  }
 
   return routes
 }

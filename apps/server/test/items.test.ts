@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createItemsModule } from '../src/modules/items/items.js'
 import { toItemId, toUserId } from '../src/modules/items/item-types.js'
+import { toTagId } from '../src/modules/tags/tag-types.js'
 import { InMemoryItemsRepository } from './support/in-memory-items-repository.js'
 
 const USER_A = toUserId('user-a')
@@ -156,9 +157,40 @@ describe('Items module', () => {
       displayTitle: '# First line',
       kind: 'note',
       status: 'inbox',
+      tags: [],
     })
     expect(item).not.toHaveProperty('ownerId')
     expect(item).not.toHaveProperty('normalizedUrl')
+  })
+
+  it('includes Tags in Item projections when the record carries them', async () => {
+    const { items, repository } = createTestModule()
+    const item = await captureNote(items)
+    const itemId = toItemId(item.id)
+    const record = repository.records.get(itemId)
+    if (!record) {
+      throw new Error('Expected a stored Item record.')
+    }
+
+    record.tags = [
+      {
+        createdAt: new Date(Date.UTC(2026, 7, 7, 12, 0, 0)),
+        id: toTagId('00000000-0000-4000-8000-000000000101'),
+        name: 'zeta',
+      },
+      {
+        createdAt: new Date(Date.UTC(2026, 7, 7, 11, 0, 0)),
+        id: toTagId('00000000-0000-4000-8000-000000000102'),
+        name: 'Alpha',
+      },
+    ]
+
+    await expect(items.get(USER_A, itemId)).resolves.toMatchObject({
+      tags: [
+        { name: 'Alpha' },
+        { name: 'zeta' },
+      ],
+    })
   })
 
   it('enforces ownership as not-found across reads and writes', async () => {

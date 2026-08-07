@@ -23,6 +23,10 @@ function cloneRecord(record: ItemRecord): ItemRecord {
         }
       : null,
     pinnedAt: record.pinnedAt ? new Date(record.pinnedAt) : null,
+    tags: record.tags.map((tag) => ({
+      ...tag,
+      createdAt: new Date(tag.createdAt),
+    })),
     trashedAt: record.trashedAt ? new Date(record.trashedAt) : null,
     updatedAt: new Date(record.updatedAt),
   }

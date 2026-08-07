@@ -55,6 +55,7 @@ const ITEM = {
   originalUrl: 'https://example.com',
   pinnedAt: null,
   status: 'inbox' as const,
+  tags: [],
   updatedAt: '2026-08-06T09:00:00.000Z',
   version: 1,
 }

@@ -12,10 +12,12 @@ import { secureHeaders } from 'hono/secure-headers'
 import { AppError } from './errors.js'
 import type { AppEnvironment } from './environment.js'
 import { createItemsRoutes } from './routes/items.js'
+import { createTagsRoutes } from './routes/tags.js'
 import type { AppLogger } from '../infrastructure/logging/logger.js'
 import type { AuthRuntime } from '../modules/auth/auth.js'
 import type { EnrichmentRetryModule } from '../modules/enrichment/enrichment-retry.js'
 import type { ItemsModule } from '../modules/items/item-types.js'
+import type { TagsModule } from '../modules/tags/tag-types.js'
 
 type AppOptions = {
   auth?: AuthRuntime
@@ -23,6 +25,7 @@ type AppOptions = {
   enrichmentRetry?: EnrichmentRetryModule
   items?: ItemsModule
   logger: AppLogger
+  tags?: TagsModule
   trustedOrigin: string
 }
 
@@ -32,6 +35,7 @@ const statusByErrorCode: Record<
 > = {
   AUTH_UNAVAILABLE: 503,
   DUPLICATE_ITEM: 409,
+  DUPLICATE_TAG: 409,
   EDIT_CONFLICT: 409,
   INTERNAL_ERROR: 500,
   INVALID_REQUEST: 400,
@@ -225,11 +229,43 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
     await next()
   })
 
+  app.use('/api/v1/tags*', async (context, next) => {
+    if (!options.auth) {
+      throw new AppError({
+        code: 'AUTH_UNAVAILABLE',
+        message: 'Authentication is not configured yet.',
+        status: 503,
+      })
+    }
+
+    if (!context.get('authSession')) {
+      throw new AppError({
+        code: 'UNAUTHENTICATED',
+        message: 'Sign in is required.',
+        status: 401,
+      })
+    }
+
+    if (!options.tags) {
+      throw new AppError({
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'Tag storage is not configured yet.',
+        status: 503,
+      })
+    }
+
+    await next()
+  })
+
   if (options.items) {
     app.route(
       '/api/v1/items',
-      createItemsRoutes(options.items, options.enrichmentRetry),
+      createItemsRoutes(options.items, options.enrichmentRetry, options.tags),
     )
+  }
+
+  if (options.tags) {
+    app.route('/api/v1/tags', createTagsRoutes(options.tags))
   }
 
   app.notFound((context) =>

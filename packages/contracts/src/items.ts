@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { apiErrorSchema } from './errors.js'
 import { enrichmentViewSchema } from './enrichment.js'
+import { tagViewSchema } from './tags.js'
 
 export const MAX_ITEM_TITLE_LENGTH = 300
 export const MAX_ITEM_NOTE_LENGTH = 100_000
@@ -57,6 +58,7 @@ export const itemViewSchema = z
     originalUrl: z.string().url().max(MAX_ITEM_URL_LENGTH).nullable(),
     pinnedAt: z.iso.datetime().nullable(),
     status: itemStatusSchema,
+    tags: z.array(tagViewSchema),
     updatedAt: z.iso.datetime(),
     version: z.number().int().positive(),
   })
