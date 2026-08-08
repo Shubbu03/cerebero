@@ -48,14 +48,10 @@ describe('Sharing contracts', () => {
   it('keeps the public projection deliberately small', () => {
     const publicItem = {
       authoredTitle: 'Title',
-      description: null,
       displayTitle: 'Title',
-      faviconUrl: null,
-      imageUrl: null,
       kind: 'note' as const,
       noteMarkdown: 'Note',
       originalUrl: null,
-      siteName: null,
     }
     expect(publicSharedItemSchema.parse(publicItem)).toEqual(publicItem)
     expect(

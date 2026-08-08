@@ -1,7 +1,5 @@
 import type { DatabaseConnection } from '@cerebero/db'
-import { enrichmentErrorCodeSchema } from '@cerebero/contracts'
 import {
-  itemEnrichments,
   itemTags,
   items as itemsTable,
   tags as tagsTable,
@@ -15,34 +13,11 @@ import { toTagId } from '../tags/tag-types.js'
 import type { SearchHit, SearchRepository } from './search-types.js'
 
 type ItemRow = typeof itemsTable.$inferSelect
-type ItemEnrichmentRow = typeof itemEnrichments.$inferSelect
 
-function toItemRecord(
-  row: ItemRow,
-  enrichment: ItemEnrichmentRow | null,
-  tags: readonly TagSummary[],
-): ItemRecord {
+function toItemRecord(row: ItemRow, tags: readonly TagSummary[]): ItemRecord {
   return {
     authoredTitle: row.authoredTitle,
     createdAt: row.createdAt,
-    enrichment: enrichment
-      ? {
-          attemptCount: enrichment.attemptCount,
-          canonicalUrl: enrichment.canonicalUrl,
-          description: enrichment.description,
-          enrichedAt: enrichment.enrichedAt,
-          extractedTitle: enrichment.extractedTitle,
-          faviconUrl: enrichment.faviconUrl,
-          imageUrl: enrichment.imageUrl,
-          lastErrorCode: enrichmentErrorCodeSchema
-            .nullable()
-            .parse(enrichment.lastErrorCode),
-          nextAttemptAt: enrichment.nextAttemptAt,
-          provider: enrichment.provider,
-          siteName: enrichment.siteName,
-          state: enrichment.state,
-        }
-      : null,
     id: toItemId(row.id),
     normalizedUrl: row.normalizedUrl,
     noteMarkdown: row.noteMarkdown,
@@ -112,7 +87,6 @@ export function createDrizzleSearchRepository(
       // Weighted document:
       // A authored title (items.search_document)
       // B note (items.search_document) + tag names
-      // C extracted title + description
       // D URLs (items.search_document)
       // Trigram similarity provides partial/fuzzy fallback scoring.
       const rankExpression = sql<number>`(
@@ -131,21 +105,12 @@ export function createDrizzleSearchRepository(
               ), '')
             ),
             'B'
-          )
-          || setweight(
-            to_tsvector('english', coalesce(${itemEnrichments.extractedTitle}, '')),
-            'C'
-          )
-          || setweight(
-            to_tsvector('english', coalesce(${itemEnrichments.description}, '')),
-            'C'
           ),
           websearch_to_tsquery('english', ${options.query})
         )
         + greatest(
           similarity(coalesce(${itemsTable.authoredTitle}, ''), ${options.query}),
-          similarity(coalesce(${itemsTable.normalizedUrl}, ''), ${options.query}),
-          similarity(coalesce(${itemEnrichments.extractedTitle}, ''), ${options.query})
+          similarity(coalesce(${itemsTable.normalizedUrl}, ''), ${options.query})
         ) * 0.25
       )`
 
@@ -165,18 +130,9 @@ export function createDrizzleSearchRepository(
           ),
           'B'
         )
-        || setweight(
-          to_tsvector('english', coalesce(${itemEnrichments.extractedTitle}, '')),
-          'C'
-        )
-        || setweight(
-          to_tsvector('english', coalesce(${itemEnrichments.description}, '')),
-          'C'
-        )
       ) @@ websearch_to_tsquery('english', ${options.query})
       or coalesce(${itemsTable.authoredTitle}, '') % ${options.query}
       or coalesce(${itemsTable.normalizedUrl}, '') % ${options.query}
-      or coalesce(${itemEnrichments.extractedTitle}, '') % ${options.query}
       or coalesce(${itemsTable.noteMarkdown}, '') ilike ${'%' + options.query + '%'}`
 
       const kindCondition =
@@ -235,12 +191,10 @@ export function createDrizzleSearchRepository(
 
       const rows = await database
         .select({
-          enrichment: itemEnrichments,
           item: itemsTable,
           rank: rankExpression,
         })
         .from(itemsTable)
-        .leftJoin(itemEnrichments, eq(itemEnrichments.itemId, itemsTable.id))
         .where(
           and(
             eq(itemsTable.ownerId, ownerId),
@@ -266,7 +220,6 @@ export function createDrizzleSearchRepository(
         rank: Number(row.rank),
         record: toItemRecord(
           row.item,
-          row.enrichment,
           tagsByItemId.get(toItemId(row.item.id)) ?? [],
         ),
       }))

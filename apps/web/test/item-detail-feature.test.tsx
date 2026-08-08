@@ -7,18 +7,15 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ItemDetailFeatureEntry } from '../src/features/items/item-detail-feature-entry'
 
-const { getApi, postApi } = vi.hoisted(() => ({
-  getApi: vi.fn(),
-  postApi: vi.fn(),
-}))
+const { getApi } = vi.hoisted(() => ({ getApi: vi.fn() }))
 
 vi.mock('../src/lib/api-client', () => ({
-  apiClient: { get: getApi, post: postApi },
+  apiClient: { get: getApi },
 }))
 
 const itemId = '11111111-1111-4111-8111-111111111111'
@@ -29,26 +26,12 @@ function createItem(overrides: Partial<ItemView> = {}): ItemView {
     authoredTitle: 'A useful reference',
     createdAt,
     displayTitle: 'A useful reference',
-    enrichment: {
-      attemptCount: 1,
-      canonicalUrl: 'https://example.com/reference',
-      description: 'A concise extracted description.',
-      enrichedAt: '2026-08-08T08:31:00.000Z',
-      extractedTitle: 'Reference',
-      faviconUrl: null,
-      imageUrl: null,
-      lastErrorCode: null,
-      nextAttemptAt: null,
-      provider: null,
-      siteName: 'Example',
-      state: 'succeeded',
-    },
     id: itemId,
     kind: 'link',
     noteMarkdown: 'Read this before planning the next release.',
     originalUrl: 'https://example.com/reference',
     pinnedAt: null,
-    status: 'inbox',
+    status: 'library',
     tags: [],
     trashedAt: null,
     updatedAt: createdAt,
@@ -62,10 +45,10 @@ function renderItemDetail(routeItemId = itemId) {
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
   })
   const rootRoute = createRootRoute()
-  const inboxRoute = createRoute({
+  const libraryRoute = createRoute({
     component: () => null,
     getParentRoute: () => rootRoute,
-    path: '/inbox',
+    path: '/library',
   })
   const itemRoute = createRoute({
     component: () => <ItemDetailFeatureEntry itemId={routeItemId} />,
@@ -76,7 +59,7 @@ function renderItemDetail(routeItemId = itemId) {
     history: createMemoryHistory({
       initialEntries: [`/items/${routeItemId}`],
     }),
-    routeTree: rootRoute.addChildren([inboxRoute, itemRoute]),
+    routeTree: rootRoute.addChildren([libraryRoute, itemRoute]),
   })
 
   return render(
@@ -89,7 +72,6 @@ function renderItemDetail(routeItemId = itemId) {
 afterEach(() => {
   cleanup()
   getApi.mockReset()
-  postApi.mockReset()
 })
 
 describe('Item detail feature', () => {
@@ -104,7 +86,7 @@ describe('Item detail feature', () => {
     expect(getApi).not.toHaveBeenCalled()
   })
 
-  it('renders validated authored and derived data strictly as text', async () => {
+  it('renders validated authored data strictly as text', async () => {
     const unsafeLookingNote = 'Keep <script>alert("no")</script> as plain text.'
     getApi.mockResolvedValue({
       data: createItem({ noteMarkdown: unsafeLookingNote }),
@@ -117,9 +99,8 @@ describe('Item detail feature', () => {
     ).toBeInTheDocument()
     expect(screen.getByText(unsafeLookingNote)).toBeInTheDocument()
     expect(
-      screen.getByText('A concise extracted description.'),
+      screen.getByText('https://example.com/reference'),
     ).toBeInTheDocument()
-    expect(screen.getByText('Source details are ready.')).toBeInTheDocument()
     expect(container.querySelector('script')).toBeNull()
     expect(container.querySelector('img')).toBeNull()
   })
@@ -140,55 +121,5 @@ describe('Item detail feature', () => {
     expect(
       screen.queryByRole('button', { name: 'Try again' }),
     ).not.toBeInTheDocument()
-  })
-
-  it('files the current Item with its loaded version', async () => {
-    const item = createItem()
-    const filedItem = {
-      ...item,
-      status: 'library' as const,
-      updatedAt: '2026-08-08T09:00:00.000Z',
-      version: 2,
-    }
-    getApi.mockResolvedValue({ data: item })
-    postApi.mockResolvedValue({ data: filedItem })
-    renderItemDetail()
-
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'File to Library' }),
-    )
-
-    expect(await screen.findByText('Filed to Library.')).toBeInTheDocument()
-    expect(screen.getByText('Library')).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'File to Library' }),
-    ).not.toBeInTheDocument()
-    expect(postApi).toHaveBeenCalledWith(`/items/${item.id}/actions`, {
-      expectedVersion: 1,
-      type: 'file',
-    })
-  })
-
-  it('keeps the Item visible when filing fails', async () => {
-    const item = createItem()
-    getApi.mockResolvedValue({ data: item })
-    postApi.mockRejectedValue(new Error('database unavailable'))
-    renderItemDetail()
-
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'File to Library' }),
-    )
-
-    expect(
-      await screen.findByText(
-        'The Item could not be filed. Refresh and try again.',
-      ),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', { name: 'A useful reference' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'File to Library' }),
-    ).toBeEnabled()
   })
 })

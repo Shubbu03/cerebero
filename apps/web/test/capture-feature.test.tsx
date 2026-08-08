@@ -10,7 +10,7 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { CaptureFeatureEntry } from '../src/features/capture/capture-feature-entry'
-import { inboxItemsQueryKey } from '../src/features/inbox/data-access/inbox-items-query-key'
+import { libraryItemsQueryKey } from '../src/features/library/data-access/library-items-query-key'
 
 const { postApi } = vi.hoisted(() => ({ postApi: vi.fn() }))
 
@@ -25,26 +25,12 @@ function createItem(overrides: Partial<ItemView> = {}): ItemView {
     authoredTitle: 'A useful reference',
     createdAt,
     displayTitle: 'A useful reference',
-    enrichment: {
-      attemptCount: 0,
-      canonicalUrl: null,
-      description: null,
-      enrichedAt: null,
-      extractedTitle: null,
-      faviconUrl: null,
-      imageUrl: null,
-      lastErrorCode: null,
-      nextAttemptAt: '2026-08-08T08:30:01.000Z',
-      provider: null,
-      siteName: null,
-      state: 'pending',
-    },
     id: '11111111-1111-4111-8111-111111111111',
     kind: 'link',
     noteMarkdown: null,
     originalUrl: 'https://example.com/reference',
     pinnedAt: null,
-    status: 'inbox',
+    status: 'library',
     tags: [],
     trashedAt: null,
     updatedAt: createdAt,
@@ -58,7 +44,7 @@ function renderCapture() {
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
   })
   const initialPage: ItemPage = { items: [], nextCursor: null }
-  queryClient.setQueryData(inboxItemsQueryKey, {
+  queryClient.setQueryData(libraryItemsQueryKey, {
     pageParams: [null],
     pages: [initialPage],
   })
@@ -93,7 +79,7 @@ describe('Capture feature', () => {
     renderCapture()
     await openCapture()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Capture to Inbox' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save to Library' }))
 
     expect(
       await screen.findByText('Add a URL or write a note.'),
@@ -101,7 +87,7 @@ describe('Capture feature', () => {
     expect(postApi).not.toHaveBeenCalled()
   })
 
-  it('persists a Capture and inserts the confirmed Item into the Inbox cache', async () => {
+  it('persists a Capture and inserts the confirmed Item into the Library cache', async () => {
     const item = createItem()
     postApi.mockResolvedValue({ data: item })
     const queryClient = renderCapture()
@@ -113,13 +99,9 @@ describe('Capture feature', () => {
     fireEvent.change(screen.getByLabelText('Title'), {
       target: { value: '  A useful reference  ' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Capture to Inbox' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save to Library' }))
 
-    expect(
-      await screen.findByText(
-        'Captured to Inbox. Source details may still be loading.',
-      ),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Saved to Library.')).toBeInTheDocument()
     expect(postApi).toHaveBeenCalledWith('/items', {
       allowDuplicate: false,
       authoredTitle: 'A useful reference',
@@ -129,7 +111,7 @@ describe('Capture feature', () => {
 
     const cached = queryClient.getQueryData<{
       pages: ItemPage[]
-    }>(inboxItemsQueryKey)
+    }>(libraryItemsQueryKey)
     expect(cached?.pages[0]?.items[0]).toEqual(item)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
@@ -141,7 +123,7 @@ describe('Capture feature', () => {
 
     const note = screen.getByLabelText('Note')
     fireEvent.change(note, { target: { value: 'A thought worth keeping.' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Capture to Inbox' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save to Library' }))
 
     expect(
       await screen.findByText('Capture could not be completed. Try again.'),
@@ -185,7 +167,7 @@ describe('Capture feature', () => {
     fireEvent.change(screen.getByLabelText('URL'), {
       target: { value: item.originalUrl },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Capture to Inbox' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save to Library' }))
 
     expect(
       await screen.findByRole('heading', {
@@ -203,11 +185,7 @@ describe('Capture feature', () => {
       noteMarkdown: null,
       originalUrl: item.originalUrl,
     })
-    expect(
-      await screen.findByText(
-        'Captured to Inbox. Source details may still be loading.',
-      ),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Saved to Library.')).toBeInTheDocument()
   })
 
   it('opens with C except while focus is inside an editable field', async () => {

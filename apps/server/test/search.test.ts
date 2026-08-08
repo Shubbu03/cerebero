@@ -16,7 +16,6 @@ function makeItem(
   return {
     authoredTitle: null,
     createdAt: now,
-    enrichment: null,
     normalizedUrl: null,
     noteMarkdown: 'body',
     originalUrl: null,
@@ -31,7 +30,7 @@ function makeItem(
 }
 
 describe('Search module', () => {
-  it('ranks authored title above extracted metadata and excludes other Users', async () => {
+  it('finds authored titles and URLs without exposing other Users', async () => {
     const repository = new InMemorySearchRepository()
     repository.seed(
       makeItem({
@@ -44,20 +43,6 @@ describe('Search module', () => {
     repository.seed(
       makeItem({
         authoredTitle: null,
-        enrichment: {
-          attemptCount: 1,
-          canonicalUrl: null,
-          description: null,
-          enrichedAt: new Date('2026-08-07T12:00:00.000Z'),
-          extractedTitle: 'Neural notebooks extracted',
-          faviconUrl: null,
-          imageUrl: null,
-          lastErrorCode: null,
-          nextAttemptAt: null,
-          provider: null,
-          siteName: null,
-          state: 'succeeded',
-        },
         id: toItemId('00000000-0000-4000-8000-000000000002'),
         noteMarkdown: null,
         originalUrl: 'https://example.com/neural',

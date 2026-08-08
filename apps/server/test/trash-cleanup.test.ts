@@ -17,7 +17,6 @@ function makeTrashedItem(
   return {
     authoredTitle: null,
     createdAt: new Date(trashedAt.getTime() - 1_000),
-    enrichment: null,
     id: toItemId(id),
     normalizedUrl: null,
     noteMarkdown: 'note',
@@ -78,12 +77,12 @@ describe('Trash cleanup', () => {
     const first = await cleanup.purgeExpiredTrash(100)
     expect(first.deletedCount).toBe(2)
     expect(repository.records.size).toBe(2)
-    expect(
-      repository.records.has('00000000-0000-4000-8000-000000000003'),
-    ).toBe(true)
-    expect(
-      repository.records.has('00000000-0000-4000-8000-000000000004'),
-    ).toBe(true)
+    expect(repository.records.has('00000000-0000-4000-8000-000000000003')).toBe(
+      true,
+    )
+    expect(repository.records.has('00000000-0000-4000-8000-000000000004')).toBe(
+      true,
+    )
 
     const second = await cleanup.purgeExpiredTrash(100)
     expect(second.deletedCount).toBe(0)

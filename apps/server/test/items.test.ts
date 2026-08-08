@@ -88,67 +88,6 @@ describe('Items module', () => {
     }
   })
 
-  it('schedules enrichment only for link Captures', async () => {
-    const { items, repository } = createTestModule()
-    const note = await captureNote(items)
-    const link = await items.capture(USER_A, {
-      originalUrl: 'https://example.com/link',
-    })
-    if (link.outcome !== 'created') {
-      throw new Error('Expected the link Capture to succeed.')
-    }
-
-    expect(repository.enrichmentItemIds.has(toItemId(note.id))).toBe(false)
-    expect(repository.jobItemIds.has(toItemId(note.id))).toBe(false)
-    expect(repository.enrichmentItemIds.has(toItemId(link.item.id))).toBe(true)
-    expect(repository.jobItemIds.has(toItemId(link.item.id))).toBe(true)
-    expect(note.enrichment).toBeNull()
-    expect(link.item.enrichment).toMatchObject({
-      attemptCount: 0,
-      state: 'pending',
-    })
-  })
-
-  it('uses extracted metadata only when authored and note titles are absent', async () => {
-    const { items, repository } = createTestModule()
-    const result = await items.capture(USER_A, {
-      originalUrl: 'https://example.com/article',
-    })
-    if (result.outcome !== 'created') {
-      throw new Error('Expected the link Capture to succeed.')
-    }
-
-    const record = repository.records.get(toItemId(result.item.id))
-    if (!record?.enrichment) {
-      throw new Error('Expected an enrichment record.')
-    }
-    record.enrichment.extractedTitle = `Extracted article title ${'x'.repeat(400)}`
-
-    const item = await items.get(USER_A, record.id)
-    expect(item?.displayTitle.startsWith('Extracted article title')).toBe(true)
-    expect(item?.displayTitle).toHaveLength(300)
-  })
-
-  it('atomically resets or removes enrichment work when a URL changes', async () => {
-    const { items, repository } = createTestModule()
-    const note = await captureNote(items)
-    const itemId = toItemId(note.id)
-
-    const linked = await items.update(USER_A, itemId, {
-      expectedVersion: 1,
-      originalUrl: 'https://example.com/added',
-    })
-    expect(repository.enrichmentItemIds.has(itemId)).toBe(true)
-    expect(repository.jobItemIds.has(itemId)).toBe(true)
-
-    await items.update(USER_A, itemId, {
-      expectedVersion: linked.version,
-      originalUrl: null,
-    })
-    expect(repository.enrichmentItemIds.has(itemId)).toBe(false)
-    expect(repository.jobItemIds.has(itemId)).toBe(false)
-  })
-
   it('derives note display titles without exposing internal ownership fields', async () => {
     const { items } = createTestModule()
     const item = await captureNote(items)
@@ -156,7 +95,7 @@ describe('Items module', () => {
     expect(item).toMatchObject({
       displayTitle: '# First line',
       kind: 'note',
-      status: 'inbox',
+      status: 'library',
       tags: [],
     })
     expect(item).not.toHaveProperty('ownerId')
@@ -186,10 +125,7 @@ describe('Items module', () => {
     ]
 
     await expect(items.get(USER_A, itemId)).resolves.toMatchObject({
-      tags: [
-        { name: 'Alpha' },
-        { name: 'zeta' },
-      ],
+      tags: [{ name: 'Alpha' }, { name: 'zeta' }],
     })
   })
 
@@ -206,7 +142,7 @@ describe('Items module', () => {
       }),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' })
     await expect(
-      items.act(USER_B, itemId, { expectedVersion: 1, type: 'file' }),
+      items.act(USER_B, itemId, { expectedVersion: 1, type: 'pin' }),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' })
   })
 
@@ -256,69 +192,63 @@ describe('Items module', () => {
     const captured = await captureNote(items)
     const itemId = toItemId(captured.id)
 
-    const filed = await items.act(USER_A, itemId, {
-      expectedVersion: 1,
-      type: 'file',
-    })
-    expect(filed).toMatchObject({ status: 'library', version: 2 })
-
     const pinned = await items.act(USER_A, itemId, {
-      expectedVersion: 2,
+      expectedVersion: 1,
       type: 'pin',
     })
     expect(pinned.pinnedAt).toBeTruthy()
 
     const archived = await items.act(USER_A, itemId, {
-      expectedVersion: 3,
+      expectedVersion: 2,
       type: 'archive',
     })
     expect(archived).toMatchObject({
       pinnedAt: null,
       status: 'archived',
       trashedAt: null,
-      version: 4,
+      version: 3,
     })
 
     const restoredFromArchive = await items.act(USER_A, itemId, {
-      expectedVersion: 4,
+      expectedVersion: 3,
       type: 'restore',
     })
     expect(restoredFromArchive).toMatchObject({
       status: 'library',
-      version: 5,
+      version: 4,
     })
 
     const trashed = await items.act(USER_A, itemId, {
-      expectedVersion: 5,
+      expectedVersion: 4,
       type: 'trash',
     })
     expect(trashed).toMatchObject({
       pinnedAt: null,
       status: 'trashed',
-      version: 6,
+      version: 5,
     })
     expect(trashed.trashedAt).toBeTruthy()
 
     await expect(
       items.act(USER_A, itemId, {
-        expectedVersion: 6,
+        expectedVersion: 5,
         type: 'pin',
       }),
     ).rejects.toMatchObject({ code: 'INVALID_ITEM_STATE' })
 
     const restoredFromTrash = await items.act(USER_A, itemId, {
-      expectedVersion: 6,
+      expectedVersion: 5,
       type: 'restore',
     })
     expect(restoredFromTrash).toMatchObject({
       pinnedAt: null,
       status: 'library',
       trashedAt: null,
-      version: 7,
+      version: 6,
     })
 
     const trashedAgain = await items.act(USER_A, itemId, {
-      expectedVersion: 7,
+      expectedVersion: 6,
       type: 'trash',
     })
     await items.act(USER_A, itemId, {
@@ -394,7 +324,7 @@ describe('Items module', () => {
 
     const firstPage = await items.list(USER_A, {
       limit: 1,
-      status: 'inbox',
+      status: 'library',
     })
     expect(firstPage.items).toHaveLength(1)
     expect(firstPage.nextCursor).toBeTruthy()
@@ -402,7 +332,7 @@ describe('Items module', () => {
     const secondPage = await items.list(USER_A, {
       cursor: firstPage.nextCursor ?? undefined,
       limit: 1,
-      status: 'inbox',
+      status: 'library',
     })
     expect(secondPage.items).toHaveLength(1)
     expect(secondPage.items[0]?.id).not.toBe(firstPage.items[0]?.id)
@@ -419,16 +349,8 @@ describe('Items module', () => {
       throw new Error('Expected link Capture to succeed.')
     }
 
-    await items.act(USER_A, toItemId(note.id), {
-      expectedVersion: 1,
-      type: 'file',
-    })
     await items.act(USER_A, toItemId(link.item.id), {
       expectedVersion: 1,
-      type: 'file',
-    })
-    await items.act(USER_A, toItemId(link.item.id), {
-      expectedVersion: 2,
       type: 'pin',
     })
 
@@ -473,7 +395,7 @@ describe('Items module', () => {
       items.list(USER_A, {
         cursor: 'not-a-valid-cursor',
         limit: 25,
-        status: 'inbox',
+        status: 'library',
       }),
     ).rejects.toMatchObject({ code: 'INVALID_REQUEST' })
   })

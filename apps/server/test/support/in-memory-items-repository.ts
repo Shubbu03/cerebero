@@ -11,17 +11,6 @@ function cloneRecord(record: ItemRecord): ItemRecord {
   return {
     ...record,
     createdAt: new Date(record.createdAt),
-    enrichment: record.enrichment
-      ? {
-          ...record.enrichment,
-          enrichedAt: record.enrichment.enrichedAt
-            ? new Date(record.enrichment.enrichedAt)
-            : null,
-          nextAttemptAt: record.enrichment.nextAttemptAt
-            ? new Date(record.enrichment.nextAttemptAt)
-            : null,
-        }
-      : null,
     pinnedAt: record.pinnedAt ? new Date(record.pinnedAt) : null,
     tags: record.tags.map((tag) => ({
       ...tag,
@@ -46,17 +35,11 @@ function isAfterCursor(record: ItemRecord, options: ItemListOptions): boolean {
 }
 
 export class InMemoryItemsRepository implements ItemRepository {
-  readonly enrichmentItemIds = new Set<ItemId>()
-  readonly jobItemIds = new Set<ItemId>()
   readonly records = new Map<ItemId, ItemRecord>()
 
   async createCapture(record: ItemRecord): Promise<ItemRecord> {
     const stored = cloneRecord(record)
     this.records.set(stored.id, stored)
-    if (stored.originalUrl) {
-      this.enrichmentItemIds.add(stored.id)
-      this.jobItemIds.add(stored.id)
-    }
     return Promise.resolve(cloneRecord(stored))
   }
 
@@ -76,8 +59,6 @@ export class InMemoryItemsRepository implements ItemRepository {
     }
 
     this.records.delete(itemId)
-    this.enrichmentItemIds.delete(itemId)
-    this.jobItemIds.delete(itemId)
     return Promise.resolve(true)
   }
 
@@ -137,9 +118,7 @@ export class InMemoryItemsRepository implements ItemRepository {
             return false
           }
           if (options.tagIds && options.tagIds.length > 0) {
-            const attached = new Set(
-              record.tags.map((tag) => tag.id as string),
-            )
+            const attached = new Set(record.tags.map((tag) => tag.id as string))
             if (!options.tagIds.every((tagId) => attached.has(tagId))) {
               return false
             }
@@ -161,7 +140,6 @@ export class InMemoryItemsRepository implements ItemRepository {
     itemId: ItemId,
     expectedVersion: number,
     patch: ItemRecordPatch,
-    enrichmentMode: 'preserve' | 'remove' | 'reset',
   ): Promise<ItemRecord | null> {
     const current = this.records.get(itemId)
     if (
@@ -178,28 +156,6 @@ export class InMemoryItemsRepository implements ItemRepository {
       version: current.version + 1,
     })
     this.records.set(itemId, updated)
-    if (enrichmentMode === 'remove') {
-      updated.enrichment = null
-      this.enrichmentItemIds.delete(itemId)
-      this.jobItemIds.delete(itemId)
-    } else if (enrichmentMode === 'reset') {
-      updated.enrichment = {
-        attemptCount: 0,
-        canonicalUrl: null,
-        description: null,
-        enrichedAt: null,
-        extractedTitle: null,
-        faviconUrl: null,
-        imageUrl: null,
-        lastErrorCode: null,
-        nextAttemptAt: patch.updatedAt ?? updated.updatedAt,
-        provider: null,
-        siteName: null,
-        state: 'pending',
-      }
-      this.enrichmentItemIds.add(itemId)
-      this.jobItemIds.add(itemId)
-    }
     return Promise.resolve(cloneRecord(updated))
   }
 }

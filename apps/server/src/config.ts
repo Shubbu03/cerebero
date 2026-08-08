@@ -2,15 +2,15 @@ import { z } from 'zod'
 
 const environmentSchema = z
   .object({
-    APP_ORIGIN: z.string().url(),
-    API_ORIGIN: z.string().url().default('http://localhost:3000'),
+    APP_ORIGIN: z.url(),
+    API_ORIGIN: z.url().default('http://localhost:3000'),
     AUTH_SECRET: z.preprocess(
       (value) => (value === '' ? undefined : value),
       z.string().min(32).optional(),
     ),
     DATABASE_URL: z.preprocess(
       (value) => (value === '' ? undefined : value),
-      z.string().url().optional(),
+      z.url().optional(),
     ),
     GOOGLE_CLIENT_ID: z.preprocess(
       (value) => (value === '' ? undefined : value),

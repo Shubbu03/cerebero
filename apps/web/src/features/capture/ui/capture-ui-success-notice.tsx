@@ -14,9 +14,7 @@ export function CaptureUiSuccessNotice({
       role="status"
     >
       <CheckCircleIcon aria-hidden="true" size={21} weight="fill" />
-      <p className="min-w-0 flex-1 text-sm font-semibold">
-        Captured to Inbox. Source details may still be loading.
-      </p>
+      <p className="min-w-0 flex-1 text-sm font-semibold">Saved to Library.</p>
       <IconButton
         className="-mr-2 size-8 text-current"
         label="Dismiss capture confirmation"

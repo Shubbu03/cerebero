@@ -1,5 +1,4 @@
 export * from './auth.js'
-export * from './enrichment.js'
 export * from './items.js'
 export * from './sharing.js'
 export * from './tags.js'

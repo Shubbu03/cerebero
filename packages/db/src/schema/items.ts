@@ -14,7 +14,6 @@ import {
 import { user } from './auth.js'
 
 export const itemStatusEnum = pgEnum('item_status', [
-  'inbox',
   'library',
   'archived',
   'trashed',
@@ -37,7 +36,7 @@ export const items = pgTable(
     normalizedUrl: text('normalized_url'),
     authoredTitle: text('authored_title'),
     noteMarkdown: text('note_markdown'),
-    status: itemStatusEnum('status').default('inbox').notNull(),
+    status: itemStatusEnum('status').default('library').notNull(),
     pinnedAt: timestamp('pinned_at', { mode: 'date', withTimezone: true }),
     trashedAt: timestamp('trashed_at', { mode: 'date', withTimezone: true }),
     version: integer('version').default(1).notNull(),
@@ -69,7 +68,7 @@ export const items = pgTable(
     ),
     check(
       'items_pin_requires_active_status',
-      sql`${table.pinnedAt} is null or ${table.status} in ('inbox', 'library')`,
+      sql`${table.pinnedAt} is null or ${table.status} = 'library'`,
     ),
     check(
       'items_trashed_at_matches_status',
@@ -93,7 +92,9 @@ export const items = pgTable(
       ),
     index('items_trashed_at_idx')
       .on(table.trashedAt, table.id)
-      .where(sql`${table.status} = 'trashed' and ${table.trashedAt} is not null`),
+      .where(
+        sql`${table.status} = 'trashed' and ${table.trashedAt} is not null`,
+      ),
     index('items_owner_status_pinned_created_id_idx')
       .on(
         table.ownerId,

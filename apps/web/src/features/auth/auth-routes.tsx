@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   ArrowRightIcon,
@@ -10,6 +10,7 @@ import { Button, FormMessage } from '@cerebero/ui'
 import { useForm } from 'react-hook-form'
 
 import { authClient } from '../../lib/auth-client'
+import { getAuthCallbackUrl } from './auth-callback'
 import { getAuthErrorMessage } from './auth-error'
 import { AuthShell } from './auth-shell'
 import { AuthFormField } from './form-field'
@@ -46,6 +47,8 @@ export function LoginRoute() {
   const navigate = useNavigate()
   const { reset } = useSearch({ from: '/login' })
   const [formError, setFormError] = useState<string | null>(null)
+  const googleSignInLock = useRef(false)
+  const [isGoogleSignInPending, setIsGoogleSignInPending] = useState(false)
   const {
     formState: { errors, isSubmitting },
     handleSubmit,
@@ -58,7 +61,7 @@ export function LoginRoute() {
   const submit = handleSubmit(async (input) => {
     setFormError(null)
     const result = await authClient.signIn.email({
-      callbackURL: '/inbox',
+      callbackURL: getAuthCallbackUrl('/library'),
       email: input.email,
       password: input.password,
     })
@@ -73,24 +76,39 @@ export function LoginRoute() {
       return
     }
 
-    await navigate({ to: '/inbox' })
+    await navigate({ to: '/library' })
   })
 
   const signInWithGoogle = async () => {
-    setFormError(null)
-    const result = await authClient.signIn.social({
-      callbackURL: '/inbox',
-      provider: 'google',
-    })
+    if (googleSignInLock.current) {
+      return
+    }
 
-    if (result?.error) {
+    googleSignInLock.current = true
+    setIsGoogleSignInPending(true)
+    setFormError(null)
+    try {
+      const result = await authClient.signIn.social({
+        callbackURL: getAuthCallbackUrl('/library'),
+        provider: 'google',
+      })
+
+      if (!result?.error) {
+        return
+      }
+
       setFormError(
         getAuthErrorMessage(
           result.error,
           'Google sign-in could not be started. Try again.',
         ),
       )
+    } catch {
+      setFormError('Google sign-in could not be started. Try again.')
     }
+
+    googleSignInLock.current = false
+    setIsGoogleSignInPending(false)
   }
 
   return (
@@ -154,12 +172,19 @@ export function LoginRoute() {
       </div>
 
       <Button
+        aria-busy={isGoogleSignInPending}
         className="w-full"
+        disabled={isGoogleSignInPending}
         onClick={() => void signInWithGoogle()}
         size="large"
         variant="outline"
       >
-        <GoogleLogoIcon size={19} weight="bold" /> Google
+        {isGoogleSignInPending ? (
+          <SpinnerGapIcon className="animate-spin" size={19} weight="bold" />
+        ) : (
+          <GoogleLogoIcon size={19} weight="bold" />
+        )}
+        {isGoogleSignInPending ? 'Opening Google…' : 'Google'}
       </Button>
 
       <p className="text-secondary mt-7 text-center text-sm">
@@ -195,7 +220,7 @@ export function SignupRoute() {
   const submit = handleSubmit(async (input) => {
     setFormError(null)
     const result = await authClient.signUp.email({
-      callbackURL: '/verify-email',
+      callbackURL: getAuthCallbackUrl('/verify-email'),
       email: input.email,
       name: input.name,
       password: input.password,
@@ -300,7 +325,7 @@ export function ForgotPasswordRoute() {
     setFormError(null)
     const result = await authClient.requestPasswordReset({
       email: input.email,
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: getAuthCallbackUrl('/reset-password'),
     })
 
     if (result.error?.status === 503) {

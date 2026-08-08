@@ -1,7 +1,8 @@
-import 'dotenv/config'
-
+import { config } from 'dotenv'
 import { defineConfig } from 'drizzle-kit'
 import { z } from 'zod'
+
+config({ path: new URL('./.env', import.meta.url), quiet: true })
 
 const databaseUrl = z.url().parse(process.env.DATABASE_URL)
 

@@ -1,9 +1,5 @@
 import type { DatabaseConnection } from '@cerebero/db'
-import {
-  itemEnrichments,
-  items as itemsTable,
-  shareLinks,
-} from '@cerebero/db/schema'
+import { items as itemsTable, shareLinks } from '@cerebero/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
 
 import { toItemId, toUserId } from '../items/item-types.js'
@@ -16,7 +12,6 @@ import { toShareLinkId } from './share-types.js'
 
 type ShareLinkRow = typeof shareLinks.$inferSelect
 type ItemRow = typeof itemsTable.$inferSelect
-type EnrichmentRow = typeof itemEnrichments.$inferSelect
 
 function isUniqueViolation(error: unknown): boolean {
   return (
@@ -38,21 +33,13 @@ function toShareLinkRecord(row: ShareLinkRow): ShareLinkRecord {
   }
 }
 
-function toShareableItem(
-  item: ItemRow,
-  enrichment: EnrichmentRow | null,
-): ShareableItemSnapshot {
+function toShareableItem(item: ItemRow): ShareableItemSnapshot {
   return {
     authoredTitle: item.authoredTitle,
-    description: enrichment?.description ?? null,
-    extractedTitle: enrichment?.extractedTitle ?? null,
-    faviconUrl: enrichment?.faviconUrl ?? null,
     id: toItemId(item.id),
-    imageUrl: enrichment?.imageUrl ?? null,
     noteMarkdown: item.noteMarkdown,
     originalUrl: item.originalUrl,
     ownerId: toUserId(item.ownerId),
-    siteName: enrichment?.siteName ?? null,
     status: item.status,
   }
 }
@@ -112,7 +99,10 @@ export function createDrizzleShareLinksRepository(
         .select()
         .from(shareLinks)
         .where(
-          and(eq(shareLinks.tokenHash, tokenHash), isNull(shareLinks.revokedAt)),
+          and(
+            eq(shareLinks.tokenHash, tokenHash),
+            isNull(shareLinks.revokedAt),
+          ),
         )
         .limit(1)
 
@@ -121,24 +111,22 @@ export function createDrizzleShareLinksRepository(
 
     findShareableItem: async (ownerId, itemId) => {
       const [row] = await database
-        .select({ enrichment: itemEnrichments, item: itemsTable })
+        .select()
         .from(itemsTable)
-        .leftJoin(itemEnrichments, eq(itemEnrichments.itemId, itemsTable.id))
         .where(and(eq(itemsTable.ownerId, ownerId), eq(itemsTable.id, itemId)))
         .limit(1)
 
-      return row ? toShareableItem(row.item, row.enrichment) : null
+      return row ? toShareableItem(row) : null
     },
 
     findShareableItemById: async (itemId) => {
       const [row] = await database
-        .select({ enrichment: itemEnrichments, item: itemsTable })
+        .select()
         .from(itemsTable)
-        .leftJoin(itemEnrichments, eq(itemEnrichments.itemId, itemsTable.id))
         .where(eq(itemsTable.id, itemId))
         .limit(1)
 
-      return row ? toShareableItem(row.item, row.enrichment) : null
+      return row ? toShareableItem(row) : null
     },
 
     revokeActiveForItem: async (ownerId, itemId, revokedAt) => {
@@ -161,9 +149,7 @@ export function createDrizzleShareLinksRepository(
       const revoked = await database
         .update(shareLinks)
         .set({ revokedAt })
-        .where(
-          and(eq(shareLinks.itemId, itemId), isNull(shareLinks.revokedAt)),
-        )
+        .where(and(eq(shareLinks.itemId, itemId), isNull(shareLinks.revokedAt)))
         .returning({ id: shareLinks.id })
 
       return revoked.length
@@ -201,7 +187,9 @@ export function createDrizzleShareLinksRepository(
             .returning()
 
           if (!created) {
-            throw new Error('The Share Link rotation insert returned no record.')
+            throw new Error(
+              'The Share Link rotation insert returned no record.',
+            )
           }
 
           return toShareLinkRecord(created)

@@ -17,7 +17,7 @@ function renderAppShell(
   options: { openCapture?: () => void; signOut?: () => void } = {},
 ) {
   const rootRoute = createRootRoute()
-  const inboxRoute = createRoute({
+  const libraryRoute = createRoute({
     component: () => (
       <AppShell
         isSigningOut={false}
@@ -27,17 +27,17 @@ function renderAppShell(
         user={{ email: 'person@example.com', name: 'Person' }}
       >
         <section>
-          <h1>Inbox</h1>
-          <h2>Nothing waiting for review.</h2>
+          <h1>Library</h1>
+          <h2>Your Library is empty.</h2>
         </section>
       </AppShell>
     ),
     getParentRoute: () => rootRoute,
-    path: '/inbox',
+    path: '/library',
   })
   const router = createRouter({
-    history: createMemoryHistory({ initialEntries: ['/inbox'] }),
-    routeTree: rootRoute.addChildren([inboxRoute]),
+    history: createMemoryHistory({ initialEntries: ['/library'] }),
+    routeTree: rootRoute.addChildren([libraryRoute]),
   })
 
   return render(
@@ -48,23 +48,23 @@ function renderAppShell(
 }
 
 describe('authenticated application shell', () => {
-  it('provides one real navigation destination and a shell-ready Inbox', async () => {
+  it('provides one real navigation destination and a shell-ready Library', async () => {
     renderAppShell()
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Inbox' }),
+      await screen.findByRole('heading', { level: 1, name: 'Library' }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('navigation', { name: 'Primary navigation' }),
     ).toBeInTheDocument()
     expect(
-      screen.getAllByRole('link', { name: /Cerebero Inbox/ }),
+      screen.getAllByRole('link', { name: /Cerebero Library/ }),
     ).toHaveLength(2)
     expect(screen.getByText('person@example.com')).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: 'Nothing waiting for review.' }),
+      screen.getByRole('heading', { name: 'Your Library is empty.' }),
     ).toBeInTheDocument()
-    expect(screen.queryByText('Library')).not.toBeInTheDocument()
+    expect(screen.queryByText('Inbox')).not.toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Capture' })).toHaveLength(2)
   })
 

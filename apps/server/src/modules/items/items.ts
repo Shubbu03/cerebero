@@ -24,9 +24,9 @@ const MAX_DUPLICATE_CANDIDATES = 10
 
 const itemCursorSchema = z
   .object({
-    createdAt: z.string().datetime(),
-    id: z.string().uuid(),
-    status: z.enum(['inbox', 'library', 'archived', 'trashed']),
+    createdAt: z.iso.datetime(),
+    id: z.uuid(),
+    status: z.enum(['library', 'archived', 'trashed']),
   })
   .strict()
 
@@ -130,10 +130,6 @@ function displayTitle(record: ItemRecord): string {
     }
   }
 
-  if (record.enrichment?.extractedTitle) {
-    return record.enrichment.extractedTitle.slice(0, 300)
-  }
-
   if (record.originalUrl) {
     return new URL(record.originalUrl).hostname
   }
@@ -146,13 +142,6 @@ function toItemView(record: ItemRecord): ItemView {
     authoredTitle: record.authoredTitle,
     createdAt: record.createdAt.toISOString(),
     displayTitle: displayTitle(record),
-    enrichment: record.enrichment
-      ? {
-          ...record.enrichment,
-          enrichedAt: record.enrichment.enrichedAt?.toISOString() ?? null,
-          nextAttemptAt: record.enrichment.nextAttemptAt?.toISOString() ?? null,
-        }
-      : null,
     id: record.id,
     kind: record.originalUrl ? 'link' : 'note',
     noteMarkdown: record.noteMarkdown,
@@ -229,7 +218,7 @@ function decodeCursor(
 }
 
 function assertEditable(record: ItemRecord): void {
-  if (record.status !== 'inbox' && record.status !== 'library') {
+  if (record.status !== 'library') {
     throw new ItemsError(
       'INVALID_ITEM_STATE',
       'The Item cannot be edited in its current state.',
@@ -255,34 +244,18 @@ function commandPatch(
   now: Date,
 ): ItemRecordPatch {
   switch (command.type) {
-    case 'file':
-      if (record.status !== 'inbox') {
-        break
-      }
-      return { status: 'library', updatedAt: now }
-    case 'move_to_inbox':
-      if (record.status !== 'library') {
-        break
-      }
-      return { status: 'inbox', updatedAt: now }
     case 'pin':
-      if (
-        (record.status !== 'inbox' && record.status !== 'library') ||
-        record.pinnedAt
-      ) {
+      if (record.status !== 'library' || record.pinnedAt) {
         break
       }
       return { pinnedAt: now, updatedAt: now }
     case 'unpin':
-      if (
-        (record.status !== 'inbox' && record.status !== 'library') ||
-        !record.pinnedAt
-      ) {
+      if (record.status !== 'library' || !record.pinnedAt) {
         break
       }
       return { pinnedAt: null, updatedAt: now }
     case 'archive':
-      if (record.status !== 'inbox' && record.status !== 'library') {
+      if (record.status !== 'library') {
         break
       }
       return {
@@ -292,11 +265,7 @@ function commandPatch(
         updatedAt: now,
       }
     case 'trash':
-      if (
-        record.status !== 'inbox' &&
-        record.status !== 'library' &&
-        record.status !== 'archived'
-      ) {
+      if (record.status !== 'library' && record.status !== 'archived') {
         break
       }
       return {
@@ -354,14 +323,12 @@ export function createItemsModule(options: ItemsModuleOptions): ItemsModule {
     record: ItemRecord,
     expectedVersion: number,
     patch: ItemRecordPatch,
-    enrichmentMode: 'preserve' | 'remove' | 'reset' = 'preserve',
   ): Promise<ItemView> {
     const updated = await options.repository.update(
       actor,
       record.id,
       expectedVersion,
       patch,
-      enrichmentMode,
     )
     if (!updated) {
       throw new ItemsError(
@@ -451,29 +418,13 @@ export function createItemsModule(options: ItemsModuleOptions): ItemsModule {
       const created = await options.repository.createCapture({
         authoredTitle,
         createdAt: now,
-        enrichment: url.originalUrl
-          ? {
-              attemptCount: 0,
-              canonicalUrl: null,
-              description: null,
-              enrichedAt: null,
-              extractedTitle: null,
-              faviconUrl: null,
-              imageUrl: null,
-              lastErrorCode: null,
-              nextAttemptAt: now,
-              provider: null,
-              siteName: null,
-              state: 'pending',
-            }
-          : null,
         id: toItemId(createId()),
         normalizedUrl: url.normalizedUrl,
         noteMarkdown,
         originalUrl: url.originalUrl,
         ownerId: actor,
         pinnedAt: null,
-        status: 'inbox',
+        status: 'library',
         tags: [],
         trashedAt: null,
         updatedAt: now,
@@ -544,28 +495,13 @@ export function createItemsModule(options: ItemsModuleOptions): ItemsModule {
           : normalizeOptionalNote(patch.noteMarkdown)
       assertContent(url.originalUrl, noteMarkdown)
 
-      const enrichmentMode =
-        patch.originalUrl === undefined
-          ? 'preserve'
-          : !url.originalUrl
-            ? 'remove'
-            : url.normalizedUrl !== record.normalizedUrl
-              ? 'reset'
-              : 'preserve'
-
-      return persistUpdate(
-        actor,
-        record,
-        patch.expectedVersion,
-        {
-          authoredTitle,
-          normalizedUrl: url.normalizedUrl,
-          noteMarkdown,
-          originalUrl: url.originalUrl,
-          updatedAt: clock(),
-        },
-        enrichmentMode,
-      )
+      return persistUpdate(actor, record, patch.expectedVersion, {
+        authoredTitle,
+        normalizedUrl: url.normalizedUrl,
+        noteMarkdown,
+        originalUrl: url.originalUrl,
+        updatedAt: clock(),
+      })
     },
   }
 }

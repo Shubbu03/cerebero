@@ -41,8 +41,8 @@ describe('Item contracts', () => {
 
   it('accepts lifecycle commands and requires delete confirmation', () => {
     expect(
-      itemCommandSchema.parse({ expectedVersion: 2, type: 'file' }),
-    ).toEqual({ expectedVersion: 2, type: 'file' })
+      itemCommandSchema.parse({ expectedVersion: 2, type: 'pin' }),
+    ).toEqual({ expectedVersion: 2, type: 'pin' })
     expect(
       itemCommandSchema.parse({ expectedVersion: 2, type: 'trash' }),
     ).toEqual({ expectedVersion: 2, type: 'trash' })

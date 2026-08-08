@@ -17,7 +17,6 @@ import { createPublicSharingRoutes } from './routes/sharing.js'
 import { createTagsRoutes } from './routes/tags.js'
 import type { AppLogger } from '../infrastructure/logging/logger.js'
 import type { AuthRuntime } from '../modules/auth/auth.js'
-import type { EnrichmentRetryModule } from '../modules/enrichment/enrichment-retry.js'
 import type { ItemsModule } from '../modules/items/item-types.js'
 import type { SearchModule } from '../modules/search/search-types.js'
 import type { SharingModule } from '../modules/sharing/share-types.js'
@@ -26,7 +25,6 @@ import type { TagsModule } from '../modules/tags/tag-types.js'
 type AppOptions = {
   auth?: AuthRuntime
   checkReadiness: () => Promise<void>
-  enrichmentRetry?: EnrichmentRetryModule
   items?: ItemsModule
   logger: AppLogger
   search?: SearchModule
@@ -275,12 +273,7 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
   if (options.items) {
     app.route(
       '/api/v1/items',
-      createItemsRoutes(
-        options.items,
-        options.enrichmentRetry,
-        options.tags,
-        options.sharing,
-      ),
+      createItemsRoutes(options.items, options.tags, options.sharing),
     )
   }
 

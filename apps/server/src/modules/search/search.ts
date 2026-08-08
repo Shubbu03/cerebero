@@ -2,7 +2,11 @@ import type { ItemPage, ItemView, SearchQuery } from '@cerebero/contracts'
 import { z } from 'zod'
 
 import type { ItemRecord, UserId } from '../items/item-types.js'
-import type { SearchHit, SearchModule, SearchRepository } from './search-types.js'
+import type {
+  SearchHit,
+  SearchModule,
+  SearchRepository,
+} from './search-types.js'
 import { SearchError } from './search-types.js'
 
 const searchCursorSchema = z
@@ -32,10 +36,6 @@ function displayTitle(record: ItemRecord): string {
     }
   }
 
-  if (record.enrichment?.extractedTitle) {
-    return record.enrichment.extractedTitle.slice(0, 300)
-  }
-
   if (record.originalUrl) {
     return new URL(record.originalUrl).hostname
   }
@@ -48,13 +48,6 @@ function toItemView(record: ItemRecord): ItemView {
     authoredTitle: record.authoredTitle,
     createdAt: record.createdAt.toISOString(),
     displayTitle: displayTitle(record),
-    enrichment: record.enrichment
-      ? {
-          ...record.enrichment,
-          enrichedAt: record.enrichment.enrichedAt?.toISOString() ?? null,
-          nextAttemptAt: record.enrichment.nextAttemptAt?.toISOString() ?? null,
-        }
-      : null,
     id: record.id,
     kind: record.originalUrl ? 'link' : 'note',
     noteMarkdown: record.noteMarkdown,
@@ -103,13 +96,14 @@ function decodeCursor(cursor: string | undefined) {
       rank: parsed.rank,
     }
   } catch {
-    throw new SearchError('INVALID_REQUEST', 'The pagination cursor is invalid.')
+    throw new SearchError(
+      'INVALID_REQUEST',
+      'The pagination cursor is invalid.',
+    )
   }
 }
 
-export function createSearchModule(
-  options: SearchModuleOptions,
-): SearchModule {
+export function createSearchModule(options: SearchModuleOptions): SearchModule {
   return {
     search: async (actor: UserId, query: SearchQuery): Promise<ItemPage> => {
       const normalizedQuery = query.q.trim()

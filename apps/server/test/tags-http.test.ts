@@ -41,13 +41,12 @@ const ITEM = {
   authoredTitle: null,
   createdAt: '2026-08-06T09:00:00.000Z',
   displayTitle: 'example.com',
-  enrichment: null,
   id: ITEM_ID,
   kind: 'note' as const,
   noteMarkdown: '# Note',
   originalUrl: null,
   pinnedAt: null,
-  status: 'inbox' as const,
+  status: 'library' as const,
   tags: [TAG],
   trashedAt: null,
   updatedAt: '2026-08-06T09:00:00.000Z',
@@ -155,9 +154,12 @@ describe('Tags HTTP interface', () => {
     const items = createItems()
     const app = createAuthenticatedApp(tags, items)
 
-    const attached = await app.request(`/api/v1/items/${ITEM_ID}/tags/${TAG_ID}`, {
-      method: 'PUT',
-    })
+    const attached = await app.request(
+      `/api/v1/items/${ITEM_ID}/tags/${TAG_ID}`,
+      {
+        method: 'PUT',
+      },
+    )
     expect(attached.status).toBe(200)
     expect(itemViewSchema.parse(await attached.json())).toEqual(ITEM)
     expect(tags.attach).toHaveBeenCalledWith(
@@ -183,7 +185,10 @@ describe('Tags HTTP interface', () => {
       create: vi
         .fn()
         .mockRejectedValue(
-          new TagsError('DUPLICATE_TAG', 'A Tag with this name already exists.'),
+          new TagsError(
+            'DUPLICATE_TAG',
+            'A Tag with this name already exists.',
+          ),
         ),
       rename: vi
         .fn()

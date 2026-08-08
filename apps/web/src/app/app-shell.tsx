@@ -1,4 +1,4 @@
-import { PlusIcon, SignOutIcon, TrayIcon } from '@phosphor-icons/react'
+import { BooksIcon, PlusIcon, SignOutIcon } from '@phosphor-icons/react'
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { Button, IconButton } from '@cerebero/ui'
@@ -18,7 +18,7 @@ type AppShellProps = {
   }
 }
 
-const inboxLinkClasses =
+const libraryLinkClasses =
   'focus-visible:ring-focus focus-visible:ring-offset-surface flex min-h-11 items-center justify-between rounded-control border-l-2 px-3 py-2.5 text-sm transition-colors duration-fast focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none'
 
 export function AppShell({
@@ -40,9 +40,9 @@ export function AppShell({
 
       <aside className="border-border-subtle bg-surface sticky top-0 hidden h-dvh border-r p-5 lg:flex lg:flex-col">
         <Link
-          aria-label="Cerebero Inbox"
+          aria-label="Cerebero Library"
           className="focus-visible:ring-focus rounded-control w-fit focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-          to="/inbox"
+          to="/library"
         >
           <Wordmark />
         </Link>
@@ -71,16 +71,16 @@ export function AppShell({
             <Link
               activeOptions={{ exact: true }}
               activeProps={{
-                className: `${inboxLinkClasses} border-accent-strong bg-sunken text-primary font-semibold`,
+                className: `${libraryLinkClasses} border-accent-strong bg-sunken text-primary font-semibold`,
               }}
               inactiveProps={{
-                className: `${inboxLinkClasses} border-transparent text-secondary hover:bg-sunken hover:text-primary`,
+                className: `${libraryLinkClasses} border-transparent text-secondary hover:bg-sunken hover:text-primary`,
               }}
-              to="/inbox"
+              to="/library"
             >
               <span className="flex items-center gap-2.5">
-                <TrayIcon aria-hidden="true" size={18} weight="bold" />
-                Inbox
+                <BooksIcon aria-hidden="true" size={18} weight="bold" />
+                Library
               </span>
             </Link>
           </div>
@@ -109,9 +109,9 @@ export function AppShell({
       <div className="min-w-0">
         <header className="border-border-subtle bg-canvas/95 sticky top-0 z-30 flex min-h-16 items-center justify-between border-b px-4 backdrop-blur-sm sm:px-6 lg:hidden">
           <Link
-            aria-label="Cerebero Inbox"
+            aria-label="Cerebero Library"
             className="focus-visible:ring-focus rounded-control focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-            to="/inbox"
+            to="/library"
           >
             <Wordmark />
           </Link>

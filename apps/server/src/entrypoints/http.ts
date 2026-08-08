@@ -10,8 +10,7 @@ import {
 import { parseEnvironment } from '../config.js'
 import { createApp } from '../http/app.js'
 import { createLogger } from '../infrastructure/logging/logger.js'
-import { createDrizzleEnrichmentRetryRepository } from '../modules/enrichment/drizzle-enrichment-retry-repository.js'
-import { createEnrichmentRetryModule } from '../modules/enrichment/enrichment-retry.js'
+import { createAuthModule } from '../modules/auth/auth.js'
 import { createDrizzleItemsRepository } from '../modules/items/drizzle-items-repository.js'
 import { createItemsModule } from '../modules/items/items.js'
 import { createDrizzleSearchRepository } from '../modules/search/drizzle-search-repository.js'
@@ -26,6 +25,25 @@ const logger = createLogger(environment.LOG_LEVEL)
 const database = environment.DATABASE_URL
   ? createDatabase(environment.DATABASE_URL)
   : null
+const auth =
+  database && environment.AUTH_SECRET
+    ? createAuthModule({
+        apiOrigin: environment.API_ORIGIN,
+        database,
+        ...(environment.GOOGLE_CLIENT_ID && environment.GOOGLE_CLIENT_SECRET
+          ? {
+              google: {
+                clientId: environment.GOOGLE_CLIENT_ID,
+                clientSecret: environment.GOOGLE_CLIENT_SECRET,
+              },
+            }
+          : {}),
+        logger,
+        secret: environment.AUTH_SECRET,
+        secureCookies: environment.NODE_ENV === 'production',
+        webOrigin: environment.APP_ORIGIN,
+      })
+    : undefined
 
 const shareLinksRepository = database
   ? createDrizzleShareLinksRepository(database)
@@ -52,13 +70,8 @@ const search = database
       repository: createDrizzleSearchRepository(database),
     })
   : undefined
-const enrichmentRetry = database
-  ? createEnrichmentRetryModule({
-      repository: createDrizzleEnrichmentRetryRepository(database),
-    })
-  : undefined
-
 const app = createApp({
+  ...(auth ? { auth } : {}),
   checkReadiness: async () => {
     if (!database) {
       throw new Error('Database configuration is unavailable.')
@@ -66,7 +79,6 @@ const app = createApp({
 
     await checkDatabaseConnection(database)
   },
-  ...(enrichmentRetry ? { enrichmentRetry } : {}),
   ...(items ? { items } : {}),
   ...(search ? { search } : {}),
   ...(sharing ? { sharing } : {}),

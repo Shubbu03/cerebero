@@ -24,21 +24,16 @@ function seedItem(
   overrides: {
     id?: ReturnType<typeof toItemId>
     ownerId?: ReturnType<typeof toUserId>
-    status?: 'inbox' | 'library' | 'archived' | 'trashed'
+    status?: 'library' | 'archived' | 'trashed'
     authoredTitle?: string | null
   } = {},
 ) {
   repository.seedItem({
     authoredTitle: overrides.authoredTitle ?? 'Shared note',
-    description: 'Safe description',
-    extractedTitle: 'Extracted title',
-    faviconUrl: 'https://example.com/favicon.ico',
     id: overrides.id ?? ITEM_A,
-    imageUrl: 'https://example.com/preview.png',
     noteMarkdown: '# Body',
     originalUrl: null,
     ownerId: overrides.ownerId ?? USER_A,
-    siteName: 'Example',
     status: overrides.status ?? 'library',
   })
 }
@@ -49,7 +44,10 @@ function createSharingTestModule() {
   seedItem(repository, { id: ITEM_B, ownerId: USER_B })
   let idIndex = 0
   let tokenIndex = 0
-  const tokens = ['token-alpha-000000000000000000000001', 'token-beta-000000000000000000000002']
+  const tokens = [
+    'token-alpha-000000000000000000000001',
+    'token-beta-000000000000000000000002',
+  ]
   const sharing = createSharingModule({
     clock: () => new Date('2026-08-08T10:00:00.000Z'),
     createId: () => SHARE_IDS[idIndex++] ?? crypto.randomUUID(),
@@ -109,14 +107,10 @@ describe('Sharing module', () => {
 
     expect(publicItem).toEqual({
       authoredTitle: 'Shared note',
-      description: 'Safe description',
       displayTitle: 'Shared note',
-      faviconUrl: 'https://example.com/favicon.ico',
-      imageUrl: 'https://example.com/preview.png',
       kind: 'note',
       noteMarkdown: '# Body',
       originalUrl: null,
-      siteName: 'Example',
     })
     expect(publicItem).not.toHaveProperty('ownerId')
     expect(publicItem).not.toHaveProperty('tags')
@@ -134,23 +128,15 @@ describe('Sharing module', () => {
 
     repository.seedItem({
       authoredTitle: 'Archived',
-      description: null,
-      extractedTitle: null,
-      faviconUrl: null,
       id: toItemId('00000000-0000-4000-8000-0000000000c1'),
-      imageUrl: null,
       noteMarkdown: 'x',
       originalUrl: null,
       ownerId: USER_A,
-      siteName: null,
       status: 'archived',
     })
 
     await expect(
-      sharing.create(
-        USER_A,
-        toItemId('00000000-0000-4000-8000-0000000000c1'),
-      ),
+      sharing.create(USER_A, toItemId('00000000-0000-4000-8000-0000000000c1')),
     ).rejects.toMatchObject({ code: 'INVALID_ITEM_STATE' })
   })
 
@@ -160,7 +146,9 @@ describe('Sharing module', () => {
     await sharing.revoke(USER_A, ITEM_A)
 
     await expect(sharing.resolvePublic(created.token)).resolves.toBeNull()
-    await expect(sharing.resolvePublic('missing-token-value-000000000001')).resolves.toBeNull()
+    await expect(
+      sharing.resolvePublic('missing-token-value-000000000001'),
+    ).resolves.toBeNull()
     await expect(sharing.resolvePublic('')).resolves.toBeNull()
   })
 
@@ -189,16 +177,11 @@ describe('Sharing module', () => {
     const itemId = toItemId(captured.item.id)
     shareRepository.seedItem({
       authoredTitle: null,
-      description: null,
-      extractedTitle: null,
-      faviconUrl: null,
       id: itemId,
-      imageUrl: null,
       noteMarkdown: '# Share me',
       originalUrl: null,
       ownerId: USER_A,
-      siteName: null,
-      status: 'inbox',
+      status: 'library',
     })
 
     const created = await sharing.create(USER_A, itemId)
@@ -207,15 +190,10 @@ describe('Sharing module', () => {
     await items.act(USER_A, itemId, { expectedVersion: 1, type: 'archive' })
     shareRepository.seedItem({
       authoredTitle: null,
-      description: null,
-      extractedTitle: null,
-      faviconUrl: null,
       id: itemId,
-      imageUrl: null,
       noteMarkdown: '# Share me',
       originalUrl: null,
       ownerId: USER_A,
-      siteName: null,
       status: 'archived',
     })
     await expect(sharing.resolvePublic(created.token)).resolves.toBeNull()
@@ -224,15 +202,10 @@ describe('Sharing module', () => {
     await items.act(USER_A, itemId, { expectedVersion: 2, type: 'restore' })
     shareRepository.seedItem({
       authoredTitle: null,
-      description: null,
-      extractedTitle: null,
-      faviconUrl: null,
       id: itemId,
-      imageUrl: null,
       noteMarkdown: '# Share me',
       originalUrl: null,
       ownerId: USER_A,
-      siteName: null,
       status: 'library',
     })
     await expect(sharing.resolvePublic(created.token)).resolves.toBeNull()
@@ -244,15 +217,10 @@ describe('Sharing module', () => {
     })
     shareRepository.seedItem({
       authoredTitle: null,
-      description: null,
-      extractedTitle: null,
-      faviconUrl: null,
       id: itemId,
-      imageUrl: null,
       noteMarkdown: '# Share me',
       originalUrl: null,
       ownerId: USER_A,
-      siteName: null,
       status: 'trashed',
     })
     await expect(sharing.resolvePublic(recreated.token)).resolves.toBeNull()

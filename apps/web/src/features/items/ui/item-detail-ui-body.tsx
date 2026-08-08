@@ -1,4 +1,4 @@
-import type { EnrichmentState, ItemView } from '@cerebero/contracts'
+import type { ItemView } from '@cerebero/contracts'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 
 type ItemDetailUiBodyProps = {
@@ -9,14 +9,6 @@ const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
 })
-
-const enrichmentMessages: Record<EnrichmentState, string> = {
-  pending: 'Source details are waiting to be fetched.',
-  processing: 'Source details are being fetched.',
-  retryable_failed: 'Source details are delayed. Your Item is safe.',
-  succeeded: 'Source details are ready.',
-  terminal_failed: 'No source preview is available. Your Item is safe.',
-}
 
 export function ItemDetailUiBody({ item }: ItemDetailUiBodyProps) {
   return (
@@ -65,31 +57,6 @@ export function ItemDetailUiBody({ item }: ItemDetailUiBodyProps) {
             <p className="text-tertiary mt-4 text-sm">No note was added.</p>
           )}
         </section>
-
-        {item.enrichment?.state === 'succeeded' &&
-        (item.enrichment.extractedTitle || item.enrichment.description) ? (
-          <section
-            className="border-border-subtle mt-10 border-t pt-8"
-            aria-labelledby="source-details-title"
-          >
-            <h2
-              className="text-tertiary font-mono text-xs tracking-[0.16em] uppercase"
-              id="source-details-title"
-            >
-              Derived source details
-            </h2>
-            {item.enrichment.extractedTitle ? (
-              <p className="mt-4 font-semibold [overflow-wrap:anywhere]">
-                {item.enrichment.extractedTitle}
-              </p>
-            ) : null}
-            {item.enrichment.description ? (
-              <p className="text-secondary mt-2 max-w-3xl text-sm leading-6 [overflow-wrap:anywhere]">
-                {item.enrichment.description}
-              </p>
-            ) : null}
-          </section>
-        ) : null}
       </article>
 
       <aside
@@ -113,14 +80,6 @@ export function ItemDetailUiBody({ item }: ItemDetailUiBodyProps) {
               </time>
             </dd>
           </div>
-          {item.enrichment ? (
-            <div>
-              <dt className="text-tertiary text-xs">Enrichment</dt>
-              <dd className="text-secondary mt-1 leading-5">
-                {enrichmentMessages[item.enrichment.state]}
-              </dd>
-            </div>
-          ) : null}
         </dl>
 
         <section

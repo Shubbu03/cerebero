@@ -15,7 +15,7 @@ import {
 import { isXiorError } from 'xior/utils'
 
 import { apiClient } from '../../../lib/api-client'
-import { inboxItemsQueryKey } from '../../inbox/data-access/inbox-items-query-key'
+import { libraryItemsQueryKey } from '../../library/data-access/library-items-query-key'
 
 export type CaptureItemMutationResult =
   | { item: ItemView; outcome: 'captured' }
@@ -51,7 +51,7 @@ async function captureItem(
   }
 }
 
-function addCapturedItemToInbox(
+function addCapturedItemToLibrary(
   current: InfiniteData<ItemPage> | undefined,
   item: ItemView,
 ) {
@@ -87,11 +87,11 @@ export function useCaptureItem() {
       }
 
       queryClient.setQueryData<InfiniteData<ItemPage>>(
-        inboxItemsQueryKey,
-        (current) => addCapturedItemToInbox(current, result.item),
+        libraryItemsQueryKey,
+        (current) => addCapturedItemToLibrary(current, result.item),
       )
       void queryClient.invalidateQueries({
-        queryKey: inboxItemsQueryKey,
+        queryKey: libraryItemsQueryKey,
         refetchType: 'active',
       })
     },

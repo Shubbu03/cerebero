@@ -8,7 +8,7 @@ export function ItemDetailUiLoading() {
       role="status"
     >
       <div className="text-tertiary flex items-center gap-2 text-sm">
-        <ArrowLeftIcon aria-hidden="true" size={16} /> Inbox
+        <ArrowLeftIcon aria-hidden="true" size={16} /> Library
       </div>
       <div className="border-border-strong mt-8 border-b pb-8">
         <div className="bg-sunken h-3 w-24 motion-safe:animate-pulse" />

@@ -38,9 +38,9 @@ export function ItemDetailUiUnavailable({
         <div className="mt-7 flex flex-wrap justify-center gap-2">
           <Link
             className="border-border-strong bg-surface text-primary hover:border-accent-strong hover:bg-sunken focus-visible:ring-focus rounded-control inline-flex min-h-10 items-center justify-center gap-2 border px-4 py-2 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-            to="/inbox"
+            to="/library"
           >
-            <ArrowLeftIcon aria-hidden="true" size={17} /> Return to Inbox
+            <ArrowLeftIcon aria-hidden="true" size={17} /> Return to Library
           </Link>
           {canRetry && retry ? (
             <Button disabled={isRetrying} onClick={retry}>

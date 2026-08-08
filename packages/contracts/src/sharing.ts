@@ -34,19 +34,15 @@ export const shareLinkStatusSchema = z
 
 /**
  * Deliberately limited public projection. No owner identity, tags, version,
- * lifecycle fields, or enrichment diagnostics.
+ * lifecycle fields, or private ownership data.
  */
 export const publicSharedItemSchema = z
   .object({
     authoredTitle: z.string().min(1).max(300).nullable(),
-    description: z.string().min(1).max(2_000).nullable(),
     displayTitle: z.string().min(1).max(300),
-    faviconUrl: z.string().url().max(2_048).nullable(),
-    imageUrl: z.string().url().max(2_048).nullable(),
     kind: itemKindSchema,
     noteMarkdown: z.string().max(100_000).nullable(),
     originalUrl: z.string().url().max(2_048).nullable(),
-    siteName: z.string().min(1).max(200).nullable(),
   })
   .strict()
 

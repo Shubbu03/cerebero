@@ -129,8 +129,7 @@ export function CaptureUiDialog({
                 Keep what matters.
               </Dialog.Title>
               <Dialog.Description className="text-secondary mt-3 max-w-lg text-sm leading-6">
-                Save a link, a Markdown note, or both. It enters your Inbox
-                immediately; source details can arrive later.
+                Save a link, a Markdown note, or both directly to your Library.
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
@@ -227,7 +226,7 @@ export function CaptureUiDialog({
                 {formError ? <FormMessage>{formError}</FormMessage> : null}
                 <div className="border-border-subtle flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-tertiary text-xs leading-5">
-                    Capture stores your Item before enrichment begins.
+                    Your Item is saved as soon as capture succeeds.
                   </p>
                   <div className="flex gap-2 sm:shrink-0">
                     <Button
@@ -239,7 +238,7 @@ export function CaptureUiDialog({
                     </Button>
                     <Button disabled={isSubmitting} type="submit">
                       <FloppyDiskIcon aria-hidden="true" size={17} />
-                      {isSubmitting ? 'Capturing…' : 'Capture to Inbox'}
+                      {isSubmitting ? 'Capturing…' : 'Save to Library'}
                     </Button>
                   </div>
                 </div>

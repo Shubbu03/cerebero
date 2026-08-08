@@ -22,13 +22,11 @@ type SharingModuleOptions = {
   repository: ShareLinksRepository
 }
 
-const SHAREABLE_STATUSES = new Set(['inbox', 'library'])
-
 function assertShareable(item: ShareableItemSnapshot): void {
-  if (!SHAREABLE_STATUSES.has(item.status)) {
+  if (item.status !== 'library') {
     throw new SharingError(
       'INVALID_ITEM_STATE',
-      'Only Inbox and Library Items can be shared.',
+      'Only Library Items can be shared.',
     )
   }
 }
@@ -48,10 +46,6 @@ function displayTitle(item: ShareableItemSnapshot): string {
     }
   }
 
-  if (item.extractedTitle) {
-    return item.extractedTitle.slice(0, 300)
-  }
-
   if (item.originalUrl) {
     try {
       return new URL(item.originalUrl).hostname
@@ -66,14 +60,10 @@ function displayTitle(item: ShareableItemSnapshot): string {
 function toPublicProjection(item: ShareableItemSnapshot): PublicSharedItem {
   return {
     authoredTitle: item.authoredTitle,
-    description: item.description,
     displayTitle: displayTitle(item),
-    faviconUrl: item.faviconUrl,
-    imageUrl: item.imageUrl,
     kind: item.originalUrl ? 'link' : 'note',
     noteMarkdown: item.noteMarkdown,
     originalUrl: item.originalUrl,
-    siteName: item.siteName,
   }
 }
 
@@ -161,7 +151,7 @@ export function createSharingModule(
       }
 
       const item = await options.repository.findShareableItemById(share.itemId)
-      if (!item || !SHAREABLE_STATUSES.has(item.status)) {
+      if (!item || item.status !== 'library') {
         return null
       }
 

@@ -42,7 +42,7 @@ export function AuthShell({ children, eyebrow, title }: AuthShellProps) {
         />
         <div className="relative max-w-2xl">
           <p className="text-accent font-mono text-xs tracking-[0.18em] uppercase">
-            Capture → Inbox → Library
+            Capture → Library
           </p>
           <blockquote className="font-display mt-6 text-5xl leading-[1.02] tracking-[-0.03em]">
             “A collection becomes useful when remembering feels easier than

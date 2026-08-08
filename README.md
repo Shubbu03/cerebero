@@ -1,45 +1,37 @@
 # Cerebero
 
-Cerebero is a hosted, private knowledge inbox for capturing links and Markdown notes, processing them deliberately, and finding them again.
+Cerebero is a private personal Library for links and Markdown notes. Capture
+stores an Item directly in the Library; there is no Inbox or processing queue.
 
-The rewrite is being delivered phase by phase. See [`plan.md`](./plan.md) for product, architecture, security, design, and acceptance requirements.
+See [`plan.md`](./plan.md) for the current product and architecture decisions.
 
-## Prerequisites
+## Requirements
 
 - Node.js 22 or newer
 - Bun 1.3.13
+- PostgreSQL
 
-## Local development
+## Local setup
 
 ```sh
-cp .env.example .env
+cp apps/server/.env.example apps/server/.env
+cp apps/web/.env.example apps/web/.env
+cp packages/db/.env.example packages/db/.env
 bun install
+bun run db:migrate
 bun run dev
 ```
 
-The Vite application runs at `http://localhost:5173` and proxies API and health requests to the Hono server at `http://localhost:3000`. Without `DATABASE_URL`, the HTTP foundation can start but readiness and database-backed features remain unavailable.
+The web app runs at `http://localhost:5173` and proxies API requests to the Hono
+server at `http://localhost:3000`.
 
-Deployment configuration is intentionally deferred. The anticipated shape is Vercel for the web application and Railway for the backend.
+Configuration lives beside each consumer:
 
-Authentication routes and UI are present, but they intentionally remain unavailable until real PostgreSQL, `AUTH_SECRET`, transactional email delivery, and optional Google OAuth credentials are configured. No runtime mock substitutes for those integrations.
+- `apps/server/.env` — HTTP server, database, and authentication
+- `apps/web/.env` — optional browser configuration
+- `packages/db/.env` — Drizzle migration connection
 
-The Phase 2 backend is also present: Item contracts, migration, owner-scoped Drizzle repository, capture and duplicate handling, Inbox/Library listing, editing, and lifecycle/pin actions. Frontend Capture and Inbox work is intentionally deferred to the next slice. A configured PostgreSQL database and live authentication session are required to exercise these routes at runtime.
-
-Phase 3A adds the durable enrichment boundary. Link Capture and URL edits transactionally create or reset one enrichment record and PostgreSQL job. Lease-based claiming, bounded retries, terminal failure, validated result storage, and stale-job reconciliation are implemented without making network requests during Capture.
-
-Phase 3B adds the isolated restricted outbound HTTP client. It validates every resolved IPv4/IPv6 address, pins the selected public address to the socket, repeats validation for bounded redirects, sends no user credentials or cookies, applies connection/inactivity/total timeouts, and accepts at most 1 MiB of uncompressed HTML or XHTML. Phase 3C's worker is its only runtime caller.
-
-Phase 3C adds bounded metadata parsing and an independently runnable enrichment worker. The parser extracts only allowlisted plain text and validated metadata URLs from the document head. The worker processes at most four claimed jobs per batch by default, records stable retry/terminal classifications, reconciles stale leases, and drains active work during shutdown.
-
-Phase 3D exposes owner-scoped enrichment state on Item responses and adds transactional manual retry. Retry is allowed only from failed states, is limited to five accepted retries per User per hour in PostgreSQL, and safely serializes simultaneous attempts. Enrichment UI, live PostgreSQL acceptance, and deliberate real-network acceptance remain pending.
-
-With a real PostgreSQL database configured, run the worker separately from the HTTP and web processes:
-
-```sh
-bun run dev:worker
-```
-
-The worker can fetch external URLs already present in the enrichment queue. It is intentionally not started by `bun run dev`.
+Keep the server and Drizzle `DATABASE_URL` values aligned for local work.
 
 ## Verification
 
@@ -47,4 +39,8 @@ The worker can fetch external URLs already present in the enrichment queue. It i
 bun run check
 ```
 
-Browser-driven verification is intentionally excluded. Follow [`docs/manual-verification.md`](./docs/manual-verification.md) for visual checks.
+Codex does not run browser-driven verification. Use
+[`docs/manual-verification.md`](./docs/manual-verification.md) for manual UI
+checks.
+
+Docker, CI/CD, and deployment configuration are intentionally deferred.

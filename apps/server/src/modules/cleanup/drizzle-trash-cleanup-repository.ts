@@ -13,7 +13,7 @@ export function createDrizzleTrashCleanupRepository(
     deleteExpiredTrash: (cutoff, limit) =>
       database.transaction(async (transaction) => {
         // Bounded, idempotent purge of expired Trash rows. Cascades remove
-        // enrichment, jobs, and tag relationships through foreign keys.
+        // Related tags and Share Links are removed through foreign keys.
         const expired = await transaction
           .select({ id: itemsTable.id })
           .from(itemsTable)

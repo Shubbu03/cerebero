@@ -26,15 +26,10 @@ export type ShareLinkRecord = {
 
 export type ShareableItemSnapshot = {
   authoredTitle: string | null
-  description: string | null
-  extractedTitle: string | null
-  faviconUrl: string | null
   id: ItemId
-  imageUrl: string | null
   noteMarkdown: string | null
   originalUrl: string | null
   ownerId: UserId
-  siteName: string | null
   status: ItemStatus
 }
 
@@ -79,9 +74,7 @@ export interface SharingModule {
 }
 
 export type SharingErrorCode =
-  | 'INVALID_ITEM_STATE'
-  | 'INVALID_REQUEST'
-  | 'NOT_FOUND'
+  'INVALID_ITEM_STATE' | 'INVALID_REQUEST' | 'NOT_FOUND'
 
 export class SharingError extends Error {
   readonly code: SharingErrorCode

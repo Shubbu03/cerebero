@@ -9,17 +9,6 @@ function cloneRecord(record: ItemRecord): ItemRecord {
   return {
     ...record,
     createdAt: new Date(record.createdAt),
-    enrichment: record.enrichment
-      ? {
-          ...record.enrichment,
-          enrichedAt: record.enrichment.enrichedAt
-            ? new Date(record.enrichment.enrichedAt)
-            : null,
-          nextAttemptAt: record.enrichment.nextAttemptAt
-            ? new Date(record.enrichment.nextAttemptAt)
-            : null,
-        }
-      : null,
     pinnedAt: record.pinnedAt ? new Date(record.pinnedAt) : null,
     tags: record.tags.map((tag) => ({
       ...tag,
@@ -32,14 +21,12 @@ function cloneRecord(record: ItemRecord): ItemRecord {
 
 function searchableText(record: ItemRecord): {
   authored: string
-  extracted: string
   note: string
   tags: string
   url: string
 } {
   return {
     authored: record.authoredTitle ?? '',
-    extracted: record.enrichment?.extractedTitle ?? '',
     note: record.noteMarkdown ?? '',
     tags: record.tags.map((tag) => tag.name).join(' '),
     url: `${record.originalUrl ?? ''} ${record.normalizedUrl ?? ''}`,
@@ -59,9 +46,6 @@ function score(record: ItemRecord, query: string): number {
   }
   if (fields.tags.toLowerCase().includes(normalized)) {
     rank += 0.55
-  }
-  if (fields.extracted.toLowerCase().includes(normalized)) {
-    rank += 0.3
   }
   if (fields.url.toLowerCase().includes(normalized)) {
     rank += 0.2
@@ -135,10 +119,7 @@ export class InMemorySearchRepository implements SearchRepository {
           }
           const time =
             hit.record.createdAt.getTime() - options.cursor!.createdAt.getTime()
-          return (
-            time < 0 ||
-            (time === 0 && hit.record.id < options.cursor!.id)
-          )
+          return time < 0 || (time === 0 && hit.record.id < options.cursor!.id)
         })
       : hits
 

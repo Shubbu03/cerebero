@@ -39,14 +39,10 @@ const CREATED = {
 
 const PUBLIC_ITEM = {
   authoredTitle: 'Shared note',
-  description: null,
   displayTitle: 'Shared note',
-  faviconUrl: null,
-  imageUrl: null,
   kind: 'note' as const,
   noteMarkdown: '# Body',
   originalUrl: null,
-  siteName: null,
 }
 
 function createTestLogger(): AppLogger {

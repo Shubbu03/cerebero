@@ -17,11 +17,9 @@
     "db:check": "bun run --filter @cerebero/db db:check",
     "db:migrate": "bun run --filter @cerebero/db db:migrate",
     "dev": "bun run build:packages && concurrently --kill-others-on-fail --names server,web --prefix-colors green,blue \"bun run --filter @cerebero/server dev\" \"bun run --filter @cerebero/web dev\"",
-    "dev:worker": "bun run build:packages && bun run --filter @cerebero/server dev:worker",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "start:worker": "bun run --filter @cerebero/server start:worker",
     "test": "bun run build:packages && bun run --filter @cerebero/contracts test && bun run --filter @cerebero/db test && bun run --filter @cerebero/ui test && bun run --filter @cerebero/server test && bun run --filter @cerebero/web test",
     "typecheck": "bun run --filter @cerebero/contracts typecheck && bun run --filter @cerebero/db typecheck && bun run --filter @cerebero/ui typecheck && bun run --filter @cerebero/server typecheck && bun run --filter @cerebero/web typecheck"
   },

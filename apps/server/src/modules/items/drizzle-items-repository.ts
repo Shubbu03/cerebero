@@ -1,8 +1,5 @@
 import type { DatabaseConnection } from '@cerebero/db'
-import { enrichmentErrorCodeSchema } from '@cerebero/contracts'
 import {
-  enrichmentJobs,
-  itemEnrichments,
   itemTags,
   items as itemsTable,
   tags as tagsTable,
@@ -23,38 +20,23 @@ import {
 
 import type { TagSummary } from '../tags/tag-types.js'
 import { toTagId } from '../tags/tag-types.js'
-import type { ItemId, ItemRecord, ItemRepository, UserId } from './item-types.js'
+import type {
+  ItemId,
+  ItemRecord,
+  ItemRepository,
+  UserId,
+} from './item-types.js'
 import { toItemId, toUserId } from './item-types.js'
 
 type ItemRow = typeof itemsTable.$inferSelect
-type ItemEnrichmentRow = typeof itemEnrichments.$inferSelect
 
 function toItemRecord(
   row: ItemRow,
-  enrichment: ItemEnrichmentRow | null,
   tags: readonly TagSummary[] = [],
 ): ItemRecord {
   return {
     authoredTitle: row.authoredTitle,
     createdAt: row.createdAt,
-    enrichment: enrichment
-      ? {
-          attemptCount: enrichment.attemptCount,
-          canonicalUrl: enrichment.canonicalUrl,
-          description: enrichment.description,
-          enrichedAt: enrichment.enrichedAt,
-          extractedTitle: enrichment.extractedTitle,
-          faviconUrl: enrichment.faviconUrl,
-          imageUrl: enrichment.imageUrl,
-          lastErrorCode: enrichmentErrorCodeSchema
-            .nullable()
-            .parse(enrichment.lastErrorCode),
-          nextAttemptAt: enrichment.nextAttemptAt,
-          provider: enrichment.provider,
-          siteName: enrichment.siteName,
-          state: enrichment.state,
-        }
-      : null,
     id: toItemId(row.id),
     normalizedUrl: row.normalizedUrl,
     noteMarkdown: row.noteMarkdown,
@@ -121,26 +103,20 @@ export function createDrizzleItemsRepository(
 
   async function withTags(
     ownerId: UserId,
-    records: readonly {
-      enrichment: ItemEnrichmentRow | null
-      item: ItemRow
-    }[],
+    records: readonly ItemRow[],
   ): Promise<ItemRecord[]> {
-    const itemIds = records.map((record) => toItemId(record.item.id))
+    const itemIds = records.map((record) => toItemId(record.id))
     const tagsByItemId = await loadTagsByItemIds(ownerId, itemIds)
     return records.map((record) =>
-      toItemRecord(
-        record.item,
-        record.enrichment,
-        tagsByItemId.get(toItemId(record.item.id)) ?? [],
-      ),
+      toItemRecord(record, tagsByItemId.get(toItemId(record.id)) ?? []),
     )
   }
 
   return {
-    createCapture: (record) =>
-      database.transaction(async (transaction) => {
-        const itemValues = {
+    createCapture: async (record) => {
+      const [created] = await database
+        .insert(itemsTable)
+        .values({
           authoredTitle: record.authoredTitle,
           createdAt: record.createdAt,
           id: record.id,
@@ -153,46 +129,15 @@ export function createDrizzleItemsRepository(
           trashedAt: record.trashedAt,
           updatedAt: record.updatedAt,
           version: record.version,
-        }
-        const [created] = await transaction
-          .insert(itemsTable)
-          .values(itemValues)
-          .returning()
+        })
+        .returning()
 
-        if (!created) {
-          throw new Error('The Item insert returned no record.')
-        }
+      if (!created) {
+        throw new Error('The Item insert returned no record.')
+      }
 
-        if (record.originalUrl) {
-          await transaction.insert(itemEnrichments).values({
-            createdAt: record.createdAt,
-            itemId: record.id,
-            nextAttemptAt: record.createdAt,
-            state: 'pending',
-            updatedAt: record.updatedAt,
-          })
-          await transaction.insert(enrichmentJobs).values({
-            availableAt: record.createdAt,
-            createdAt: record.createdAt,
-            itemId: record.id,
-            status: 'pending',
-            updatedAt: record.updatedAt,
-          })
-        }
-
-        const [result] = await transaction
-          .select({ enrichment: itemEnrichments, item: itemsTable })
-          .from(itemsTable)
-          .leftJoin(itemEnrichments, eq(itemEnrichments.itemId, itemsTable.id))
-          .where(eq(itemsTable.id, created.id))
-          .limit(1)
-
-        if (!result) {
-          throw new Error('The created Item could not be reloaded.')
-        }
-
-        return toItemRecord(result.item, result.enrichment, [])
-      }),
+      return toItemRecord(created)
+    },
 
     deletePermanently: async (ownerId, itemId, expectedVersion) => {
       const deleted = await database
@@ -212,9 +157,8 @@ export function createDrizzleItemsRepository(
 
     findById: async (ownerId, itemId) => {
       const [record] = await database
-        .select({ enrichment: itemEnrichments, item: itemsTable })
+        .select()
         .from(itemsTable)
-        .leftJoin(itemEnrichments, eq(itemEnrichments.itemId, itemsTable.id))
         .where(and(eq(itemsTable.ownerId, ownerId), eq(itemsTable.id, itemId)))
         .limit(1)
 
@@ -228,9 +172,8 @@ export function createDrizzleItemsRepository(
 
     findDuplicates: async (ownerId, normalizedUrl, limit) => {
       const records = await database
-        .select({ enrichment: itemEnrichments, item: itemsTable })
+        .select()
         .from(itemsTable)
-        .leftJoin(itemEnrichments, eq(itemEnrichments.itemId, itemsTable.id))
         .where(
           and(
             eq(itemsTable.ownerId, ownerId),
@@ -290,9 +233,8 @@ export function createDrizzleItemsRepository(
           : undefined
 
       const records = await database
-        .select({ enrichment: itemEnrichments, item: itemsTable })
+        .select()
         .from(itemsTable)
-        .leftJoin(itemEnrichments, eq(itemEnrichments.itemId, itemsTable.id))
         .where(
           and(
             eq(itemsTable.ownerId, ownerId),
@@ -309,72 +251,29 @@ export function createDrizzleItemsRepository(
       return withTags(ownerId, records)
     },
 
-    update: (ownerId, itemId, expectedVersion, patch, enrichmentMode) =>
-      database.transaction(async (transaction) => {
-        const records = await transaction
-          .update(itemsTable)
-          .set({
-            ...patch,
-            version: sql`${itemsTable.version} + 1`,
-          })
-          .where(
-            and(
-              eq(itemsTable.ownerId, ownerId),
-              eq(itemsTable.id, itemId),
-              eq(itemsTable.version, expectedVersion),
-            ),
-          )
-          .returning()
-
-        const updated = records[0]
-        if (!updated) {
-          return null
-        }
-
-        if (enrichmentMode === 'remove' || enrichmentMode === 'reset') {
-          await transaction
-            .delete(enrichmentJobs)
-            .where(eq(enrichmentJobs.itemId, itemId))
-          await transaction
-            .delete(itemEnrichments)
-            .where(eq(itemEnrichments.itemId, itemId))
-        }
-
-        if (enrichmentMode === 'reset') {
-          const scheduledAt = patch.updatedAt ?? updated.updatedAt
-          await transaction.insert(itemEnrichments).values({
-            createdAt: scheduledAt,
-            itemId,
-            nextAttemptAt: scheduledAt,
-            state: 'pending',
-            updatedAt: scheduledAt,
-          })
-          await transaction.insert(enrichmentJobs).values({
-            availableAt: scheduledAt,
-            createdAt: scheduledAt,
-            itemId,
-            status: 'pending',
-            updatedAt: scheduledAt,
-          })
-        }
-
-        const [result] = await transaction
-          .select({ enrichment: itemEnrichments, item: itemsTable })
-          .from(itemsTable)
-          .leftJoin(itemEnrichments, eq(itemEnrichments.itemId, itemsTable.id))
-          .where(eq(itemsTable.id, updated.id))
-          .limit(1)
-
-        if (!result) {
-          throw new Error('The updated Item could not be reloaded.')
-        }
-
-        const tagsByItemId = await loadTagsByItemIds(ownerId, [itemId])
-        return toItemRecord(
-          result.item,
-          result.enrichment,
-          tagsByItemId.get(itemId) ?? [],
+    update: async (ownerId, itemId, expectedVersion, patch) => {
+      const records = await database
+        .update(itemsTable)
+        .set({
+          ...patch,
+          version: sql`${itemsTable.version} + 1`,
+        })
+        .where(
+          and(
+            eq(itemsTable.ownerId, ownerId),
+            eq(itemsTable.id, itemId),
+            eq(itemsTable.version, expectedVersion),
+          ),
         )
-      }),
+        .returning()
+
+      const updated = records[0]
+      if (!updated) {
+        return null
+      }
+
+      const tagsByItemId = await loadTagsByItemIds(ownerId, [itemId])
+      return toItemRecord(updated, tagsByItemId.get(itemId) ?? [])
+    },
   }
 }

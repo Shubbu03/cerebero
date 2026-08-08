@@ -1,7 +1,6 @@
 import { z } from 'zod'
 
 import { apiErrorSchema } from './errors.js'
-import { enrichmentViewSchema } from './enrichment.js'
 import { tagViewSchema } from './tags.js'
 
 export const MAX_ITEM_TITLE_LENGTH = 300
@@ -38,12 +37,7 @@ const nullableHttpUrl = nullableTrimmedString(MAX_ITEM_URL_LENGTH).refine(
 )
 
 export const itemIdSchema = z.string().uuid()
-export const itemStatusSchema = z.enum([
-  'inbox',
-  'library',
-  'archived',
-  'trashed',
-])
+export const itemStatusSchema = z.enum(['library', 'archived', 'trashed'])
 export const itemKindSchema = z.enum(['link', 'note'])
 
 export const itemViewSchema = z
@@ -51,7 +45,6 @@ export const itemViewSchema = z
     authoredTitle: z.string().min(1).max(MAX_ITEM_TITLE_LENGTH).nullable(),
     createdAt: z.iso.datetime(),
     displayTitle: z.string().min(1).max(MAX_ITEM_TITLE_LENGTH),
-    enrichment: enrichmentViewSchema.nullable(),
     id: itemIdSchema,
     kind: itemKindSchema,
     noteMarkdown: z.string().max(MAX_ITEM_NOTE_LENGTH).nullable(),
@@ -119,8 +112,6 @@ export const updateItemInputSchema = z
   })
 
 export const itemCommandTypeSchema = z.enum([
-  'file',
-  'move_to_inbox',
   'pin',
   'unpin',
   'archive',
@@ -145,7 +136,10 @@ export const itemCommandSchema = z
       })
     }
 
-    if (command.type !== 'delete_permanently' && command.confirm !== undefined) {
+    if (
+      command.type !== 'delete_permanently' &&
+      command.confirm !== undefined
+    ) {
       context.addIssue({
         code: 'custom',
         message: 'Confirmation is only valid for permanent deletion.',
@@ -202,7 +196,7 @@ export const listItemsQuerySchema = z
     kind: itemKindSchema.optional(),
     limit: z.coerce.number().int().min(1).max(MAX_ITEM_PAGE_SIZE).default(25),
     pinned: z.enum(['true', 'false']).optional(),
-    status: itemStatusSchema.default('inbox'),
+    status: itemStatusSchema.default('library'),
     tag: z.preprocess(
       toOptionalStringArray,
       z.array(z.string().uuid()).max(10).optional(),
@@ -211,8 +205,7 @@ export const listItemsQuerySchema = z
   .strict()
   .transform((query) => ({
     ...query,
-    pinned:
-      query.pinned === undefined ? undefined : query.pinned === 'true',
+    pinned: query.pinned === undefined ? undefined : query.pinned === 'true',
   }))
 
 export const itemPageSchema = z

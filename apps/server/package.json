@@ -7,9 +7,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx watch src/entrypoints/http.ts",
-    "dev:worker": "tsx watch src/entrypoints/worker.ts",
     "start": "node dist/entrypoints/http.js",
-    "start:worker": "node dist/entrypoints/worker.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -22,8 +20,6 @@
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.0",
-    "htmlparser2": "^12.0.0",
-    "ipaddr.js": "^2.5.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
