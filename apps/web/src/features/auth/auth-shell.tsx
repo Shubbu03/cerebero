@@ -38,7 +38,7 @@ export function AuthShell({ children, eyebrow, title }: AuthShellProps) {
       <aside className="bg-primary text-canvas relative hidden overflow-hidden lg:flex lg:min-h-screen lg:flex-col lg:justify-end lg:p-14">
         <div
           aria-hidden="true"
-          className="absolute inset-0 [background-image:linear-gradient(90deg,currentColor_1px,transparent_1px),linear-gradient(currentColor_1px,transparent_1px)] [background-size:48px_48px] opacity-[0.08]"
+          className="absolute inset-0 bg-[linear-gradient(90deg,currentColor_1px,transparent_1px),linear-gradient(currentColor_1px,transparent_1px)] opacity-[0.08]"
         />
         <div className="relative max-w-2xl">
           <p className="text-accent font-mono text-xs tracking-[0.18em] uppercase">

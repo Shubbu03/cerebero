@@ -5,6 +5,7 @@ import {
   Outlet,
   redirect,
 } from '@tanstack/react-router'
+import { lazy, Suspense } from 'react'
 import { z } from 'zod'
 
 import {
@@ -14,9 +15,15 @@ import {
   SignupRoute,
   VerifyEmailRoute,
 } from '../features/auth/auth-routes'
-import { InboxRoute } from '../features/auth/inbox-route'
+import { InboxRoute } from '../features/inbox/inbox-route'
 import { authClient } from '../lib/auth-client'
 import { LandingRoute } from '../routes/index'
+import { AuthenticatedLayout } from './authenticated-layout'
+
+const ItemDetailFeatureEntry = lazy(async () => {
+  const module = await import('../features/items/item-detail-feature-entry')
+  return { default: module.ItemDetailFeatureEntry }
+})
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -80,7 +87,7 @@ const verifyEmailRoute = createRoute({
   }),
 })
 
-const inboxRoute = createRoute({
+const authenticatedRoute = createRoute({
   beforeLoad: async () => {
     const { data } = await authClient.getSession()
     if (!data) {
@@ -89,9 +96,37 @@ const inboxRoute = createRoute({
       throw redirect({ to: '/login' })
     }
   },
-  component: InboxRoute,
+  component: AuthenticatedLayout,
   getParentRoute: () => rootRoute,
+  id: 'authenticated',
+})
+
+const inboxRoute = createRoute({
+  component: InboxRoute,
+  getParentRoute: () => authenticatedRoute,
   path: '/inbox',
+})
+
+const itemDetailRoute = createRoute({
+  component: () => {
+    const { itemId } = itemDetailRoute.useParams()
+    return (
+      <Suspense
+        fallback={
+          <div
+            className="mx-auto max-w-6xl px-5 py-10 sm:px-8 lg:px-10"
+            aria-busy="true"
+          >
+            <p className="text-secondary text-sm">Opening Item…</p>
+          </div>
+        }
+      >
+        <ItemDetailFeatureEntry itemId={itemId} />
+      </Suspense>
+    )
+  },
+  getParentRoute: () => authenticatedRoute,
+  path: '/items/$itemId',
 })
 
 const routeTree = rootRoute.addChildren([
@@ -101,7 +136,7 @@ const routeTree = rootRoute.addChildren([
   forgotPasswordRoute,
   resetPasswordRoute,
   verifyEmailRoute,
-  inboxRoute,
+  authenticatedRoute.addChildren([inboxRoute, itemDetailRoute]),
 ])
 
 export const router = createRouter({ routeTree })

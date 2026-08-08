@@ -11,3 +11,8 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: () => undefined,
   }),
 })
+
+Object.defineProperty(window, 'scrollTo', {
+  configurable: true,
+  value: () => undefined,
+})
