@@ -1,3 +1,6 @@
+/* Paper (light) and Night Study (dark) share one Living Archive character:
+   warm paper canvas, deep ink/green type, acid-lime accent used sparingly. */
+
 :root {
   color-scheme: light;
   --canvas: #f3f0e8;
@@ -6,9 +9,9 @@
   --surface-sunken: #eae7de;
   --text-primary: #18201d;
   --text-secondary: #5d6963;
-  --text-tertiary: #737e78;
+  --text-tertiary: #7d8781;
   --border-subtle: #d9ddd5;
-  --border-strong: #aab4ac;
+  --border-strong: #b8c0b9;
   --accent: #c8f25c;
   --accent-foreground: #17210d;
   --accent-strong: #2f6b50;
@@ -36,9 +39,9 @@
   --surface-sunken: #0a0f0d;
   --text-primary: #eef2ea;
   --text-secondary: #a7b1aa;
-  --text-tertiary: #8d9991;
+  --text-tertiary: #7f8c84;
   --border-subtle: #2a3630;
-  --border-strong: #4a5b51;
+  --border-strong: #405047;
   --accent: #c8f25c;
   --accent-foreground: #17210d;
   --accent-strong: #a8d845;

@@ -1,4 +1,4 @@
-import { BookOpen, SignOut, Tray } from '@phosphor-icons/react'
+import { BookOpenIcon, SignOutIcon, TrayIcon } from '@phosphor-icons/react'
 import { useNavigate } from '@tanstack/react-router'
 import { Button } from '@cerebero/ui'
 
@@ -35,10 +35,10 @@ export function InboxRoute() {
           aria-label="Primary navigation"
         >
           <div className="bg-sunken border-accent-strong flex items-center gap-2 border-l-2 px-3 py-2.5 font-semibold">
-            <Tray size={18} weight="bold" /> Inbox
+            <TrayIcon size={18} weight="bold" /> Inbox
           </div>
           <div className="text-secondary flex items-center gap-2 px-3 py-2.5">
-            <BookOpen size={18} /> Library
+            <BookOpenIcon size={18} /> Library
           </div>
         </nav>
         <div className="border-border-subtle mt-auto border-t pt-4">
@@ -51,7 +51,7 @@ export function InboxRoute() {
             onClick={() => void signOut()}
             variant="ghost"
           >
-            <SignOut size={17} /> Sign out
+            <SignOutIcon size={17} /> Sign out
           </Button>
         </div>
       </aside>

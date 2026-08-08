@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowRight, GoogleLogo, SpinnerGap } from '@phosphor-icons/react'
+import {
+  ArrowRightIcon,
+  GoogleLogoIcon,
+  SpinnerGapIcon,
+} from '@phosphor-icons/react'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { Button, FormMessage } from '@cerebero/ui'
 import { useForm } from 'react-hook-form'
@@ -30,10 +34,10 @@ function SubmitLabel({
   return (
     <>
       {pending ? (
-        <SpinnerGap className="animate-spin" size={17} weight="bold" />
+        <SpinnerGapIcon className="animate-spin" size={17} weight="bold" />
       ) : null}
       {children}
-      {!pending ? <ArrowRight size={17} weight="bold" /> : null}
+      {!pending ? <ArrowRightIcon size={17} weight="bold" /> : null}
     </>
   )
 }
@@ -155,7 +159,7 @@ export function LoginRoute() {
         size="large"
         variant="outline"
       >
-        <GoogleLogo size={19} weight="bold" /> Google
+        <GoogleLogoIcon size={19} weight="bold" /> Google
       </Button>
 
       <p className="text-secondary mt-7 text-center text-sm">
@@ -466,7 +470,7 @@ export function VerifyEmailRoute({
         onClick={() => window.location.assign('/login')}
         size="large"
       >
-        Continue to sign in <ArrowRight size={17} weight="bold" />
+        Continue to sign in <ArrowRightIcon size={17} weight="bold" />
       </Button>
     </AuthShell>
   )

@@ -16,7 +16,7 @@ import {
 } from '../features/auth/auth-routes'
 import { InboxRoute } from '../features/auth/inbox-route'
 import { authClient } from '../lib/auth-client'
-import { FoundationRoute } from '../routes/index'
+import { LandingRoute } from '../routes/index'
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -33,7 +33,7 @@ const rootRoute = createRootRoute({
 })
 
 const indexRoute = createRoute({
-  component: FoundationRoute,
+  component: LandingRoute,
   getParentRoute: () => rootRoute,
   path: '/',
 })

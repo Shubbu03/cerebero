@@ -44,13 +44,13 @@
   --duration-fast: 120ms;
   --duration-standard: 180ms;
   --duration-deliberate: 260ms;
-  --animate-rise-in: rise-in var(--duration-deliberate) var(--ease-entrance)
-    both;
+  /* Single restrained entrance for editorial surfaces (landing, empty states). */
+  --animate-rise-in: rise-in 420ms var(--ease-entrance) both;
 
   @keyframes rise-in {
     from {
       opacity: 0;
-      transform: translateY(0.75rem);
+      transform: translateY(0.5rem);
     }
     to {
       opacity: 1;
