@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
 import {
   ThemeContext,
+  type ResolvedTheme,
   type ThemeContextValue,
   themes,
   type Theme,
@@ -18,18 +19,13 @@ function readTheme(): Theme {
   return isTheme(storedTheme) ? storedTheme : 'system'
 }
 
-function resolveTheme(theme: Theme): 'dark' | 'light' {
-  if (theme !== 'system') {
-    return theme
-  }
-
+function readSystemTheme(): ResolvedTheme {
   return window.matchMedia('(prefers-color-scheme: dark)').matches
     ? 'dark'
     : 'light'
 }
 
-function applyTheme(theme: Theme): void {
-  const resolvedTheme = resolveTheme(theme)
+function applyTheme(theme: Theme, resolvedTheme: ResolvedTheme): void {
   const root = document.documentElement
 
   root.classList.toggle('dark', resolvedTheme === 'dark')
@@ -42,16 +38,20 @@ function applyTheme(theme: Theme): void {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(readTheme)
+  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(readSystemTheme)
+  const resolvedTheme = theme === 'system' ? systemTheme : theme
 
   useEffect(() => {
-    applyTheme(theme)
+    applyTheme(theme, resolvedTheme)
+  }, [resolvedTheme, theme])
 
+  useEffect(() => {
     if (theme !== 'system') {
       return undefined
     }
 
     const media = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = () => applyTheme('system')
+    const handleChange = () => setSystemTheme(media.matches ? 'dark' : 'light')
     media.addEventListener('change', handleChange)
 
     return () => media.removeEventListener('change', handleChange)
@@ -59,13 +59,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<ThemeContextValue>(
     () => ({
+      resolvedTheme,
       setTheme: (nextTheme) => {
         window.localStorage.setItem(themeStorageKey, nextTheme)
         setThemeState(nextTheme)
       },
       theme,
     }),
-    [theme],
+    [resolvedTheme, theme],
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

@@ -1,16 +1,24 @@
-import { Link, Outlet, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { Outlet, useNavigate } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { Button } from '@cerebero/ui'
 
 import { AppShell, AppShellLoading } from './app-shell'
 import { CaptureFeatureEntry } from '../features/capture/capture-feature-entry'
+import { SearchFeatureEntry } from '../features/search/search-feature-entry'
 import { authClient } from '../lib/auth-client'
+import { preloadDashboardRoutes } from './dashboard-route-loaders'
 
 export function AuthenticatedLayout() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data, isPending } = authClient.useSession()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState<string | null>(null)
+
+  useEffect(() => {
+    void preloadDashboardRoutes()
+  }, [])
 
   const signOut = async () => {
     setIsSigningOut(true)
@@ -23,7 +31,8 @@ export function AuthenticatedLayout() {
         return
       }
 
-      await navigate({ to: '/login' })
+      queryClient.clear()
+      await navigate({ to: '/' })
     } catch {
       setSignOutError('Sign out could not be completed. Try again.')
     } finally {
@@ -39,42 +48,37 @@ export function AuthenticatedLayout() {
     return (
       <main className="bg-canvas text-primary grid min-h-dvh place-items-center px-5 text-center">
         <div className="max-w-md">
-          <p className="text-tertiary font-mono text-xs tracking-[0.16em] uppercase">
-            Session ended
-          </p>
+          <p className="text-tertiary font-mono text-xs">Session ended</p>
           <h1 className="font-display mt-3 text-4xl font-semibold tracking-tight">
             Sign in to reopen your archive.
           </h1>
-          <Button
-            className="mt-6"
-            onClick={() => void navigate({ to: '/login' })}
-          >
-            Continue to sign in
+          <Button className="mt-6" onClick={() => void navigate({ to: '/' })}>
+            Return home to sign in
           </Button>
-          <Link
-            className="text-secondary hover:text-primary focus-visible:ring-focus rounded-control mt-4 block text-sm underline underline-offset-4 focus-visible:ring-2 focus-visible:outline-none"
-            to="/"
-          >
-            Return home
-          </Link>
         </div>
       </main>
     )
   }
 
   return (
-    <CaptureFeatureEntry>
-      {({ openCapture }) => (
-        <AppShell
-          isSigningOut={isSigningOut}
-          openCapture={openCapture}
-          signOut={() => void signOut()}
-          signOutError={signOutError}
-          user={{ email: data.user.email, name: data.user.name }}
-        >
-          <Outlet />
-        </AppShell>
-      )}
-    </CaptureFeatureEntry>
+    <SearchFeatureEntry>
+      <CaptureFeatureEntry>
+        {({ openCapture }) => (
+          <AppShell
+            isSigningOut={isSigningOut}
+            openCapture={openCapture}
+            signOut={() => void signOut()}
+            signOutError={signOutError}
+            user={{
+              email: data.user.email,
+              image: data.user.image ?? null,
+              name: data.user.name,
+            }}
+          >
+            <Outlet />
+          </AppShell>
+        )}
+      </CaptureFeatureEntry>
+    </SearchFeatureEntry>
   )
 }

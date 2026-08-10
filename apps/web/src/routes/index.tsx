@@ -1,21 +1,22 @@
 import {
   ArrowRightIcon,
   BookOpenIcon,
-  CheckIcon,
+  GithubLogoIcon,
   LinkSimpleIcon,
   MagnifyingGlassIcon,
   PlusIcon,
-  TrayIcon,
+  SpinnerGapIcon,
 } from '@phosphor-icons/react'
-import { Button, IconButton, Input } from '@cerebero/ui'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { useEffect, useRef, useState } from 'react'
+import { Button, FormMessage, IconButton, Input } from '@cerebero/ui'
 
 import { ThemeControl } from '../app/theme-control'
 import { Wordmark } from '../app/wordmark'
+import { authClient } from '../lib/auth-client'
+import { getAuthCallbackUrl } from '../features/auth/auth-callback'
+import { getAuthErrorMessage } from '../features/auth/auth-error'
 
-/**
- * Capture → Inbox product composition built from real UI primitives.
- * This is the memorable product proof on the landing page—not an illustration.
- */
 function ProductPreview() {
   return (
     <section
@@ -33,16 +34,9 @@ function ProductPreview() {
           >
             <div className="border-accent-strong bg-sunken text-primary flex items-center justify-between border-l-2 px-3 py-2.5 font-semibold">
               <span className="flex items-center gap-2">
-                <TrayIcon size={18} weight="bold" />
-                Inbox
+                <BookOpenIcon size={18} weight="bold" />
+                Library
               </span>
-              <span className="text-tertiary font-mono text-[0.6875rem]">
-                03
-              </span>
-            </div>
-            <div className="text-secondary flex items-center gap-2 px-3 py-2.5">
-              <BookOpenIcon size={18} />
-              Library
             </div>
           </nav>
         </aside>
@@ -50,11 +44,11 @@ function ProductPreview() {
         <div className="min-w-0">
           <header className="border-border-subtle flex items-center justify-between gap-4 border-b px-4 py-3 sm:px-5">
             <div className="min-w-0">
-              <p className="text-tertiary font-mono text-[0.6875rem] tracking-[0.14em] uppercase">
-                Inbox · 3 unreviewed
+              <p className="text-tertiary font-mono text-[0.6875rem]">
+                Library · Saved immediately
               </p>
               <h2 className="font-display mt-0.5 text-2xl font-semibold tracking-tight sm:text-3xl">
-                Capture, then review
+                Capture to Library
               </h2>
             </div>
             <div className="flex shrink-0 items-center gap-1">
@@ -68,82 +62,40 @@ function ProductPreview() {
             </div>
           </header>
 
-          {/* Capture surface — the entry point of the product story */}
           <div className="border-border-subtle bg-sunken border-b px-4 py-4 sm:px-5">
-            <p className="text-tertiary font-mono text-[0.6875rem] tracking-[0.14em] uppercase">
-              Capture
-            </p>
+            <p className="text-tertiary font-mono text-[0.6875rem]">Capture</p>
             <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <div className="relative">
                 <LinkSimpleIcon
                   aria-hidden="true"
                   className="text-tertiary absolute top-1/2 left-3 -translate-y-1/2"
-                  size={18}
+                  size={16}
                 />
                 <Input
                   aria-label="Link or note preview"
-                  className="bg-surface pl-10"
-                  placeholder="Paste a link or begin a note…"
+                  className="pl-9"
+                  defaultValue="https://example.com/essay"
                   readOnly
-                  defaultValue="https://designsystems.com/calmer-interfaces"
                 />
               </div>
-              <Button variant="outline">
-                Save to Inbox
-                <ArrowRightIcon size={16} weight="bold" />
+              <Button size="compact" type="button">
+                Save to Library
               </Button>
             </div>
           </div>
 
-          {/* Inbox rows — immediate result of capture */}
-          <div className="divide-border-subtle divide-y">
-            <article className="grid gap-4 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5">
-              <div className="min-w-0">
-                <div className="text-tertiary flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[0.6875rem] tracking-wide uppercase">
-                  <span
-                    className="bg-accent size-1.5 shrink-0"
-                    aria-hidden="true"
-                  />
-                  <span>designsystems.com</span>
-                  <span aria-hidden="true">·</span>
-                  <span>just now</span>
-                </div>
-                <h3 className="text-primary mt-2 text-[0.9375rem] leading-snug font-semibold sm:text-base">
-                  Designing interfaces that become calmer with use
-                </h3>
-                <p className="text-secondary mt-1 line-clamp-2 max-w-2xl text-sm leading-relaxed">
-                  Keep this for progressive organization and quiet defaults.
-                </p>
-              </div>
-              <Button className="justify-self-start sm:justify-self-end" variant="outline">
-                <CheckIcon size={16} weight="bold" />
-                File
-              </Button>
-            </article>
-
-            <article className="px-4 py-4 sm:px-5">
-              <p className="text-tertiary font-mono text-[0.6875rem] tracking-wide uppercase">
-                Note · yesterday
+          <ul className="divide-border-subtle divide-y">
+            <li className="px-4 py-4 sm:px-5">
+              <p className="text-sm font-semibold">A useful essay</p>
+              <p className="text-tertiary mt-1 text-xs">
+                example.com · just now
               </p>
-              <h3 className="text-primary mt-2 text-[0.9375rem] leading-snug font-semibold sm:text-base">
-                Questions for the research review
-              </h3>
-              <p className="text-secondary mt-1 text-sm leading-relaxed">
-                What makes a saved reference useful six months later?
-              </p>
-            </article>
-
-            <article className="px-4 py-4 sm:px-5">
-              <div className="text-tertiary flex flex-wrap items-center gap-x-2 font-mono text-[0.6875rem] tracking-wide uppercase">
-                <span>notes.local</span>
-                <span aria-hidden="true">·</span>
-                <span>2 days ago</span>
-              </div>
-              <h3 className="text-primary mt-2 text-[0.9375rem] leading-snug font-semibold sm:text-base">
-                A short list of books to reread
-              </h3>
-            </article>
-          </div>
+            </li>
+            <li className="px-4 py-4 sm:px-5">
+              <p className="text-sm font-semibold">Meeting notes</p>
+              <p className="text-tertiary mt-1 text-xs">Note · yesterday</p>
+            </li>
+          </ul>
         </div>
       </div>
     </section>
@@ -152,135 +104,205 @@ function ProductPreview() {
 
 const workflow = [
   {
-    number: '01',
-    title: 'Capture',
-    copy: 'Save a link or note the moment it appears. Enrichment never blocks the thought.',
+    title: 'Save',
+    copy: 'Links and notes go straight to your Library.',
   },
   {
-    number: '02',
-    title: 'Review',
-    copy: 'The Inbox keeps new material deliberate—file what belongs, leave the rest until later.',
+    title: 'Organize',
+    copy: 'Add context and tags only when they are useful.',
   },
   {
-    number: '03',
-    title: 'Rediscover',
-    copy: 'Search authored meaning first. Tags, pins, and filters stay quiet until you need them.',
+    title: 'Find',
+    copy: 'Search the whole Library when you need something back.',
   },
 ] as const
 
 export function LandingRoute() {
+  const navigate = useNavigate()
+  const { data: session, isPending } = authClient.useSession()
+  const googleSignInLock = useRef(false)
+  const [isGoogleSignInPending, setIsGoogleSignInPending] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isPending && session) {
+      void navigate({ to: '/library' })
+    }
+  }, [isPending, navigate, session])
+
+  const continueWithGoogle = async () => {
+    if (googleSignInLock.current) {
+      return
+    }
+
+    googleSignInLock.current = true
+    setIsGoogleSignInPending(true)
+    setAuthError(null)
+    try {
+      const result = await authClient.signIn.social({
+        callbackURL: getAuthCallbackUrl('/library'),
+        provider: 'google',
+      })
+      if (result?.error) {
+        setAuthError(
+          getAuthErrorMessage(
+            result.error,
+            'Google sign-in could not be completed. Try again.',
+          ),
+        )
+      }
+    } catch (caught) {
+      setAuthError(
+        getAuthErrorMessage(
+          caught,
+          'Google sign-in could not be completed. Try again.',
+        ),
+      )
+    } finally {
+      googleSignInLock.current = false
+      setIsGoogleSignInPending(false)
+    }
+  }
+
+  if (session) {
+    return (
+      <main className="bg-canvas text-primary grid min-h-dvh place-items-center px-5">
+        <p className="text-secondary text-sm" aria-busy="true">
+          Opening your Library…
+        </p>
+      </main>
+    )
+  }
+
   return (
-    <main className="bg-canvas text-primary min-h-screen">
-      {/* Quiet paper grain — decorative, non-competing, motion-free */}
+    <div className="bg-canvas text-primary relative isolate min-h-dvh overflow-hidden">
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 opacity-[0.028] bg-[repeating-linear-gradient(0deg,currentColor_0,currentColor_1px,transparent_1px,transparent_6px)]"
-      />
-
-      <header className="border-border-subtle relative border-b">
-        <nav
-          className="mx-auto flex max-w-360 items-center justify-between gap-4 px-5 py-4 sm:px-8 lg:px-12"
-          aria-label="Primary"
-        >
-          <Wordmark />
-          <div className="flex items-center gap-2 sm:gap-3">
-            <a
-              href="/login"
-              className="text-secondary hover:text-primary focus-visible:ring-focus rounded-control px-2 py-2 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none"
-            >
-              Sign in
-            </a>
-            <ThemeControl />
-          </div>
-        </nav>
-      </header>
-
-      <div className="relative mx-auto max-w-360 px-5 sm:px-8 lg:px-12">
-        {/* Hero — one headline, one sentence, one primary CTA */}
-        <section
-          aria-labelledby="landing-headline"
-          className="animate-rise-in max-w-4xl pt-16 pb-12 sm:pt-20 sm:pb-14 lg:pt-24 lg:pb-16"
-        >
-          <h1
-            id="landing-headline"
-            className="font-display text-[clamp(2.75rem,8vw,5.75rem)] leading-[0.92] font-medium tracking-[-0.04em] text-balance"
-          >
-            Remember what mattered.
-          </h1>
-          <p className="text-secondary reading-measure mt-6 text-base leading-7 sm:text-lg sm:leading-8">
-            A private place to capture links and notes, review them with care,
-            and find them again when they matter.
-          </p>
-          <div className="mt-8">
-            <Button
-              onClick={() => {
-                window.location.assign('/signup')
-              }}
-              size="large"
-            >
-              Start your archive
-              <ArrowRightIcon size={18} weight="bold" />
-            </Button>
-          </div>
-        </section>
-
-        {/* Product proof */}
-        <div className="animate-rise-in pb-16 [animation-delay:90ms] sm:pb-20 lg:pb-24">
-          <ProductPreview />
-        </div>
+        className="border-border-subtle/60 pointer-events-none absolute inset-x-0 top-0 -z-10 mx-auto h-[48rem] max-w-6xl border-x"
+      >
+        <div className="border-border-subtle/45 absolute inset-y-0 left-1/3 hidden border-l sm:block" />
+        <div className="border-border-subtle/45 absolute inset-y-0 left-2/3 hidden border-l sm:block" />
+        <div className="bg-accent/8 border-border-subtle/60 absolute top-36 right-0 hidden h-56 w-1/3 border-y border-l lg:block" />
       </div>
 
-      {/* Three compact workflow statements — not a feature grid */}
-      <section
-        aria-label="How Cerebero works"
-        className="border-border-subtle bg-border-subtle relative border-y"
-      >
-        <div className="mx-auto grid max-w-360 gap-px sm:grid-cols-3">
-          {workflow.map((step, index) => (
-            <article
-              className="bg-canvas animate-rise-in px-5 py-8 sm:px-8 sm:py-10 lg:px-12"
-              key={step.number}
-              style={{ animationDelay: `${140 + index * 40}ms` }}
-            >
-              <p className="text-tertiary font-mono text-[0.6875rem] tracking-[0.14em] uppercase">
-                {step.number}
-              </p>
-              <h2 className="font-display mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
-                {step.title}
-              </h2>
-              <p className="text-secondary mt-3 max-w-sm text-sm leading-6">
-                {step.copy}
-              </p>
-            </article>
-          ))}
+      <header className="border-border-subtle relative mx-auto flex max-w-6xl items-center justify-between gap-4 border-b px-5 py-4 sm:px-8">
+        <Wordmark />
+        <div className="flex items-center gap-2">
+          <ThemeControl />
+          <Button
+            disabled={isGoogleSignInPending}
+            onClick={() => {
+              void continueWithGoogle()
+            }}
+            size="compact"
+            variant="outline"
+          >
+            {isGoogleSignInPending ? 'Connecting…' : 'Sign in'}
+          </Button>
         </div>
-      </section>
+      </header>
 
-      <footer className="relative mx-auto flex max-w-360 flex-col gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
-        <p className="text-tertiary font-mono text-[0.6875rem] tracking-wide uppercase">
-          Cerebero
-        </p>
-        <nav
-          className="text-tertiary flex flex-wrap items-center gap-x-5 gap-y-2 text-xs"
-          aria-label="Legal"
-        >
-          <a
-            className="hover:text-secondary focus-visible:ring-focus rounded-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
-            href="#privacy"
+      <main className="relative mx-auto max-w-6xl px-5 pb-16 sm:px-8 sm:pb-20">
+        <section className="grid items-end gap-10 py-12 sm:py-16 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-16 lg:py-20">
+          <div className="max-w-3xl">
+            <p className="text-accent-strong mb-5 font-mono text-sm">
+              Your private reference Library
+            </p>
+            <h1 className="font-display text-[clamp(3rem,8vw,5.75rem)] leading-[0.94] font-medium tracking-[-0.045em]">
+              Keep the things worth coming back to.
+            </h1>
+            <p className="text-secondary mt-6 max-w-2xl text-base leading-7 sm:text-lg">
+              Cerebero keeps your links and notes together in one private,
+              searchable Library—without turning saving into a filing job.
+            </p>
+            <Button
+              className="mt-8"
+              disabled={isGoogleSignInPending}
+              onClick={() => {
+                void continueWithGoogle()
+              }}
+            >
+              {isGoogleSignInPending ? (
+                <SpinnerGapIcon
+                  aria-hidden="true"
+                  className="animate-spin"
+                  size={17}
+                  weight="bold"
+                />
+              ) : null}
+              {isGoogleSignInPending ? 'Connecting…' : 'Get Started'}
+              {!isGoogleSignInPending ? (
+                <ArrowRightIcon size={17} weight="bold" />
+              ) : null}
+            </Button>
+            {authError ? (
+              <div className="mt-4 max-w-md">
+                <FormMessage>{authError}</FormMessage>
+              </div>
+            ) : null}
+          </div>
+
+          <aside
+            className="border-border-strong bg-surface/90 border"
+            aria-label="How Cerebero works"
           >
-            Privacy
-          </a>
-          <a
-            className="hover:text-secondary focus-visible:ring-focus rounded-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
-            href="#terms"
-          >
-            Terms
-          </a>
-        </nav>
+            <p className="border-border-subtle text-secondary border-b px-5 py-4 text-sm font-medium">
+              One simple workflow
+            </p>
+            <ol className="divide-border-subtle divide-y">
+              {workflow.map((step, index) => (
+                <li
+                  className="grid grid-cols-[1.5rem_1fr] gap-3 px-5 py-4"
+                  key={step.title}
+                >
+                  <span className="text-accent-strong font-mono text-xs">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <div>
+                    <h2 className="text-sm font-semibold">{step.title}</h2>
+                    <p className="text-secondary mt-1 text-sm leading-5">
+                      {step.copy}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </aside>
+        </section>
+
+        <div>
+          <ProductPreview />
+        </div>
+      </main>
+
+      <footer className="border-border-subtle border-t">
+        <div className="text-tertiary mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-6 text-xs sm:px-8">
+          <p>Cerebero</p>
+          <nav aria-label="Footer" className="flex items-center gap-4">
+            <Link
+              className="hover:text-primary underline-offset-4 hover:underline"
+              to="/privacy"
+            >
+              Privacy
+            </Link>
+            <Link
+              className="hover:text-primary underline-offset-4 hover:underline"
+              to="/terms"
+            >
+              Terms
+            </Link>
+            <a
+              aria-label="Cerebero on GitHub"
+              className="hover:text-primary focus-visible:outline-focus rounded-control inline-flex min-h-8 min-w-8 items-center justify-center outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+              href="https://github.com/Shubbu03/cerebero"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <GithubLogoIcon aria-hidden="true" size={19} weight="bold" />
+            </a>
+          </nav>
+        </div>
       </footer>
-    </main>
+    </div>
   )
 }
-
-/** @deprecated Use LandingRoute — kept for existing imports during rename. */
-export const FoundationRoute = LandingRoute

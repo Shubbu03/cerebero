@@ -1,5 +1,7 @@
-export type AuthCallbackPath = '/library' | '/reset-password' | '/verify-email'
+export type AuthCallbackPath = '/library'
 
-export function getAuthCallbackUrl(path: AuthCallbackPath): string {
+export function getAuthCallbackUrl(
+  path: AuthCallbackPath = '/library',
+): string {
   return new URL(path, window.location.origin).toString()
 }

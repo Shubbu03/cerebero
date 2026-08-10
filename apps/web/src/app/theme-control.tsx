@@ -1,33 +1,46 @@
 import { MoonIcon, SunIcon } from '@phosphor-icons/react'
+import { IconButton } from '@cerebero/ui'
 
-import { themes, useTheme, type Theme } from './theme-context'
+import { useTheme } from './theme-context'
 
-const themeLabels: Record<Theme, string> = {
-  dark: 'Dark',
-  light: 'Light',
-  system: 'System',
-}
+export function ThemeControl({ showLabel = false }: { showLabel?: boolean }) {
+  const { resolvedTheme, setTheme } = useTheme()
+  const nextTheme = resolvedTheme === 'dark' ? 'light' : 'dark'
+  const label = `Switch to ${nextTheme} theme`
+  const icon =
+    nextTheme === 'dark' ? (
+      <MoonIcon aria-hidden="true" size={19} weight="bold" />
+    ) : (
+      <SunIcon aria-hidden="true" size={19} weight="bold" />
+    )
 
-export function ThemeControl() {
-  const { setTheme, theme } = useTheme()
+  if (showLabel) {
+    return (
+      <button
+        aria-keyshortcuts="D"
+        aria-label={label}
+        className="focus-visible:ring-focus hover:bg-sunken hover:text-primary rounded-control text-secondary duration-fast flex min-h-11 w-full items-center gap-3 px-2 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
+        onClick={() => setTheme(nextTheme)}
+        title={`${label} (D)`}
+        type="button"
+      >
+        {icon}
+        <span className="flex-1">Theme</span>
+        <span className="text-tertiary text-xs capitalize">
+          {resolvedTheme}
+        </span>
+      </button>
+    )
+  }
 
   return (
-    <label className="text-secondary flex items-center gap-1.5 text-xs font-medium">
-      <SunIcon aria-hidden="true" className="hidden sm:block" size={15} weight="bold" />
-      <span className="sr-only">Theme</span>
-      <select
-        aria-label="Theme"
-        className="bg-surface text-primary focus-visible:ring-focus border-border-subtle rounded-control min-h-9 border px-2 text-xs outline-none focus-visible:ring-2"
-        onChange={(event) => setTheme(event.target.value as Theme)}
-        value={theme}
-      >
-        {themes.map((option) => (
-          <option key={option} value={option}>
-            {themeLabels[option]}
-          </option>
-        ))}
-      </select>
-      <MoonIcon aria-hidden="true" className="hidden sm:block" size={15} weight="bold" />
-    </label>
+    <IconButton
+      aria-keyshortcuts="D"
+      label={label}
+      onClick={() => setTheme(nextTheme)}
+      title={`${label} (D)`}
+    >
+      {icon}
+    </IconButton>
   )
 }

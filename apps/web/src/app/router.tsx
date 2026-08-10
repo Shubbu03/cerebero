@@ -3,24 +3,22 @@ import {
   createRoute,
   createRouter,
   Outlet,
-  redirect,
 } from '@tanstack/react-router'
-import { Suspense } from 'react'
-import { z } from 'zod'
-
+import { librarySearchSchema } from '../features/library/library-search-schema'
 import {
-  ForgotPasswordRoute,
-  LoginRoute,
-  ResetPasswordRoute,
-  SignupRoute,
-  VerifyEmailRoute,
-} from '../features/auth/auth-routes'
-import { LibraryRoute } from '../features/library/library-route'
-import { authClient } from '../lib/auth-client'
-import { LandingRoute } from '../routes/index'
-import { AuthenticatedLayout } from './authenticated-layout'
-import { LazyItemDetailFeatureEntry } from './lazy-item-detail'
+  LazyArchiveFeatureEntry,
+  LazyAuthenticatedLayout,
+  LazyItemDetailFeatureEntry,
+  LazyLandingRoute,
+  LazyLibraryRoute,
+  LazyPrivacyRoute,
+  LazyPublicSharedFeatureEntry,
+  LazySettingsFeatureEntry,
+  LazyTermsRoute,
+  LazyTrashFeatureEntry,
+} from './lazy-routes'
 import { NotFoundRoute } from './not-found-route'
+import { FeatureSuspense, RouteSuspense } from './route-loading'
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -28,89 +26,108 @@ const rootRoute = createRootRoute({
 })
 
 const indexRoute = createRoute({
-  component: LandingRoute,
+  component: () => (
+    <RouteSuspense label="Opening Cerebero…">
+      <LazyLandingRoute />
+    </RouteSuspense>
+  ),
   getParentRoute: () => rootRoute,
   path: '/',
 })
 
-const loginRoute = createRoute({
-  component: LoginRoute,
+const privacyRoute = createRoute({
+  component: () => (
+    <RouteSuspense label="Opening privacy…">
+      <LazyPrivacyRoute />
+    </RouteSuspense>
+  ),
   getParentRoute: () => rootRoute,
-  path: '/login',
-  validateSearch: z.object({ reset: z.coerce.boolean().optional() }),
+  path: '/privacy',
 })
 
-const signupRoute = createRoute({
-  component: SignupRoute,
+const termsRoute = createRoute({
+  component: () => (
+    <RouteSuspense label="Opening terms…">
+      <LazyTermsRoute />
+    </RouteSuspense>
+  ),
   getParentRoute: () => rootRoute,
-  path: '/signup',
+  path: '/terms',
 })
 
-const forgotPasswordRoute = createRoute({
-  component: ForgotPasswordRoute,
-  getParentRoute: () => rootRoute,
-  path: '/forgot-password',
-})
-
-const resetPasswordRoute = createRoute({
-  component: () => {
-    const { token } = resetPasswordRoute.useSearch()
-    return <ResetPasswordRoute token={token} />
+const sharedRoute = createRoute({
+  component: function SharedRouteComponent() {
+    const { token } = sharedRoute.useParams()
+    return (
+      <RouteSuspense label="Opening shared Item…">
+        <LazyPublicSharedFeatureEntry token={token} />
+      </RouteSuspense>
+    )
   },
   getParentRoute: () => rootRoute,
-  path: '/reset-password',
-  validateSearch: z.object({ token: z.string().min(1).optional() }),
-})
-
-const verifyEmailRoute = createRoute({
-  component: () => {
-    const { sent, verified } = verifyEmailRoute.useSearch()
-    return <VerifyEmailRoute sent={sent} verified={verified} />
-  },
-  getParentRoute: () => rootRoute,
-  path: '/verify-email',
-  validateSearch: z.object({
-    sent: z.coerce.boolean().optional(),
-    verified: z.coerce.boolean().optional(),
-  }),
+  path: '/shared/$token',
 })
 
 const authenticatedRoute = createRoute({
-  beforeLoad: async () => {
-    const { data } = await authClient.getSession()
-    if (!data) {
-      // TanStack Router uses a redirect response as control flow.
-      // eslint-disable-next-line @typescript-eslint/only-throw-error
-      throw redirect({ to: '/login' })
-    }
-  },
-  component: AuthenticatedLayout,
+  component: () => (
+    <RouteSuspense label="Opening your Library…">
+      <LazyAuthenticatedLayout />
+    </RouteSuspense>
+  ),
   getParentRoute: () => rootRoute,
   id: 'authenticated',
 })
 
 const libraryRoute = createRoute({
-  component: LibraryRoute,
+  component: function LibraryRouteComponent() {
+    return (
+      <FeatureSuspense label="Opening Library…">
+        <LazyLibraryRoute search={libraryRoute.useSearch()} />
+      </FeatureSuspense>
+    )
+  },
   getParentRoute: () => authenticatedRoute,
   path: '/library',
+  validateSearch: librarySearchSchema,
+})
+
+const archiveRoute = createRoute({
+  component: () => (
+    <FeatureSuspense label="Opening Archive…">
+      <LazyArchiveFeatureEntry />
+    </FeatureSuspense>
+  ),
+  getParentRoute: () => authenticatedRoute,
+  path: '/archive',
+})
+
+const trashRoute = createRoute({
+  component: () => (
+    <FeatureSuspense label="Opening Trash…">
+      <LazyTrashFeatureEntry />
+    </FeatureSuspense>
+  ),
+  getParentRoute: () => authenticatedRoute,
+  path: '/trash',
+})
+
+const settingsRoute = createRoute({
+  component: () => (
+    <FeatureSuspense label="Opening settings…">
+      <LazySettingsFeatureEntry />
+    </FeatureSuspense>
+  ),
+  getParentRoute: () => authenticatedRoute,
+  path: '/settings',
 })
 
 const itemDetailRoute = createRoute({
   component: () => {
     const { itemId } = itemDetailRoute.useParams()
     return (
-      <Suspense
-        fallback={
-          <div
-            className="mx-auto max-w-6xl px-5 py-10 sm:px-8 lg:px-10"
-            aria-busy="true"
-          >
-            <p className="text-secondary text-sm">Opening Item…</p>
-          </div>
-        }
-      >
+      <FeatureSuspense label="Opening Item…">
         <LazyItemDetailFeatureEntry itemId={itemId} />
-      </Suspense>
+      </FeatureSuspense>
     )
   },
   getParentRoute: () => authenticatedRoute,
@@ -119,12 +136,16 @@ const itemDetailRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
-  loginRoute,
-  signupRoute,
-  forgotPasswordRoute,
-  resetPasswordRoute,
-  verifyEmailRoute,
-  authenticatedRoute.addChildren([libraryRoute, itemDetailRoute]),
+  privacyRoute,
+  termsRoute,
+  sharedRoute,
+  authenticatedRoute.addChildren([
+    libraryRoute,
+    archiveRoute,
+    trashRoute,
+    settingsRoute,
+    itemDetailRoute,
+  ]),
 ])
 
 export const router = createRouter({ routeTree })
