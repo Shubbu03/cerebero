@@ -1,18 +1,21 @@
 import type { ItemView } from '@cerebero/contracts'
-import { ArrowLeftIcon } from '@phosphor-icons/react'
+import { ArrowLeftIcon, PencilSimpleIcon } from '@phosphor-icons/react'
 import { Link } from '@tanstack/react-router'
+import { Button } from '@cerebero/ui'
 
 type ItemDetailUiHeaderProps = {
+  isEditing: boolean
   item: ItemView
+  onStartEdit: () => void
 }
 
-const statusLabels = {
-  archived: 'Archived',
-  library: 'Library',
-  trashed: 'Trash',
-} as const
+export function ItemDetailUiHeader({
+  isEditing,
+  item,
+  onStartEdit,
+}: ItemDetailUiHeaderProps) {
+  const canEdit = item.status === 'library' && !isEditing
 
-export function ItemDetailUiHeader({ item }: ItemDetailUiHeaderProps) {
   return (
     <>
       <Link
@@ -22,19 +25,20 @@ export function ItemDetailUiHeader({ item }: ItemDetailUiHeaderProps) {
         <ArrowLeftIcon aria-hidden="true" size={16} /> Library
       </Link>
 
-      <header className="border-border-strong mt-8 border-b pb-8">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="border-border-subtle bg-sunken text-secondary rounded-full border px-2.5 py-1 font-mono text-[0.6875rem] tracking-[0.08em] uppercase">
-              {statusLabels[item.status]}
-            </span>
-            <span className="text-tertiary font-mono text-[0.6875rem] tracking-[0.08em] uppercase">
-              {item.kind}
-            </span>
+      <header className="border-border-strong mt-4 border-b pb-6 sm:mt-5 sm:pb-7">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="font-display text-[clamp(2.75rem,5vw,4.5rem)] leading-[0.96] font-medium tracking-[-0.045em] [overflow-wrap:anywhere]">
+              {item.displayTitle}
+            </h1>
           </div>
-          <h1 className="font-display mt-4 max-w-4xl text-[clamp(2.5rem,6vw,5rem)] leading-[0.96] font-medium tracking-[-0.045em] [overflow-wrap:anywhere]">
-            {item.displayTitle}
-          </h1>
+
+          {canEdit ? (
+            <Button onClick={onStartEdit} size="compact" variant="outline">
+              <PencilSimpleIcon aria-hidden="true" size={16} />
+              Edit
+            </Button>
+          ) : null}
         </div>
       </header>
     </>

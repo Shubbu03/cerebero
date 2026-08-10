@@ -10,7 +10,11 @@ import {
   Input,
   Textarea,
 } from '@cerebero/ui'
-import { useState } from 'react'
+import {
+  useEffect,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react'
 import { useForm } from 'react-hook-form'
 
 import {
@@ -42,6 +46,16 @@ const defaultValues: CaptureFormInput = {
   originalUrl: '',
 }
 
+function isEditableTarget(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable ||
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLSelectElement ||
+      target instanceof HTMLTextAreaElement)
+  )
+}
+
 export function CaptureUiDialog({
   captureItem,
   isOpen,
@@ -55,6 +69,7 @@ export function CaptureUiDialog({
     handleSubmit,
     register,
     reset,
+    setFocus,
   } = useForm<CaptureFormInput>({
     defaultValues,
     resolver: zodResolver(captureFormSchema),
@@ -89,6 +104,48 @@ export function CaptureUiDialog({
     attemptCapture(toCaptureItemInput(input, false)),
   )
 
+  useEffect(() => {
+    if (!isOpen || duplicate || isSubmitting || isSavingDuplicate) {
+      return
+    }
+
+    const saveFromKeyboard = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.repeat ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        event.key.toLowerCase() !== 's' ||
+        isEditableTarget(event.target)
+      ) {
+        return
+      }
+
+      event.preventDefault()
+      void submit()
+    }
+
+    document.addEventListener('keydown', saveFromKeyboard)
+    return () => document.removeEventListener('keydown', saveFromKeyboard)
+  }, [duplicate, isOpen, isSavingDuplicate, isSubmitting, submit])
+
+  const saveFromInputEnter = (event: ReactKeyboardEvent<HTMLFormElement>) => {
+    if (
+      event.defaultPrevented ||
+      event.nativeEvent.isComposing ||
+      event.key !== 'Enter' ||
+      event.shiftKey ||
+      !(event.target instanceof HTMLInputElement)
+    ) {
+      return
+    }
+
+    event.preventDefault()
+    void submit()
+  }
+
   const saveAnotherCopy = async () => {
     if (!duplicate) {
       return
@@ -119,10 +176,16 @@ export function CaptureUiDialog({
     <Dialog.Root onOpenChange={handleOpenChange} open={isOpen}>
       <Dialog.Portal>
         <Dialog.Overlay className="bg-primary/45 fixed inset-0 z-40 backdrop-blur-[2px]" />
-        <Dialog.Content className="bg-canvas text-primary border-border-strong shadow-raised sm:rounded-panel fixed inset-x-0 bottom-0 z-50 max-h-[min(92dvh,52rem)] overflow-y-auto border-t p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] focus:outline-none sm:top-1/2 sm:right-auto sm:bottom-auto sm:left-1/2 sm:w-[min(calc(100vw-2rem),42rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:border sm:p-8">
+        <Dialog.Content
+          className="bg-canvas text-primary border-border-strong shadow-raised sm:rounded-panel fixed inset-x-0 bottom-0 z-50 max-h-[min(92dvh,52rem)] overflow-y-auto border-t p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] focus:outline-none sm:top-1/2 sm:right-auto sm:bottom-auto sm:left-1/2 sm:w-[min(calc(100vw-2rem),42rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:border sm:p-8"
+          onOpenAutoFocus={(event) => {
+            event.preventDefault()
+            setFocus('originalUrl')
+          }}
+        >
           <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-5">
             <div>
-              <p className="text-accent-strong font-mono text-xs font-medium tracking-[0.18em] uppercase">
+              <p className="text-accent-strong font-mono text-xs font-medium">
                 New capture
               </p>
               <Dialog.Title className="font-display mt-2 text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">
@@ -145,6 +208,7 @@ export function CaptureUiDialog({
           <form
             className="mt-8 grid gap-5"
             noValidate
+            onKeyDown={saveFromInputEnter}
             onSubmit={(event) => void submit(event)}
           >
             <Field
@@ -236,9 +300,21 @@ export function CaptureUiDialog({
                     >
                       Cancel
                     </Button>
-                    <Button disabled={isSubmitting} type="submit">
+                    <Button
+                      aria-keyshortcuts="Enter S"
+                      disabled={isSubmitting}
+                      type="submit"
+                    >
                       <FloppyDiskIcon aria-hidden="true" size={17} />
                       {isSubmitting ? 'Capturing…' : 'Save to Library'}
+                      {!isSubmitting ? (
+                        <kbd
+                          aria-hidden="true"
+                          className="border-accent-foreground/25 ml-1 border-l pl-2 font-mono text-[0.625rem] font-medium"
+                        >
+                          ↵ / S
+                        </kbd>
+                      ) : null}
                     </Button>
                   </div>
                 </div>

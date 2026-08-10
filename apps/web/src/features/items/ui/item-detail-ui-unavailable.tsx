@@ -18,16 +18,14 @@ export function ItemDetailUiUnavailable({
   retry,
 }: ItemDetailUiUnavailableProps) {
   return (
-    <section className="mx-auto grid min-h-[calc(100dvh-4rem)] max-w-6xl place-items-center px-5 py-12 text-center sm:px-8 lg:px-10">
+    <section className="grid min-h-[calc(100dvh-4rem)] w-full flex-1 place-items-center px-4 py-12 text-center sm:px-6 lg:px-8">
       <div className="max-w-md">
         <FileXIcon
           className="text-tertiary mx-auto"
           aria-hidden="true"
           size={34}
         />
-        <p className="text-tertiary mt-5 font-mono text-xs tracking-[0.16em] uppercase">
-          Item unavailable
-        </p>
+        <p className="text-tertiary mt-5 font-mono text-xs">Item unavailable</p>
         <h1 className="font-display mt-3 text-4xl font-semibold tracking-[-0.035em]">
           Nothing can be opened here.
         </h1>

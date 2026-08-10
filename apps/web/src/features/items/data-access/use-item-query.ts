@@ -1,5 +1,13 @@
-import { itemViewSchema, type ItemView } from '@cerebero/contracts'
-import { useQuery } from '@tanstack/react-query'
+import {
+  itemViewSchema,
+  type ItemPage,
+  type ItemView,
+} from '@cerebero/contracts'
+import {
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query'
 import { isXiorError } from 'xior/utils'
 
 import { apiClient } from '../../../lib/api-client'
@@ -20,12 +28,38 @@ async function readItem(itemId: string): Promise<ItemView> {
 }
 
 export function useItemQuery(itemId: string) {
+  const queryClient = useQueryClient()
+
+  const findCachedItem = () => {
+    const listData = [
+      ...queryClient.getQueriesData<InfiniteData<ItemPage>>({
+        queryKey: ['items'],
+      }),
+      ...queryClient.getQueriesData<InfiniteData<ItemPage>>({
+        queryKey: ['search'],
+      }),
+    ]
+
+    for (const [, data] of listData) {
+      const item = data?.pages
+        .flatMap((page) => page.items)
+        .find((candidate) => candidate.id === itemId)
+      if (item) {
+        return item
+      }
+    }
+
+    return undefined
+  }
+
   return useQuery({
+    initialData: findCachedItem,
     queryFn: () => readItem(itemId),
     queryKey: itemQueryKey(itemId),
     retry: (failureCount, error) =>
       error instanceof ItemQueryError && error.code !== 'not_found'
         ? failureCount < 1
         : false,
+    staleTime: 5 * 60_000,
   })
 }

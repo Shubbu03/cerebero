@@ -1,8 +1,12 @@
 import type { ItemView } from '@cerebero/contracts'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
+import type { ReactNode } from 'react'
+
+import { MarkdownContent } from '../../markdown/markdown-content'
 
 type ItemDetailUiBodyProps = {
   item: ItemView
+  tagsEditor?: ReactNode
 }
 
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
@@ -10,101 +14,79 @@ const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   timeStyle: 'short',
 })
 
-export function ItemDetailUiBody({ item }: ItemDetailUiBodyProps) {
+function ItemDate({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid gap-10 py-10 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12">
-      <article className="min-w-0">
-        {item.originalUrl ? (
-          <section aria-labelledby="item-source-title">
-            <h2
-              className="text-tertiary font-mono text-xs tracking-[0.16em] uppercase"
-              id="item-source-title"
-            >
-              Source
-            </h2>
+    <div>
+      <dt className="text-tertiary font-mono text-xs">{label}</dt>
+      <dd className="mt-1.5 text-sm">
+        <time dateTime={value}>
+          {dateTimeFormatter.format(new Date(value))}
+        </time>
+      </dd>
+    </div>
+  )
+}
+
+export function ItemDetailUiBody({ item, tagsEditor }: ItemDetailUiBodyProps) {
+  return (
+    <div className="py-6 sm:py-7">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(20rem,1fr)] lg:items-start lg:gap-8">
+        <section aria-labelledby="item-source-title" className="min-w-0">
+          <h2
+            className="text-tertiary font-mono text-xs"
+            id="item-source-title"
+          >
+            Source
+          </h2>
+          {item.originalUrl ? (
             <a
-              className="text-accent-strong hover:text-primary focus-visible:ring-focus rounded-control mt-3 inline-flex max-w-full items-center gap-2 text-sm font-semibold underline underline-offset-4 focus-visible:ring-2 focus-visible:outline-none"
+              className="text-accent-strong hover:text-primary focus-visible:ring-focus rounded-control mt-2.5 inline-flex max-w-full items-start gap-2 text-sm font-semibold underline underline-offset-4 focus-visible:ring-2 focus-visible:outline-none"
               href={item.originalUrl}
               rel="noopener noreferrer"
               target="_blank"
             >
-              <span className="truncate">{item.originalUrl}</span>
+              <span className="break-all">{item.originalUrl}</span>
               <ArrowSquareOutIcon
                 aria-hidden="true"
-                className="shrink-0"
+                className="mt-0.5 shrink-0"
                 size={16}
               />
               <span className="sr-only">opens in a new tab</span>
             </a>
-          </section>
-        ) : null}
+          ) : (
+            <p className="text-tertiary mt-2.5 text-sm">No source URL.</p>
+          )}
+        </section>
 
-        <section
-          className={item.originalUrl ? 'mt-10' : undefined}
-          aria-labelledby="item-note-title"
-        >
-          <h2
-            className="text-tertiary font-mono text-xs tracking-[0.16em] uppercase"
-            id="item-note-title"
-          >
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+          <ItemDate label="Captured" value={item.createdAt} />
+          <ItemDate label="Updated" value={item.updatedAt} />
+          {item.pinnedAt ? (
+            <ItemDate label="Pinned" value={item.pinnedAt} />
+          ) : null}
+        </dl>
+      </div>
+
+      <div className="border-border-subtle mt-7 grid gap-7 border-t pt-7 xl:grid-cols-[minmax(0,1.5fr)_minmax(22rem,1fr)] xl:gap-8">
+        <section aria-labelledby="item-note-title" className="min-w-0">
+          <h2 className="text-tertiary font-mono text-xs" id="item-note-title">
             Note
           </h2>
           {item.noteMarkdown ? (
-            <p className="mt-4 max-w-3xl text-base leading-8 [overflow-wrap:anywhere] whitespace-pre-wrap">
-              {item.noteMarkdown}
-            </p>
+            <div className="mt-3 max-w-4xl">
+              <MarkdownContent>{item.noteMarkdown}</MarkdownContent>
+            </div>
           ) : (
-            <p className="text-tertiary mt-4 text-sm">No note was added.</p>
+            <p className="text-tertiary mt-3 text-sm">No note was added.</p>
           )}
         </section>
-      </article>
 
-      <aside
-        className="border-border-subtle border-t pt-7 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-7"
-        aria-label="Item metadata"
-      >
-        <dl className="grid gap-5 text-sm">
-          <div>
-            <dt className="text-tertiary text-xs">Captured</dt>
-            <dd className="mt-1">
-              <time dateTime={item.createdAt}>
-                {dateTimeFormatter.format(new Date(item.createdAt))}
-              </time>
-            </dd>
-          </div>
-          <div>
-            <dt className="text-tertiary text-xs">Updated</dt>
-            <dd className="mt-1">
-              <time dateTime={item.updatedAt}>
-                {dateTimeFormatter.format(new Date(item.updatedAt))}
-              </time>
-            </dd>
-          </div>
-        </dl>
-
-        <section
-          className="border-border-subtle mt-7 border-t pt-6"
-          aria-labelledby="item-tags-title"
-        >
-          <h2 className="text-tertiary text-xs" id="item-tags-title">
-            Tags
-          </h2>
-          {item.tags.length > 0 ? (
-            <ul className="mt-3 flex flex-wrap gap-1.5">
-              {item.tags.map((tag) => (
-                <li
-                  className="border-border-subtle bg-sunken text-secondary max-w-full rounded-full border px-2 py-0.5 text-xs [overflow-wrap:anywhere]"
-                  key={tag.id}
-                >
-                  {tag.name}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-tertiary mt-2 text-sm">No Tags</p>
-          )}
-        </section>
-      </aside>
+        {tagsEditor ? (
+          <aside aria-label="Item organization and sharing" className="min-w-0">
+            {tagsEditor}
+          </aside>
+        ) : null}
+      </div>
     </div>
   )
 }

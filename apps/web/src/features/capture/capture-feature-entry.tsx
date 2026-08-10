@@ -4,8 +4,10 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { useCaptureItem } from './data-access/use-capture-item'
 import { CaptureUiSuccessNotice } from './ui/capture-ui-success-notice'
 
+const importCaptureDialog = () => import('./ui/capture-ui-dialog')
+
 const CaptureUiDialog = lazy(async () => {
-  const module = await import('./ui/capture-ui-dialog')
+  const module = await importCaptureDialog()
   return { default: module.CaptureUiDialog }
 })
 
@@ -30,6 +32,10 @@ export function CaptureFeatureEntry({ children }: CaptureFeatureEntryProps) {
   const captureMutation = useCaptureItem()
   const [isOpen, setIsOpen] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+
+  useEffect(() => {
+    void importCaptureDialog()
+  }, [])
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {

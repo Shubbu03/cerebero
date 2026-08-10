@@ -10,12 +10,19 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { CaptureFeatureEntry } from '../src/features/capture/capture-feature-entry'
-import { libraryItemsQueryKey } from '../src/features/library/data-access/library-items-query-key'
+import {
+  defaultLibraryListFilters,
+  libraryItemsQueryKey,
+} from '../src/features/library/data-access/library-items-query-key'
+import { useLibraryItemsQuery } from '../src/features/library/data-access/use-library-items-query'
 
-const { postApi } = vi.hoisted(() => ({ postApi: vi.fn() }))
+const { getApi, postApi } = vi.hoisted(() => ({
+  getApi: vi.fn(),
+  postApi: vi.fn(),
+}))
 
 vi.mock('../src/lib/api-client', () => ({
-  apiClient: { post: postApi },
+  apiClient: { get: getApi, post: postApi },
 }))
 
 const createdAt = '2026-08-08T08:30:00.000Z'
@@ -39,12 +46,30 @@ function createItem(overrides: Partial<ItemView> = {}): ItemView {
   }
 }
 
-function renderCapture() {
+function LibraryPageAvailability() {
+  const query = useLibraryItemsQuery(defaultLibraryListFilters)
+
+  return (
+    <output>
+      {query.hasNextPage ? 'Next page available' : 'No next page'}
+    </output>
+  )
+}
+
+function renderCapture({
+  initialPage = { items: [], nextCursor: null },
+  observeLibrary = false,
+}: {
+  initialPage?: ItemPage
+  observeLibrary?: boolean
+} = {}) {
   const queryClient = new QueryClient({
-    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+    defaultOptions: {
+      mutations: { retry: false },
+      queries: { retry: false, staleTime: Infinity },
+    },
   })
-  const initialPage: ItemPage = { items: [], nextCursor: null }
-  queryClient.setQueryData(libraryItemsQueryKey, {
+  queryClient.setQueryData(libraryItemsQueryKey(defaultLibraryListFilters), {
     pageParams: [null],
     pages: [initialPage],
   })
@@ -58,6 +83,7 @@ function renderCapture() {
           </button>
         )}
       </CaptureFeatureEntry>
+      {observeLibrary ? <LibraryPageAvailability /> : null}
     </QueryClientProvider>,
   )
 
@@ -71,6 +97,7 @@ async function openCapture() {
 
 afterEach(() => {
   cleanup()
+  getApi.mockReset()
   postApi.mockReset()
 })
 
@@ -78,6 +105,8 @@ describe('Capture feature', () => {
   it('validates that the draft contains a URL or note', async () => {
     renderCapture()
     await openCapture()
+
+    expect(screen.getByLabelText('URL')).toHaveFocus()
 
     fireEvent.click(screen.getByRole('button', { name: 'Save to Library' }))
 
@@ -91,6 +120,7 @@ describe('Capture feature', () => {
     const item = createItem()
     postApi.mockResolvedValue({ data: item })
     const queryClient = renderCapture()
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries')
     await openCapture()
 
     fireEvent.change(screen.getByLabelText('URL'), {
@@ -111,9 +141,122 @@ describe('Capture feature', () => {
 
     const cached = queryClient.getQueryData<{
       pages: ItemPage[]
-    }>(libraryItemsQueryKey)
+    }>(libraryItemsQueryKey(defaultLibraryListFilters))
     expect(cached?.pages[0]?.items[0]).toEqual(item)
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['items', 'library'],
+    })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('saves with Enter from a single-line capture field', async () => {
+    const item = createItem()
+    postApi.mockResolvedValue({ data: item })
+    renderCapture()
+    await openCapture()
+
+    const url = screen.getByLabelText('URL')
+    fireEvent.change(url, { target: { value: item.originalUrl } })
+    fireEvent.keyDown(url, { key: 'Enter' })
+
+    expect(await screen.findByText('Saved to Library.')).toBeInTheDocument()
+    expect(postApi).toHaveBeenCalledTimes(1)
+  })
+
+  it('saves with S outside editable fields without hijacking typed text', async () => {
+    const item = createItem()
+    postApi.mockResolvedValue({ data: item })
+    renderCapture()
+    await openCapture()
+
+    const url = screen.getByLabelText('URL')
+    fireEvent.change(url, { target: { value: item.originalUrl } })
+    fireEvent.keyDown(url, { key: 's' })
+    expect(postApi).not.toHaveBeenCalled()
+
+    const closeButton = screen.getByRole('button', { name: 'Close Capture' })
+    closeButton.focus()
+    fireEvent.keyDown(closeButton, { key: 's' })
+
+    expect(await screen.findByText('Saved to Library.')).toBeInTheDocument()
+    expect(postApi).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows a pending Library Item before the remote Capture finishes', async () => {
+    const item = createItem()
+    let finishRequest: ((response: { data: ItemView }) => void) | undefined
+    postApi.mockReturnValue(
+      new Promise<{ data: ItemView }>((resolve) => {
+        finishRequest = resolve
+      }),
+    )
+    const queryClient = renderCapture()
+    await openCapture()
+
+    fireEvent.change(screen.getByLabelText('URL'), {
+      target: { value: item.originalUrl },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save to Library' }))
+
+    await waitFor(() => {
+      const cached = queryClient.getQueryData<{
+        pages: Array<{ items: Array<ItemView & { clientState?: string }> }>
+      }>(libraryItemsQueryKey(defaultLibraryListFilters))
+      expect(cached?.pages[0]?.items[0]?.clientState).toBe('saving')
+    })
+
+    finishRequest?.({ data: item })
+    expect(await screen.findByText('Saved to Library.')).toBeInTheDocument()
+    const confirmed = queryClient.getQueryData<{
+      pages: Array<{ items: ItemView[] }>
+    }>(libraryItemsQueryKey(defaultLibraryListFilters))
+    expect(confirmed?.pages[0]?.items[0]).toEqual(item)
+  })
+
+  it('refetches a full first page after capture so displaced Items remain reachable', async () => {
+    const existingItems = Array.from({ length: 5 }, (_, index) =>
+      createItem({
+        displayTitle: `Existing Item ${index + 1}`,
+        id: `11111111-1111-4111-8111-${String(index + 1).padStart(12, '0')}`,
+      }),
+    )
+    const capturedItem = createItem({
+      displayTitle: 'Newest Item',
+      id: '33333333-3333-4333-8333-333333333333',
+      originalUrl: 'https://example.com/newest',
+    })
+    postApi.mockResolvedValue({ data: capturedItem })
+    getApi.mockResolvedValue({
+      data: {
+        items: [capturedItem, ...existingItems.slice(0, 4)],
+        nextCursor: 'next-page',
+      } satisfies ItemPage,
+    })
+    renderCapture({
+      initialPage: { items: existingItems, nextCursor: null },
+      observeLibrary: true,
+    })
+    await openCapture()
+
+    expect(screen.getByText('No next page')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('URL'), {
+      target: { value: capturedItem.originalUrl },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save to Library' }))
+
+    expect(await screen.findByText('Saved to Library.')).toBeInTheDocument()
+    expect(await screen.findByText('Next page available')).toBeInTheDocument()
+    expect(getApi).toHaveBeenCalledWith('/items', {
+      params: {
+        cursor: undefined,
+        kind: undefined,
+        limit: 5,
+        pinned: 'false',
+        sort: 'created_desc',
+        status: 'library',
+        tag: undefined,
+      },
+    })
   })
 
   it('keeps the draft when a transport failure is recoverable', async () => {
