@@ -17,6 +17,7 @@
     "db:check": "bun run --filter @cerebero/db db:check",
     "db:migrate": "bun run --filter @cerebero/db db:migrate",
     "dev": "bun run build:packages && concurrently --kill-others-on-fail --names server,web --prefix-colors green,blue \"bun run --filter @cerebero/server dev\" \"bun run --filter @cerebero/web dev\"",
+    "purge-expired-trash": "bun run --filter @cerebero/server purge-expired-trash",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",

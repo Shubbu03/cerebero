@@ -28,7 +28,8 @@ export class InMemoryTrashCleanupRepository implements TrashCleanupRepository {
       )
       .sort(
         (left, right) =>
-          (left.trashedAt?.getTime() ?? 0) - (right.trashedAt?.getTime() ?? 0) ||
+          (left.trashedAt?.getTime() ?? 0) -
+            (right.trashedAt?.getTime() ?? 0) ||
           left.id.localeCompare(right.id),
       )
       .slice(0, limit)

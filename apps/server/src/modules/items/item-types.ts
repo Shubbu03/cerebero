@@ -2,6 +2,7 @@ import type {
   CaptureItemInput,
   DuplicateCandidate,
   ItemCommand,
+  ItemListSort,
   ItemPage,
   ItemStatus,
   ItemView,
@@ -42,8 +43,10 @@ export type ItemRecord = {
 }
 
 export type ItemListCursor = {
-  createdAt: Date
+  createdAt?: Date
   id: ItemId
+  titleKey?: string
+  updatedAt?: Date
 }
 
 export type ItemListOptions = {
@@ -51,6 +54,7 @@ export type ItemListOptions = {
   kind: 'link' | 'note' | null
   limit: number
   pinned: boolean | null
+  sort: ItemListSort
   status: ItemStatus
   tagIds: readonly string[] | null
 }
@@ -69,8 +73,15 @@ export type ItemRecordPatch = Partial<
   >
 >
 
+export type PersistCaptureResult =
+  | { outcome: 'created'; record: ItemRecord }
+  | { outcome: 'duplicate'; records: readonly ItemRecord[] }
+
 export interface ItemRepository {
-  createCapture(record: ItemRecord): Promise<ItemRecord>
+  createCapture(
+    record: ItemRecord,
+    options: { allowDuplicate: boolean; duplicateLimit: number },
+  ): Promise<PersistCaptureResult>
   deletePermanently(
     ownerId: UserId,
     itemId: ItemId,

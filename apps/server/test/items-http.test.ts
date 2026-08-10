@@ -222,4 +222,23 @@ describe('Items HTTP interface', () => {
     expect(items.get).not.toHaveBeenCalled()
     expect(items.list).not.toHaveBeenCalled()
   })
+
+  it('accepts repeated Tag filters from the browser query serializer', async () => {
+    const items = createItems()
+    const app = createAuthenticatedApp(items)
+    const firstTagId = '00000000-0000-4000-8000-000000000101'
+    const secondTagId = '00000000-0000-4000-8000-000000000102'
+    const response = await app.request(
+      `/api/v1/items?limit=25&sort=created_desc&status=library&tag=${firstTagId}&tag=${secondTagId}`,
+    )
+
+    expect(response.status).toBe(200)
+    expect(items.list).toHaveBeenCalledWith('server-derived-user', {
+      limit: 25,
+      pinned: undefined,
+      sort: 'created_desc',
+      status: 'library',
+      tag: [firstTagId, secondTagId],
+    })
+  })
 })

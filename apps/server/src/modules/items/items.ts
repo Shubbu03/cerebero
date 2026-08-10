@@ -3,15 +3,18 @@ import { randomUUID } from 'node:crypto'
 import type {
   DuplicateCandidate,
   ItemCommand,
+  ItemListSort,
   ItemPage,
   ItemView,
   UpdateItemInput,
 } from '@cerebero/contracts'
+import { itemListSortSchema } from '@cerebero/contracts'
 import { z } from 'zod'
 
 import type {
   CaptureResult,
   ItemId,
+  ItemListCursor,
   ItemRecord,
   ItemRecordPatch,
   ItemRepository,
@@ -24,9 +27,12 @@ const MAX_DUPLICATE_CANDIDATES = 10
 
 const itemCursorSchema = z
   .object({
-    createdAt: z.iso.datetime(),
+    createdAt: z.iso.datetime().optional(),
     id: z.uuid(),
+    sort: itemListSortSchema,
     status: z.enum(['library', 'archived', 'trashed']),
+    titleKey: z.string().max(400).optional(),
+    updatedAt: z.iso.datetime().optional(),
   })
   .strict()
 
@@ -179,23 +185,42 @@ function toDuplicateCandidate(record: ItemRecord): DuplicateCandidate {
   }
 }
 
+function titleSortKey(record: ItemRecord): string {
+  const value =
+    record.authoredTitle?.trim() ||
+    record.originalUrl?.trim() ||
+    record.noteMarkdown?.trim().slice(0, 300) ||
+    'untitled note'
+  return value.toLocaleLowerCase('en')
+}
+
 function encodeCursor(
   record: ItemRecord,
   status: ItemRecord['status'],
+  sort: ItemListSort,
 ): string {
-  return Buffer.from(
-    JSON.stringify({
-      createdAt: record.createdAt.toISOString(),
-      id: record.id,
-      status,
-    }),
-  ).toString('base64url')
+  const payload: Record<string, string> = {
+    id: record.id,
+    sort,
+    status,
+  }
+
+  if (sort === 'created_desc' || sort === 'created_asc') {
+    payload.createdAt = record.createdAt.toISOString()
+  } else if (sort === 'updated_desc') {
+    payload.updatedAt = record.updatedAt.toISOString()
+  } else {
+    payload.titleKey = titleSortKey(record)
+  }
+
+  return Buffer.from(JSON.stringify(payload)).toString('base64url')
 }
 
 function decodeCursor(
   cursor: string | undefined,
   status: ItemRecord['status'],
-) {
+  sort: ItemListSort,
+): ItemListCursor | null {
   if (!cursor) {
     return null
   }
@@ -204,13 +229,37 @@ function decodeCursor(
     const parsed = itemCursorSchema.parse(
       JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')),
     )
-    if (parsed.status !== status) {
-      throw new Error('Cursor status mismatch.')
+    if (parsed.status !== status || parsed.sort !== sort) {
+      throw new Error('Cursor status or sort mismatch.')
+    }
+
+    if (sort === 'created_desc' || sort === 'created_asc') {
+      if (!parsed.createdAt) {
+        throw new Error('Missing createdAt cursor field.')
+      }
+      return {
+        createdAt: new Date(parsed.createdAt),
+        id: toItemId(parsed.id),
+      }
+    }
+
+    if (sort === 'updated_desc') {
+      if (!parsed.updatedAt) {
+        throw new Error('Missing updatedAt cursor field.')
+      }
+      return {
+        id: toItemId(parsed.id),
+        updatedAt: new Date(parsed.updatedAt),
+      }
+    }
+
+    if (parsed.titleKey === undefined) {
+      throw new Error('Missing titleKey cursor field.')
     }
 
     return {
-      createdAt: new Date(parsed.createdAt),
       id: toItemId(parsed.id),
+      titleKey: parsed.titleKey,
     }
   } catch {
     throw new ItemsError('INVALID_REQUEST', 'The pagination cursor is invalid.')
@@ -400,38 +449,37 @@ export function createItemsModule(options: ItemsModuleOptions): ItemsModule {
       const noteMarkdown = normalizeOptionalNote(input.noteMarkdown)
       assertContent(url.originalUrl, noteMarkdown)
 
-      if (url.normalizedUrl && !input.allowDuplicate) {
-        const duplicates = await options.repository.findDuplicates(
-          actor,
-          url.normalizedUrl,
-          MAX_DUPLICATE_CANDIDATES,
-        )
-        if (duplicates.length > 0) {
-          return {
-            candidates: duplicates.map(toDuplicateCandidate),
-            outcome: 'duplicate',
-          }
+      const now = clock()
+      const persisted = await options.repository.createCapture(
+        {
+          authoredTitle,
+          createdAt: now,
+          id: toItemId(createId()),
+          normalizedUrl: url.normalizedUrl,
+          noteMarkdown,
+          originalUrl: url.originalUrl,
+          ownerId: actor,
+          pinnedAt: null,
+          status: 'library',
+          tags: [],
+          trashedAt: null,
+          updatedAt: now,
+          version: 1,
+        },
+        {
+          allowDuplicate: input.allowDuplicate ?? false,
+          duplicateLimit: MAX_DUPLICATE_CANDIDATES,
+        },
+      )
+
+      if (persisted.outcome === 'duplicate') {
+        return {
+          candidates: persisted.records.map(toDuplicateCandidate),
+          outcome: 'duplicate',
         }
       }
 
-      const now = clock()
-      const created = await options.repository.createCapture({
-        authoredTitle,
-        createdAt: now,
-        id: toItemId(createId()),
-        normalizedUrl: url.normalizedUrl,
-        noteMarkdown,
-        originalUrl: url.originalUrl,
-        ownerId: actor,
-        pinnedAt: null,
-        status: 'library',
-        tags: [],
-        trashedAt: null,
-        updatedAt: now,
-        version: 1,
-      })
-
-      return { item: toItemView(created), outcome: 'created' }
+      return { item: toItemView(persisted.record), outcome: 'created' }
     },
 
     findDuplicateLinks: async (actor, url) => {
@@ -450,13 +498,15 @@ export function createItemsModule(options: ItemsModuleOptions): ItemsModule {
     },
 
     list: async (actor, query): Promise<ItemPage> => {
-      const cursor = decodeCursor(query.cursor, query.status)
+      const sort = query.sort
+      const cursor = decodeCursor(query.cursor, query.status, sort)
       const tagIds = query.tag?.length ? query.tag : null
       const records = await options.repository.list(actor, {
         cursor,
         kind: query.kind ?? null,
         limit: query.limit + 1,
         pinned: query.pinned ?? null,
+        sort,
         status: query.status,
         tagIds,
       })
@@ -468,7 +518,7 @@ export function createItemsModule(options: ItemsModuleOptions): ItemsModule {
         items: pageRecords.map(toItemView),
         nextCursor:
           hasNextPage && lastRecord
-            ? encodeCursor(lastRecord, query.status)
+            ? encodeCursor(lastRecord, query.status, sort)
             : null,
       }
     },

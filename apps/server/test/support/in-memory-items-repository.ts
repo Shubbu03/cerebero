@@ -21,26 +21,123 @@ function cloneRecord(record: ItemRecord): ItemRecord {
   }
 }
 
+function titleSortKey(record: ItemRecord): string {
+  const value =
+    record.authoredTitle?.trim() ||
+    record.originalUrl?.trim() ||
+    record.noteMarkdown?.trim().slice(0, 300) ||
+    'untitled note'
+  return value.toLocaleLowerCase('en')
+}
+
 function isAfterCursor(record: ItemRecord, options: ItemListOptions): boolean {
   if (!options.cursor) {
     return true
   }
 
-  const timeDifference =
-    record.createdAt.getTime() - options.cursor.createdAt.getTime()
+  const cursor = options.cursor
+
+  if (options.sort === 'created_desc') {
+    if (!cursor.createdAt) {
+      return false
+    }
+    const timeDifference =
+      record.createdAt.getTime() - cursor.createdAt.getTime()
+    return timeDifference < 0 || (timeDifference === 0 && record.id < cursor.id)
+  }
+
+  if (options.sort === 'created_asc') {
+    if (!cursor.createdAt) {
+      return false
+    }
+    const timeDifference =
+      record.createdAt.getTime() - cursor.createdAt.getTime()
+    return timeDifference > 0 || (timeDifference === 0 && record.id > cursor.id)
+  }
+
+  if (options.sort === 'updated_desc') {
+    if (!cursor.updatedAt) {
+      return false
+    }
+    const timeDifference =
+      record.updatedAt.getTime() - cursor.updatedAt.getTime()
+    return timeDifference < 0 || (timeDifference === 0 && record.id < cursor.id)
+  }
+
+  if (cursor.titleKey === undefined) {
+    return false
+  }
+
+  const titleKey = titleSortKey(record)
   return (
-    timeDifference < 0 ||
-    (timeDifference === 0 && record.id < options.cursor.id)
+    titleKey > cursor.titleKey ||
+    (titleKey === cursor.titleKey && record.id > cursor.id)
+  )
+}
+
+function compareForSort(
+  left: ItemRecord,
+  right: ItemRecord,
+  sort: ItemListOptions['sort'],
+): number {
+  if (sort === 'created_asc') {
+    return (
+      left.createdAt.getTime() - right.createdAt.getTime() ||
+      left.id.localeCompare(right.id)
+    )
+  }
+
+  if (sort === 'updated_desc') {
+    return (
+      right.updatedAt.getTime() - left.updatedAt.getTime() ||
+      right.id.localeCompare(left.id)
+    )
+  }
+
+  if (sort === 'title_asc') {
+    return (
+      titleSortKey(left).localeCompare(titleSortKey(right), 'en') ||
+      left.id.localeCompare(right.id)
+    )
+  }
+
+  return (
+    right.createdAt.getTime() - left.createdAt.getTime() ||
+    right.id.localeCompare(left.id)
   )
 }
 
 export class InMemoryItemsRepository implements ItemRepository {
   readonly records = new Map<ItemId, ItemRecord>()
 
-  async createCapture(record: ItemRecord): Promise<ItemRecord> {
+  async createCapture(
+    record: ItemRecord,
+    options: { allowDuplicate: boolean; duplicateLimit: number },
+  ): ReturnType<ItemRepository['createCapture']> {
+    if (record.normalizedUrl && !options.allowDuplicate) {
+      const duplicates = [...this.records.values()]
+        .filter(
+          (candidate) =>
+            candidate.ownerId === record.ownerId &&
+            candidate.normalizedUrl === record.normalizedUrl &&
+            candidate.status !== 'trashed',
+        )
+        .sort(
+          (left, right) =>
+            right.createdAt.getTime() - left.createdAt.getTime() ||
+            right.id.localeCompare(left.id),
+        )
+        .slice(0, options.duplicateLimit)
+        .map(cloneRecord)
+
+      if (duplicates.length > 0) {
+        return Promise.resolve({ outcome: 'duplicate', records: duplicates })
+      }
+    }
+
     const stored = cloneRecord(record)
     this.records.set(stored.id, stored)
-    return Promise.resolve(cloneRecord(stored))
+    return Promise.resolve({ outcome: 'created', record: cloneRecord(stored) })
   }
 
   async deletePermanently(
@@ -125,11 +222,7 @@ export class InMemoryItemsRepository implements ItemRepository {
           }
           return true
         })
-        .sort(
-          (left, right) =>
-            right.createdAt.getTime() - left.createdAt.getTime() ||
-            right.id.localeCompare(left.id),
-        )
+        .sort((left, right) => compareForSort(left, right, options.sort))
         .slice(0, options.limit)
         .map(cloneRecord),
     )

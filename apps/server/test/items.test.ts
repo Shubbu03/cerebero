@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { createItemsModule } from '../src/modules/items/items.js'
 import { toItemId, toUserId } from '../src/modules/items/item-types.js'
@@ -39,6 +39,17 @@ async function captureNote(
 }
 
 describe('Items module', () => {
+  it('persists a Capture without a separate service-level duplicate read', async () => {
+    const { items, repository } = createTestModule()
+    const findDuplicates = vi.spyOn(repository, 'findDuplicates')
+
+    await expect(
+      items.capture(USER_A, { originalUrl: 'https://example.com/fast' }),
+    ).resolves.toMatchObject({ outcome: 'created' })
+
+    expect(findDuplicates).not.toHaveBeenCalled()
+  })
+
   it('normalizes duplicate URLs conservatively and scopes candidates per User', async () => {
     const { items, repository } = createTestModule()
     const first = await items.capture(USER_A, {
@@ -300,12 +311,14 @@ describe('Items module', () => {
 
     const archived = await items.list(USER_A, {
       limit: 25,
+      sort: 'created_desc',
       status: 'archived',
     })
     expect(archived.items.map((item) => item.id)).toEqual([first.id])
 
     const trashed = await items.list(USER_A, {
       limit: 25,
+      sort: 'created_desc',
       status: 'trashed',
     })
     expect(trashed.items).toHaveLength(1)
@@ -324,6 +337,7 @@ describe('Items module', () => {
 
     const firstPage = await items.list(USER_A, {
       limit: 1,
+      sort: 'created_desc',
       status: 'library',
     })
     expect(firstPage.items).toHaveLength(1)
@@ -332,10 +346,56 @@ describe('Items module', () => {
     const secondPage = await items.list(USER_A, {
       cursor: firstPage.nextCursor ?? undefined,
       limit: 1,
+      sort: 'created_desc',
       status: 'library',
     })
     expect(secondPage.items).toHaveLength(1)
     expect(secondPage.items[0]?.id).not.toBe(firstPage.items[0]?.id)
+    expect(secondPage.nextCursor).toBeNull()
+  })
+
+  it('sorts Library lists by title with keyset pagination', async () => {
+    const { items } = createTestModule()
+    const zebra = await items.capture(USER_A, {
+      authoredTitle: 'Zebra notes',
+      noteMarkdown: 'z',
+    })
+    const alpha = await items.capture(USER_A, {
+      authoredTitle: 'Alpha notes',
+      noteMarkdown: 'a',
+    })
+    const middle = await items.capture(USER_A, {
+      authoredTitle: 'Middle notes',
+      noteMarkdown: 'm',
+    })
+    if (
+      zebra.outcome !== 'created' ||
+      alpha.outcome !== 'created' ||
+      middle.outcome !== 'created'
+    ) {
+      throw new Error('Expected captures to succeed.')
+    }
+
+    const firstPage = await items.list(USER_A, {
+      limit: 2,
+      sort: 'title_asc',
+      status: 'library',
+    })
+    expect(firstPage.items.map((item) => item.displayTitle)).toEqual([
+      'Alpha notes',
+      'Middle notes',
+    ])
+    expect(firstPage.nextCursor).toBeTruthy()
+
+    const secondPage = await items.list(USER_A, {
+      cursor: firstPage.nextCursor ?? undefined,
+      limit: 2,
+      sort: 'title_asc',
+      status: 'library',
+    })
+    expect(secondPage.items.map((item) => item.displayTitle)).toEqual([
+      'Zebra notes',
+    ])
     expect(secondPage.nextCursor).toBeNull()
   })
 
@@ -370,6 +430,7 @@ describe('Items module', () => {
     const notes = await items.list(USER_A, {
       kind: 'note',
       limit: 25,
+      sort: 'created_desc',
       status: 'library',
     })
     expect(notes.items.map((item) => item.id)).toEqual([note.id])
@@ -377,12 +438,14 @@ describe('Items module', () => {
     const pinned = await items.list(USER_A, {
       limit: 25,
       pinned: true,
+      sort: 'created_desc',
       status: 'library',
     })
     expect(pinned.items.map((item) => item.id)).toEqual([link.item.id])
 
     const tagged = await items.list(USER_A, {
       limit: 25,
+      sort: 'created_desc',
       status: 'library',
       tag: [tagId],
     })
@@ -395,6 +458,7 @@ describe('Items module', () => {
       items.list(USER_A, {
         cursor: 'not-a-valid-cursor',
         limit: 25,
+        sort: 'created_desc',
         status: 'library',
       }),
     ).rejects.toMatchObject({ code: 'INVALID_REQUEST' })

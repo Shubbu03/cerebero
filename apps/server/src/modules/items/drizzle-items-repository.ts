@@ -1,14 +1,11 @@
 import type { DatabaseConnection } from '@cerebero/db'
-import {
-  itemTags,
-  items as itemsTable,
-  tags as tagsTable,
-} from '@cerebero/db/schema'
+import { itemTags, items as itemsTable } from '@cerebero/db/schema'
 import {
   and,
   asc,
   desc,
   eq,
+  gt,
   inArray,
   isNotNull,
   isNull,
@@ -16,38 +13,134 @@ import {
   ne,
   or,
   sql,
+  type SQL,
 } from 'drizzle-orm'
 
-import type { TagSummary } from '../tags/tag-types.js'
-import { toTagId } from '../tags/tag-types.js'
+import {
+  itemTagsProjection,
+  toItemRecord,
+  type ProjectedTag,
+} from './drizzle-item-projection.js'
 import type {
-  ItemId,
   ItemRecord,
+  ItemListOptions,
   ItemRepository,
-  UserId,
 } from './item-types.js'
-import { toItemId, toUserId } from './item-types.js'
 
-type ItemRow = typeof itemsTable.$inferSelect
+type CaptureDatabaseRow = {
+  authored_title: string | null
+  created_at: Date
+  id: string
+  normalized_url: string | null
+  note_markdown: string | null
+  original_url: string | null
+  outcome: 'created' | 'duplicate'
+  owner_id: string
+  pinned_at: Date | null
+  status: ItemRecord['status']
+  tags: ProjectedTag[]
+  trashed_at: Date | null
+  updated_at: Date
+  version: number
+}
 
-function toItemRecord(
-  row: ItemRow,
-  tags: readonly TagSummary[] = [],
-): ItemRecord {
-  return {
-    authoredTitle: row.authoredTitle,
-    createdAt: row.createdAt,
-    id: toItemId(row.id),
-    normalizedUrl: row.normalizedUrl,
-    noteMarkdown: row.noteMarkdown,
-    originalUrl: row.originalUrl,
-    ownerId: toUserId(row.ownerId),
-    pinnedAt: row.pinnedAt,
-    status: row.status,
-    tags,
-    trashedAt: row.trashedAt,
-    updatedAt: row.updatedAt,
-    version: row.version,
+function captureRowToItemRecord(row: CaptureDatabaseRow): ItemRecord {
+  return toItemRecord(
+    {
+      authoredTitle: row.authored_title,
+      createdAt: row.created_at,
+      id: row.id,
+      normalizedUrl: row.normalized_url,
+      noteMarkdown: row.note_markdown,
+      originalUrl: row.original_url,
+      ownerId: row.owner_id,
+      pinnedAt: row.pinned_at,
+      status: row.status,
+      trashedAt: row.trashed_at,
+      updatedAt: row.updated_at,
+      version: row.version,
+    },
+    row.tags,
+  )
+}
+
+const titleSortExpression = sql<string>`lower(coalesce(
+  nullif(btrim(${itemsTable.authoredTitle}), ''),
+  nullif(btrim(${itemsTable.originalUrl}), ''),
+  nullif(left(btrim(coalesce(${itemsTable.noteMarkdown}, '')), 300), ''),
+  'untitled note'
+))`
+
+function listCursorCondition(options: ItemListOptions): SQL | undefined {
+  if (!options.cursor) {
+    return undefined
+  }
+
+  const cursor = options.cursor
+
+  if (options.sort === 'created_desc') {
+    if (!cursor.createdAt) {
+      return undefined
+    }
+    return or(
+      lt(itemsTable.createdAt, cursor.createdAt),
+      and(
+        eq(itemsTable.createdAt, cursor.createdAt),
+        lt(itemsTable.id, cursor.id),
+      ),
+    )
+  }
+
+  if (options.sort === 'created_asc') {
+    if (!cursor.createdAt) {
+      return undefined
+    }
+    return or(
+      gt(itemsTable.createdAt, cursor.createdAt),
+      and(
+        eq(itemsTable.createdAt, cursor.createdAt),
+        gt(itemsTable.id, cursor.id),
+      ),
+    )
+  }
+
+  if (options.sort === 'updated_desc') {
+    if (!cursor.updatedAt) {
+      return undefined
+    }
+    return or(
+      lt(itemsTable.updatedAt, cursor.updatedAt),
+      and(
+        eq(itemsTable.updatedAt, cursor.updatedAt),
+        lt(itemsTable.id, cursor.id),
+      ),
+    )
+  }
+
+  if (cursor.titleKey === undefined) {
+    return undefined
+  }
+
+  return or(
+    sql`${titleSortExpression} > ${cursor.titleKey}`,
+    and(
+      sql`${titleSortExpression} = ${cursor.titleKey}`,
+      gt(itemsTable.id, cursor.id),
+    ),
+  )
+}
+
+function listOrderBy(options: ItemListOptions) {
+  switch (options.sort) {
+    case 'created_asc':
+      return [asc(itemsTable.createdAt), asc(itemsTable.id)] as const
+    case 'updated_desc':
+      return [desc(itemsTable.updatedAt), desc(itemsTable.id)] as const
+    case 'title_asc':
+      return [asc(titleSortExpression), asc(itemsTable.id)] as const
+    case 'created_desc':
+    default:
+      return [desc(itemsTable.createdAt), desc(itemsTable.id)] as const
   }
 }
 
@@ -56,87 +149,132 @@ export function createDrizzleItemsRepository(
 ): ItemRepository {
   const database = connection.database
 
-  async function loadTagsByItemIds(
-    ownerId: UserId,
-    itemIds: readonly ItemId[],
-  ): Promise<Map<ItemId, TagSummary[]>> {
-    const tagsByItemId = new Map<ItemId, TagSummary[]>()
-    for (const itemId of itemIds) {
-      tagsByItemId.set(itemId, [])
-    }
-
-    if (itemIds.length === 0) {
-      return tagsByItemId
-    }
-
-    const rows = await database
-      .select({
-        createdAt: tagsTable.createdAt,
-        id: tagsTable.id,
-        itemId: itemTags.itemId,
-        name: tagsTable.name,
-      })
-      .from(itemTags)
-      .innerJoin(tagsTable, eq(tagsTable.id, itemTags.tagId))
-      .where(
-        and(
-          eq(itemTags.ownerId, ownerId),
-          inArray(itemTags.itemId, [...itemIds]),
-          eq(tagsTable.ownerId, ownerId),
-        ),
-      )
-      .orderBy(asc(tagsTable.normalizedName), asc(tagsTable.id))
-
-    for (const row of rows) {
-      const itemId = toItemId(row.itemId)
-      const current = tagsByItemId.get(itemId) ?? []
-      current.push({
-        createdAt: row.createdAt,
-        id: toTagId(row.id),
-        name: row.name,
-      })
-      tagsByItemId.set(itemId, current)
-    }
-
-    return tagsByItemId
-  }
-
-  async function withTags(
-    ownerId: UserId,
-    records: readonly ItemRow[],
-  ): Promise<ItemRecord[]> {
-    const itemIds = records.map((record) => toItemId(record.id))
-    const tagsByItemId = await loadTagsByItemIds(ownerId, itemIds)
-    return records.map((record) =>
-      toItemRecord(record, tagsByItemId.get(toItemId(record.id)) ?? []),
-    )
-  }
-
   return {
-    createCapture: async (record) => {
-      const [created] = await database
-        .insert(itemsTable)
-        .values({
-          authoredTitle: record.authoredTitle,
-          createdAt: record.createdAt,
-          id: record.id,
-          normalizedUrl: record.normalizedUrl,
-          noteMarkdown: record.noteMarkdown,
-          originalUrl: record.originalUrl,
-          ownerId: record.ownerId,
-          pinnedAt: record.pinnedAt,
-          status: record.status,
-          trashedAt: record.trashedAt,
-          updatedAt: record.updatedAt,
-          version: record.version,
-        })
-        .returning()
+    createCapture: async (record, options) => {
+      const rows = (await connection.client`
+        with duplicate_items as (
+          select
+            candidate."id",
+            candidate."owner_id",
+            candidate."original_url",
+            candidate."normalized_url",
+            candidate."authored_title",
+            candidate."note_markdown",
+            candidate."status",
+            candidate."pinned_at",
+            candidate."trashed_at",
+            candidate."version",
+            candidate."created_at",
+            candidate."updated_at",
+            coalesce(
+              (
+                select jsonb_agg(
+                  jsonb_build_object(
+                    'createdAt', tag."created_at",
+                    'id', tag."id",
+                    'name', tag."name"
+                  )
+                  order by tag."normalized_name", tag."id"
+                )
+                from "item_tags" item_tag
+                inner join "tags" tag on tag."id" = item_tag."tag_id"
+                where item_tag."item_id" = candidate."id"
+                  and item_tag."owner_id" = ${record.ownerId}
+                  and tag."owner_id" = ${record.ownerId}
+              ),
+              '[]'::jsonb
+            ) as tags
+          from "items" candidate
+          where ${!options.allowDuplicate}
+            and ${record.normalizedUrl}::text is not null
+            and candidate."owner_id" = ${record.ownerId}
+            and candidate."normalized_url" = ${record.normalizedUrl}
+            and candidate."status" <> 'trashed'
+          order by candidate."created_at" desc, candidate."id" desc
+          limit ${options.duplicateLimit}
+        ),
+        created_item as (
+          insert into "items" (
+            "id",
+            "owner_id",
+            "original_url",
+            "normalized_url",
+            "authored_title",
+            "note_markdown",
+            "status",
+            "pinned_at",
+            "trashed_at",
+            "version",
+            "created_at",
+            "updated_at"
+          )
+          select
+            ${record.id}::uuid,
+            ${record.ownerId}::text,
+            ${record.originalUrl}::text,
+            ${record.normalizedUrl}::text,
+            ${record.authoredTitle}::text,
+            ${record.noteMarkdown}::text,
+            ${record.status}::item_status,
+            ${record.pinnedAt?.toISOString() ?? null}::timestamptz,
+            ${record.trashedAt?.toISOString() ?? null}::timestamptz,
+            ${record.version}::integer,
+            ${record.createdAt.toISOString()}::timestamptz,
+            ${record.updatedAt.toISOString()}::timestamptz
+          where ${options.allowDuplicate}
+            or not exists (select 1 from duplicate_items)
+          returning
+            "id",
+            "owner_id",
+            "original_url",
+            "normalized_url",
+            "authored_title",
+            "note_markdown",
+            "status",
+            "pinned_at",
+            "trashed_at",
+            "version",
+            "created_at",
+            "updated_at"
+        )
+        select
+          'created'::text as outcome,
+          created_item.*,
+          '[]'::jsonb as tags
+        from created_item
+        union all
+        select
+          'duplicate'::text as outcome,
+          duplicate_items."id",
+          duplicate_items."owner_id",
+          duplicate_items."original_url",
+          duplicate_items."normalized_url",
+          duplicate_items."authored_title",
+          duplicate_items."note_markdown",
+          duplicate_items."status",
+          duplicate_items."pinned_at",
+          duplicate_items."trashed_at",
+          duplicate_items."version",
+          duplicate_items."created_at",
+          duplicate_items."updated_at",
+          duplicate_items.tags
+        from duplicate_items
+        where not exists (select 1 from created_item)
+      `) as unknown as CaptureDatabaseRow[]
 
-      if (!created) {
-        throw new Error('The Item insert returned no record.')
+      const first = rows[0]
+      if (!first) {
+        throw new Error('The Capture statement returned no result.')
       }
 
-      return toItemRecord(created)
+      if (first.outcome === 'duplicate') {
+        return {
+          outcome: 'duplicate',
+          records: rows.map(captureRowToItemRecord),
+        }
+      }
+
+      return { outcome: 'created', record: captureRowToItemRecord(first) }
     },
 
     deletePermanently: async (ownerId, itemId, expectedVersion) => {
@@ -157,7 +295,7 @@ export function createDrizzleItemsRepository(
 
     findById: async (ownerId, itemId) => {
       const [record] = await database
-        .select()
+        .select({ item: itemsTable, tags: itemTagsProjection(ownerId) })
         .from(itemsTable)
         .where(and(eq(itemsTable.ownerId, ownerId), eq(itemsTable.id, itemId)))
         .limit(1)
@@ -166,13 +304,12 @@ export function createDrizzleItemsRepository(
         return null
       }
 
-      const [hydrated] = await withTags(ownerId, [record])
-      return hydrated ?? null
+      return toItemRecord(record.item, record.tags)
     },
 
     findDuplicates: async (ownerId, normalizedUrl, limit) => {
       const records = await database
-        .select()
+        .select({ item: itemsTable, tags: itemTagsProjection(ownerId) })
         .from(itemsTable)
         .where(
           and(
@@ -184,19 +321,11 @@ export function createDrizzleItemsRepository(
         .orderBy(desc(itemsTable.createdAt), desc(itemsTable.id))
         .limit(limit)
 
-      return withTags(ownerId, records)
+      return records.map((record) => toItemRecord(record.item, record.tags))
     },
 
     list: async (ownerId, options) => {
-      const cursorCondition = options.cursor
-        ? or(
-            lt(itemsTable.createdAt, options.cursor.createdAt),
-            and(
-              eq(itemsTable.createdAt, options.cursor.createdAt),
-              lt(itemsTable.id, options.cursor.id),
-            ),
-          )
-        : undefined
+      const cursorCondition = listCursorCondition(options)
 
       const kindCondition =
         options.kind === 'link'
@@ -232,8 +361,9 @@ export function createDrizzleItemsRepository(
             )
           : undefined
 
+      const orderBy = listOrderBy(options)
       const records = await database
-        .select()
+        .select({ item: itemsTable, tags: itemTagsProjection(ownerId) })
         .from(itemsTable)
         .where(
           and(
@@ -245,10 +375,10 @@ export function createDrizzleItemsRepository(
             tagCondition,
           ),
         )
-        .orderBy(desc(itemsTable.createdAt), desc(itemsTable.id))
+        .orderBy(...orderBy)
         .limit(options.limit)
 
-      return withTags(ownerId, records)
+      return records.map((record) => toItemRecord(record.item, record.tags))
     },
 
     update: async (ownerId, itemId, expectedVersion, patch) => {
@@ -265,15 +395,14 @@ export function createDrizzleItemsRepository(
             eq(itemsTable.version, expectedVersion),
           ),
         )
-        .returning()
+        .returning({ item: itemsTable, tags: itemTagsProjection(ownerId) })
 
       const updated = records[0]
       if (!updated) {
         return null
       }
 
-      const tagsByItemId = await loadTagsByItemIds(ownerId, [itemId])
-      return toItemRecord(updated, tagsByItemId.get(itemId) ?? [])
+      return toItemRecord(updated.item, updated.tags)
     },
   }
 }

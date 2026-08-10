@@ -21,11 +21,7 @@ export function createTrashCleanupModule(
 
   return {
     purgeExpiredTrash: async (limit = DEFAULT_BATCH_SIZE) => {
-      if (
-        !Number.isSafeInteger(limit) ||
-        limit < 1 ||
-        limit > MAX_BATCH_SIZE
-      ) {
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_BATCH_SIZE) {
         throw new Error(
           `Trash cleanup limit must be between 1 and ${MAX_BATCH_SIZE}.`,
         )
