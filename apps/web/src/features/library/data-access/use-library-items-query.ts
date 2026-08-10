@@ -1,34 +1,87 @@
 import { itemPageSchema, type ItemPage } from '@cerebero/contracts'
-import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query'
+import {
+  infiniteQueryOptions,
+  keepPreviousData,
+  useInfiniteQuery,
+  type InfiniteData,
+} from '@tanstack/react-query'
 
 import { apiClient } from '../../../lib/api-client'
-import { libraryItemsQueryKey } from './library-items-query-key'
+import {
+  LIBRARY_PAGE_SIZE,
+  PINNED_LIBRARY_ITEM_LIMIT,
+  libraryItemsQueryKey,
+  type LibraryListFilters,
+} from './library-items-query-key'
 
-const LIBRARY_PAGE_SIZE = 25
-
-async function queryLibraryItems(cursor: string | null): Promise<ItemPage> {
+async function queryLibraryItems(
+  filters: LibraryListFilters,
+  cursor: string | null,
+  limit: number,
+): Promise<ItemPage> {
   const response = await apiClient.get('/items', {
     params: {
       cursor: cursor ?? undefined,
-      limit: LIBRARY_PAGE_SIZE,
+      kind: filters.kind,
+      limit,
+      pinned:
+        filters.pinned === undefined
+          ? undefined
+          : filters.pinned
+            ? 'true'
+            : 'false',
+      sort: filters.sort,
       status: 'library',
+      tag: filters.tag,
     },
   })
 
   return itemPageSchema.parse(response.data)
 }
 
-export function useLibraryItemsQuery() {
-  return useInfiniteQuery<
+function libraryItemsQueryOptions(
+  filters: LibraryListFilters,
+  pageSize: number,
+  paginate: boolean,
+) {
+  const queryKey = libraryItemsQueryKey(filters, pageSize)
+
+  return infiniteQueryOptions<
     ItemPage,
     Error,
     InfiniteData<ItemPage>,
-    typeof libraryItemsQueryKey,
+    typeof queryKey,
     string | null
   >({
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    getNextPageParam: (lastPage) =>
+      paginate ? (lastPage.nextCursor ?? undefined) : undefined,
     initialPageParam: null,
-    queryFn: ({ pageParam }) => queryLibraryItems(pageParam),
-    queryKey: libraryItemsQueryKey,
+    placeholderData: keepPreviousData,
+    queryFn: ({ pageParam }) => queryLibraryItems(filters, pageParam, pageSize),
+    queryKey,
   })
+}
+
+export function paginatedLibraryItemsQueryOptions(filters: LibraryListFilters) {
+  return libraryItemsQueryOptions(
+    { ...filters, pinned: false },
+    LIBRARY_PAGE_SIZE,
+    true,
+  )
+}
+
+export function pinnedLibraryItemsQueryOptions(filters: LibraryListFilters) {
+  return libraryItemsQueryOptions(
+    { ...filters, pinned: true },
+    PINNED_LIBRARY_ITEM_LIMIT,
+    false,
+  )
+}
+
+export function useLibraryItemsQuery(filters: LibraryListFilters) {
+  return useInfiniteQuery(paginatedLibraryItemsQueryOptions(filters))
+}
+
+export function usePinnedLibraryItemsQuery(filters: LibraryListFilters) {
+  return useInfiniteQuery(pinnedLibraryItemsQueryOptions(filters))
 }

@@ -3,11 +3,15 @@ import {
   ArrowSquareOutIcon,
   FileTextIcon,
   LinkSimpleIcon,
+  PushPinIcon,
 } from '@phosphor-icons/react'
 import { Link } from '@tanstack/react-router'
 
+import { formatTagName } from '../../tags/tag-name'
+
 type LibraryUiListItemProps = {
-  item: ItemView
+  item: ItemView & { clientState?: 'saving' }
+  layout?: 'card' | 'row'
 }
 
 const capturedAtFormatter = new Intl.DateTimeFormat(undefined, {
@@ -31,46 +35,72 @@ function noteExcerpt(noteMarkdown: string | null) {
   return excerpt.length <= 180 ? excerpt : `${excerpt.slice(0, 177)}…`
 }
 
-export function LibraryUiListItem({ item }: LibraryUiListItemProps) {
+export function LibraryUiListItem({
+  item,
+  layout = 'row',
+}: LibraryUiListItemProps) {
+  const isSaving = item.clientState === 'saving'
+  const isCard = layout === 'card'
   const excerpt = noteExcerpt(item.noteMarkdown)
   const visibleTags = item.tags.slice(0, 3)
   const hiddenTagCount = item.tags.length - visibleTags.length
 
   return (
-    <article className="duration-fast hover:bg-surface grid gap-4 px-1 py-6 transition-colors sm:grid-cols-[2.5rem_minmax(0,1fr)_auto] sm:gap-5 sm:px-3 sm:py-7">
+    <article
+      aria-busy={isSaving || undefined}
+      className={`${isSaving ? 'cursor-default' : 'cursor-pointer'} group relative isolate ${
+        isCard
+          ? 'bg-surface duration-fast hover:bg-raised rounded-surface grid grid-cols-[2rem_minmax(0,1fr)_auto] gap-x-2.5 gap-y-1.5 p-3 transition-colors'
+          : 'duration-fast hover:bg-surface rounded-surface grid gap-4 px-3 py-4 transition-colors sm:grid-cols-[2.5rem_minmax(0,1fr)_auto] sm:gap-4 sm:px-4 sm:py-5'
+      }`}
+    >
+      {isSaving ? null : (
+        <Link
+          aria-label={`Open ${item.displayTitle}`}
+          className="focus-visible:ring-focus rounded-surface absolute inset-0 z-0 cursor-pointer focus-visible:ring-2 focus-visible:outline-none"
+          params={{ itemId: item.id }}
+          to="/items/$itemId"
+        />
+      )}
+
       <span
         aria-hidden="true"
-        className="border-border-subtle bg-sunken text-secondary hidden size-9 place-items-center border sm:grid"
+        className={`bg-sunken text-secondary rounded-control pointer-events-none relative z-10 place-items-center ${isCard ? 'grid size-8' : 'hidden size-9 sm:grid'}`}
       >
         {item.kind === 'link' ? (
-          <LinkSimpleIcon size={18} />
+          <LinkSimpleIcon size={isCard ? 16 : 18} />
         ) : (
-          <FileTextIcon size={18} />
+          <FileTextIcon size={isCard ? 16 : 18} />
         )}
       </span>
 
-      <div className="min-w-0">
-        <div className="flex min-w-0 items-start gap-3">
+      <div
+        className={`relative z-10 min-w-0 ${isSaving ? '' : 'pointer-events-none'}`}
+      >
+        <div
+          className={`flex min-w-0 items-start ${isCard ? 'gap-2' : 'gap-3'}`}
+        >
           <h2 className="min-w-0 text-base leading-6 font-semibold [overflow-wrap:anywhere]">
-            <Link
-              className="hover:text-accent-strong focus-visible:ring-focus rounded-control underline decoration-transparent underline-offset-4 transition-colors hover:decoration-current focus-visible:ring-2 focus-visible:outline-none"
-              params={{ itemId: item.id }}
-              to="/items/$itemId"
-            >
-              {item.displayTitle}
-            </Link>
+            {item.displayTitle}
           </h2>
           {item.pinnedAt ? (
-            <span className="bg-accent text-accent-foreground mt-0.5 shrink-0 rounded-full px-2 py-0.5 font-mono text-[0.625rem] font-medium tracking-[0.08em] uppercase">
-              Pinned
+            <span
+              aria-label="Pinned"
+              className="text-accent-strong mt-0.5 inline-flex size-5 shrink-0 items-center justify-center"
+              role="img"
+              title="Pinned"
+            >
+              <PushPinIcon aria-hidden="true" size={16} weight="fill" />
             </span>
           ) : null}
         </div>
 
-        <div className="text-tertiary mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+        <div
+          className={`text-tertiary flex flex-wrap items-center gap-x-2 gap-y-1 text-xs ${isCard ? 'mt-1' : 'mt-1.5'}`}
+        >
           {item.originalUrl ? (
             <a
-              className="hover:text-primary focus-visible:ring-focus rounded-control inline-flex max-w-full items-center gap-1 underline decoration-transparent underline-offset-4 transition-colors hover:decoration-current focus-visible:ring-2 focus-visible:outline-none"
+              className="hover:text-primary focus-visible:ring-focus rounded-control pointer-events-auto relative z-20 inline-flex max-w-full cursor-pointer items-center gap-1 underline decoration-transparent underline-offset-4 transition-colors hover:decoration-current focus-visible:ring-2 focus-visible:outline-none"
               href={item.originalUrl}
               rel="noopener noreferrer"
               target="_blank"
@@ -85,19 +115,24 @@ export function LibraryUiListItem({ item }: LibraryUiListItemProps) {
         </div>
 
         {excerpt ? (
-          <p className="text-secondary mt-4 max-w-3xl text-sm leading-6 [overflow-wrap:anywhere]">
+          <p
+            className={`text-secondary max-w-3xl text-sm [overflow-wrap:anywhere] ${isCard ? 'mt-2 line-clamp-2 leading-5' : 'mt-4 leading-6'}`}
+          >
             {excerpt}
           </p>
         ) : null}
 
         {item.tags.length > 0 ? (
-          <ul aria-label="Tags" className="mt-4 flex flex-wrap gap-1.5">
+          <ul
+            aria-label="Tags"
+            className={`${isCard ? 'mt-2' : 'mt-4'} flex flex-wrap gap-1.5`}
+          >
             {visibleTags.map((tag) => (
               <li
                 className="border-border-subtle bg-sunken text-secondary max-w-full rounded-full border px-2 py-0.5 text-xs [overflow-wrap:anywhere]"
                 key={tag.id}
               >
-                {tag.name}
+                {formatTagName(tag.name)}
               </li>
             ))}
             {hiddenTagCount > 0 ? (
@@ -109,11 +144,19 @@ export function LibraryUiListItem({ item }: LibraryUiListItemProps) {
         ) : null}
       </div>
 
-      <p className="text-tertiary font-mono text-[0.6875rem] tracking-[0.04em] sm:text-right">
-        <span className="sm:sr-only">Captured </span>
-        <time dateTime={item.createdAt}>
-          {capturedAtFormatter.format(new Date(item.createdAt))}
-        </time>
+      <p
+        className={`text-tertiary pointer-events-none relative z-10 font-mono text-[0.6875rem] tracking-[0.04em] whitespace-nowrap ${isCard ? 'col-start-3 row-start-1 text-right' : 'sm:text-right'}`}
+      >
+        {isSaving ? (
+          'Saving…'
+        ) : (
+          <>
+            <span className="sm:sr-only">Captured </span>
+            <time dateTime={item.createdAt}>
+              {capturedAtFormatter.format(new Date(item.createdAt))}
+            </time>
+          </>
+        )}
       </p>
     </article>
   )
