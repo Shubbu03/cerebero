@@ -46,12 +46,12 @@ describe('Tags module', () => {
       'research',
     )
 
-    await expect(tags.create(USER_A, { name: 'research' })).rejects.toMatchObject(
-      { code: 'DUPLICATE_TAG' },
-    )
-    await expect(tags.create(USER_B, { name: 'Research' })).resolves.toMatchObject(
-      { name: 'Research' },
-    )
+    await expect(
+      tags.create(USER_A, { name: 'research' }),
+    ).rejects.toMatchObject({ code: 'DUPLICATE_TAG' })
+    await expect(
+      tags.create(USER_B, { name: 'Research' }),
+    ).resolves.toMatchObject({ name: 'Research' })
   })
 
   it('lists only the actor Tags sorted by name', async () => {

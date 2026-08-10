@@ -118,6 +118,7 @@ export function createSearchModule(options: SearchModuleOptions): SearchModule {
         limit: query.limit + 1,
         pinned: query.pinned ?? null,
         query: normalizedQuery,
+        scope: query.scope ?? 'all',
         status: query.status ?? null,
         tagIds: query.tag?.length ? query.tag : null,
       })

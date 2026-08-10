@@ -33,9 +33,18 @@ function searchableText(record: ItemRecord): {
   }
 }
 
-function score(record: ItemRecord, query: string): number {
+function score(
+  record: ItemRecord,
+  query: string,
+  scope: SearchRepositoryOptions['scope'],
+): number {
   const normalized = query.toLowerCase()
   const fields = searchableText(record)
+
+  if (scope === 'tags') {
+    return fields.tags.toLowerCase().includes(normalized) ? 1 : 0
+  }
+
   let rank = 0
 
   if (fields.authored.toLowerCase().includes(normalized)) {
@@ -96,10 +105,10 @@ export class InMemorySearchRepository implements SearchRepository {
           }
         }
 
-        return score(record, options.query) > 0
+        return score(record, options.query, options.scope) > 0
       })
       .map((record) => ({
-        rank: score(record, options.query),
+        rank: score(record, options.query, options.scope),
         record: cloneRecord(record),
       }))
       .sort(

@@ -79,10 +79,7 @@ export interface TagsModule {
   ) => Promise<TagView>
 }
 
-export type TagsErrorCode =
-  | 'DUPLICATE_TAG'
-  | 'INVALID_REQUEST'
-  | 'NOT_FOUND'
+export type TagsErrorCode = 'DUPLICATE_TAG' | 'INVALID_REQUEST' | 'NOT_FOUND'
 
 export class TagsError extends Error {
   readonly code: TagsErrorCode

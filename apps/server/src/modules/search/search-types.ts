@@ -19,6 +19,7 @@ export type SearchRepositoryOptions = {
   limit: number
   pinned: boolean | null
   query: string
+  scope: 'all' | 'tags'
   status: ItemRecord['status'] | null
   tagIds: readonly string[] | null
 }

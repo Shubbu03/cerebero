@@ -141,9 +141,7 @@ export class InMemoryTagsRepository implements TagRepository {
     itemId: ItemId,
   ): Promise<OwnedResourceRef | null> {
     const item = this.items.get(itemId)
-    return Promise.resolve(
-      item?.ownerId === ownerId ? { ...item } : null,
-    )
+    return Promise.resolve(item?.ownerId === ownerId ? { ...item } : null)
   }
 
   async list(ownerId: UserId): Promise<readonly TagRecord[]> {
@@ -169,7 +167,9 @@ export class InMemoryTagsRepository implements TagRepository {
           attachment.ownerId === ownerId && attachment.itemId === itemId,
       )
       .map((attachment) => this.records.get(attachment.tagId))
-      .filter((tag): tag is TagRecord => Boolean(tag && tag.ownerId === ownerId))
+      .filter((tag): tag is TagRecord =>
+        Boolean(tag && tag.ownerId === ownerId),
+      )
       .sort(
         (left, right) =>
           left.normalizedName.localeCompare(right.normalizedName) ||

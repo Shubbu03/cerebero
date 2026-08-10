@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
 import { MAX_TAG_NAME_LENGTH, MAX_TAGS_PER_ITEM } from '@cerebero/contracts'
-import type { CreateTagInput, RenameTagInput, TagView } from '@cerebero/contracts'
+import type {
+  CreateTagInput,
+  RenameTagInput,
+  TagView,
+} from '@cerebero/contracts'
 
 import type { ItemId, UserId } from '../items/item-types.js'
 import type {
@@ -19,7 +23,10 @@ type TagsModuleOptions = {
   repository: TagRepository
 }
 
-function normalizeTagName(value: string): { name: string; normalizedName: string } {
+function normalizeTagName(value: string): {
+  name: string
+  normalizedName: string
+} {
   const name = value.trim()
   if (name.length === 0) {
     throw new TagsError('INVALID_REQUEST', 'A Tag name is required.')
@@ -68,14 +75,20 @@ export function createTagsModule(options: TagsModuleOptions): TagsModule {
     return record
   }
 
-  async function requireOwnedItem(actor: UserId, itemId: ItemId): Promise<void> {
+  async function requireOwnedItem(
+    actor: UserId,
+    itemId: ItemId,
+  ): Promise<void> {
     const item = await options.repository.findItemRef(actor, itemId)
     if (!item) {
       throw new TagsError('NOT_FOUND', 'The requested Item was not found.')
     }
   }
 
-  async function tagsForItem(actor: UserId, itemId: ItemId): Promise<TagView[]> {
+  async function tagsForItem(
+    actor: UserId,
+    itemId: ItemId,
+  ): Promise<TagView[]> {
     const tags = await options.repository.listForItem(actor, itemId)
     return sortTagViews(tags.map(toTagView))
   }
@@ -85,10 +98,13 @@ export function createTagsModule(options: TagsModuleOptions): TagsModule {
       await requireOwnedItem(actor, itemId)
       await getOwnedTag(actor, tagId)
 
-      const existingCount = await options.repository.countItemTags(actor, itemId)
-      const alreadyAttached = (await options.repository.listForItem(actor, itemId)).some(
-        (tag) => tag.id === tagId,
+      const existingCount = await options.repository.countItemTags(
+        actor,
+        itemId,
       )
+      const alreadyAttached = (
+        await options.repository.listForItem(actor, itemId)
+      ).some((tag) => tag.id === tagId)
       if (!alreadyAttached && existingCount >= MAX_TAGS_PER_ITEM) {
         throw new TagsError(
           'INVALID_REQUEST',
@@ -133,10 +149,7 @@ export function createTagsModule(options: TagsModuleOptions): TagsModule {
         })
         return toTagView(created)
       } catch (error) {
-        if (
-          error instanceof Error &&
-          error.message === 'DUPLICATE_TAG'
-        ) {
+        if (error instanceof Error && error.message === 'DUPLICATE_TAG') {
           throw new TagsError(
             'DUPLICATE_TAG',
             'A Tag with this name already exists.',

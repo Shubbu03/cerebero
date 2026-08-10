@@ -1,5 +1,9 @@
 import type { DatabaseConnection } from '@cerebero/db'
-import { itemTags, items as itemsTable, tags as tagsTable } from '@cerebero/db/schema'
+import {
+  itemTags,
+  items as itemsTable,
+  tags as tagsTable,
+} from '@cerebero/db/schema'
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 
 import type { ItemId } from '../items/item-types.js'
@@ -171,9 +175,7 @@ export function createDrizzleTagsRepository(
         .where(and(eq(itemsTable.ownerId, ownerId), eq(itemsTable.id, itemId)))
         .limit(1)
 
-      return row
-        ? { id: row.id, ownerId: toUserId(row.ownerId) }
-        : null
+      return row ? { id: row.id, ownerId: toUserId(row.ownerId) } : null
     },
 
     list: async (ownerId) => {

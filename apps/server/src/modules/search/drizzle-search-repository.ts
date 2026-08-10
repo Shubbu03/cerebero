@@ -4,31 +4,104 @@ import {
   items as itemsTable,
   tags as tagsTable,
 } from '@cerebero/db/schema'
-import { and, asc, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 
-import type { ItemId, ItemRecord, UserId } from '../items/item-types.js'
-import { toItemId, toUserId } from '../items/item-types.js'
-import type { TagSummary } from '../tags/tag-types.js'
-import { toTagId } from '../tags/tag-types.js'
-import type { SearchHit, SearchRepository } from './search-types.js'
+import {
+  itemTagsProjection,
+  toItemRecord,
+} from '../items/drizzle-item-projection.js'
+import type {
+  SearchHit,
+  SearchRepository,
+  SearchRepositoryOptions,
+} from './search-types.js'
 
-type ItemRow = typeof itemsTable.$inferSelect
+function toContainsPattern(query: string): string {
+  return `%${query.replace(/[\\%_]/g, '\\$&')}%`
+}
 
-function toItemRecord(row: ItemRow, tags: readonly TagSummary[]): ItemRecord {
+export function createSearchExpressions(
+  ownerId: string,
+  query: string,
+  scope: SearchRepositoryOptions['scope'] = 'all',
+) {
+  const containsPattern = toContainsPattern(query)
+  const tagMatchExpression = sql`exists (
+    select 1
+    from ${itemTags}
+    inner join ${tagsTable}
+      on ${sql.raw('"tags"."id"')} = ${sql.raw('"item_tags"."tag_id"')}
+    where ${sql.raw('"item_tags"."item_id"')} = ${sql.raw('"items"."id"')}
+      and ${sql.raw('"item_tags"."owner_id"')} = ${ownerId}
+      and ${sql.raw('"tags"."owner_id"')} = ${ownerId}
+      and ${sql.raw('"tags"."name"')} ilike ${containsPattern}
+  )`
+
+  if (scope === 'tags') {
+    return {
+      matchExpression: tagMatchExpression,
+      rankExpression: sql<number>`coalesce((
+        select max(similarity(${sql.raw('"tags"."name"')}, ${query}))
+        from ${itemTags}
+        inner join ${tagsTable}
+          on ${sql.raw('"tags"."id"')} = ${sql.raw('"item_tags"."tag_id"')}
+        where ${sql.raw('"item_tags"."item_id"')} = ${sql.raw('"items"."id"')}
+          and ${sql.raw('"item_tags"."owner_id"')} = ${ownerId}
+          and ${sql.raw('"tags"."owner_id"')} = ${ownerId}
+          and ${sql.raw('"tags"."name"')} ilike ${containsPattern}
+      ), 0)`,
+    }
+  }
+
+  const documentExpression = sql`(
+    coalesce(${sql.raw('"items"."search_document"')}, ''::tsvector)
+    || setweight(
+      to_tsvector(
+        'english',
+        coalesce((
+          select string_agg(${sql.raw('"tags"."name"')}, ' ')
+          from ${itemTags}
+          inner join ${tagsTable}
+            on ${sql.raw('"tags"."id"')} = ${sql.raw('"item_tags"."tag_id"')}
+          where ${sql.raw('"item_tags"."item_id"')} = ${sql.raw('"items"."id"')}
+            and ${sql.raw('"item_tags"."owner_id"')} = ${ownerId}
+            and ${sql.raw('"tags"."owner_id"')} = ${ownerId}
+        ), '')
+      ),
+      'B'
+    )
+  )`
+  const prefixQueryExpression = sql`to_tsquery(
+    'english',
+    coalesce((
+      select string_agg(quote_literal(search_lexeme) || ':*', ' & ')
+      from unnest(
+        tsvector_to_array(to_tsvector('english', ${query}))
+      ) as search_lexeme
+    ), '')
+  )`
+
   return {
-    authoredTitle: row.authoredTitle,
-    createdAt: row.createdAt,
-    id: toItemId(row.id),
-    normalizedUrl: row.normalizedUrl,
-    noteMarkdown: row.noteMarkdown,
-    originalUrl: row.originalUrl,
-    ownerId: toUserId(row.ownerId),
-    pinnedAt: row.pinnedAt,
-    status: row.status,
-    tags,
-    trashedAt: row.trashedAt,
-    updatedAt: row.updatedAt,
-    version: row.version,
+    matchExpression: sql`(
+      ${documentExpression} @@ ${prefixQueryExpression}
+      or coalesce(${sql.raw('"items"."authored_title"')}, '') ilike ${containsPattern}
+      or coalesce(${sql.raw('"items"."authored_title"')}, '') % ${query}
+      or coalesce(${sql.raw('"items"."original_url"')}, '') ilike ${containsPattern}
+      or coalesce(${sql.raw('"items"."normalized_url"')}, '') ilike ${containsPattern}
+      or coalesce(${sql.raw('"items"."normalized_url"')}, '') % ${query}
+      or coalesce(${sql.raw('"items"."note_markdown"')}, '') ilike ${containsPattern}
+      or ${tagMatchExpression}
+    )`,
+    rankExpression: sql<number>`(
+      ts_rank_cd(
+        ${documentExpression},
+        ${prefixQueryExpression}
+      )
+      + greatest(
+        similarity(coalesce(${sql.raw('"items"."authored_title"')}, ''), ${query}),
+        similarity(coalesce(${sql.raw('"items"."normalized_url"')}, ''), ${query})
+      ) * 0.25
+    )`,
   }
 }
 
@@ -37,103 +110,13 @@ export function createDrizzleSearchRepository(
 ): SearchRepository {
   const database = connection.database
 
-  async function loadTagsByItemIds(
-    ownerId: UserId,
-    itemIds: readonly ItemId[],
-  ): Promise<Map<ItemId, TagSummary[]>> {
-    const tagsByItemId = new Map<ItemId, TagSummary[]>()
-    for (const itemId of itemIds) {
-      tagsByItemId.set(itemId, [])
-    }
-
-    if (itemIds.length === 0) {
-      return tagsByItemId
-    }
-
-    const rows = await database
-      .select({
-        createdAt: tagsTable.createdAt,
-        id: tagsTable.id,
-        itemId: itemTags.itemId,
-        name: tagsTable.name,
-      })
-      .from(itemTags)
-      .innerJoin(tagsTable, eq(tagsTable.id, itemTags.tagId))
-      .where(
-        and(
-          eq(itemTags.ownerId, ownerId),
-          inArray(itemTags.itemId, [...itemIds]),
-          eq(tagsTable.ownerId, ownerId),
-        ),
-      )
-      .orderBy(asc(tagsTable.normalizedName), asc(tagsTable.id))
-
-    for (const row of rows) {
-      const itemId = toItemId(row.itemId)
-      const current = tagsByItemId.get(itemId) ?? []
-      current.push({
-        createdAt: row.createdAt,
-        id: toTagId(row.id),
-        name: row.name,
-      })
-      tagsByItemId.set(itemId, current)
-    }
-
-    return tagsByItemId
-  }
-
   return {
     search: async (ownerId, options) => {
-      // Weighted document:
-      // A authored title (items.search_document)
-      // B note (items.search_document) + tag names
-      // D URLs (items.search_document)
-      // Trigram similarity provides partial/fuzzy fallback scoring.
-      const rankExpression = sql<number>`(
-        ts_rank_cd(
-          coalesce(${itemsTable.searchDocument}, ''::tsvector)
-          || setweight(
-            to_tsvector(
-              'english',
-              coalesce((
-                select string_agg(${tagsTable.name}, ' ')
-                from ${itemTags}
-                inner join ${tagsTable} on ${tagsTable.id} = ${itemTags.tagId}
-                where ${itemTags.itemId} = ${itemsTable.id}
-                  and ${itemTags.ownerId} = ${ownerId}
-                  and ${tagsTable.ownerId} = ${ownerId}
-              ), '')
-            ),
-            'B'
-          ),
-          websearch_to_tsquery('english', ${options.query})
-        )
-        + greatest(
-          similarity(coalesce(${itemsTable.authoredTitle}, ''), ${options.query}),
-          similarity(coalesce(${itemsTable.normalizedUrl}, ''), ${options.query})
-        ) * 0.25
-      )`
-
-      const matchCondition = sql`(
-        coalesce(${itemsTable.searchDocument}, ''::tsvector)
-        || setweight(
-          to_tsvector(
-            'english',
-            coalesce((
-              select string_agg(${tagsTable.name}, ' ')
-              from ${itemTags}
-              inner join ${tagsTable} on ${tagsTable.id} = ${itemTags.tagId}
-              where ${itemTags.itemId} = ${itemsTable.id}
-                and ${itemTags.ownerId} = ${ownerId}
-                and ${tagsTable.ownerId} = ${ownerId}
-            ), '')
-          ),
-          'B'
-        )
-      ) @@ websearch_to_tsquery('english', ${options.query})
-      or coalesce(${itemsTable.authoredTitle}, '') % ${options.query}
-      or coalesce(${itemsTable.normalizedUrl}, '') % ${options.query}
-      or coalesce(${itemsTable.noteMarkdown}, '') ilike ${'%' + options.query + '%'}`
+      const { matchExpression, rankExpression } = createSearchExpressions(
+        ownerId,
+        options.query,
+        options.scope,
+      )
 
       const kindCondition =
         options.kind === 'link'
@@ -193,13 +176,14 @@ export function createDrizzleSearchRepository(
         .select({
           item: itemsTable,
           rank: rankExpression,
+          tags: itemTagsProjection(ownerId),
         })
         .from(itemsTable)
         .where(
           and(
             eq(itemsTable.ownerId, ownerId),
             statusCondition,
-            matchCondition,
+            matchExpression,
             kindCondition,
             pinnedCondition,
             tagCondition,
@@ -213,15 +197,9 @@ export function createDrizzleSearchRepository(
         )
         .limit(options.limit)
 
-      const itemIds = rows.map((row) => toItemId(row.item.id))
-      const tagsByItemId = await loadTagsByItemIds(ownerId, itemIds)
-
       const hits: SearchHit[] = rows.map((row) => ({
         rank: Number(row.rank),
-        record: toItemRecord(
-          row.item,
-          tagsByItemId.get(toItemId(row.item.id)) ?? [],
-        ),
+        record: toItemRecord(row.item, row.tags),
       }))
 
       return hits

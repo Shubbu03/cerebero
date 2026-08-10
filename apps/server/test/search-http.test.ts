@@ -53,7 +53,7 @@ describe('Search HTTP interface', () => {
     })
 
     const response = await app.request(
-      '/api/v1/search?q=neural&status=library&pinned=true&kind=link',
+      '/api/v1/search?q=neural&scope=tags&status=library&pinned=true&kind=link',
     )
 
     expect(response.status).toBe(200)
@@ -63,6 +63,7 @@ describe('Search HTTP interface', () => {
       limit: 25,
       pinned: true,
       q: 'neural',
+      scope: 'tags',
       status: 'library',
     })
   })
