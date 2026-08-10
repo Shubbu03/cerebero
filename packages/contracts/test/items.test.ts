@@ -90,12 +90,14 @@ describe('Item contracts', () => {
       kind: 'link',
       limit: 25,
       pinned: true,
+      sort: 'created_desc',
       status: 'library',
       tag: ['00000000-0000-4000-8000-000000000101'],
     })
     expect(
       listItemsQuerySchema.parse({
         pinned: 'false',
+        sort: 'title_asc',
         tag: [
           '00000000-0000-4000-8000-000000000101',
           '00000000-0000-4000-8000-000000000102',
@@ -103,12 +105,16 @@ describe('Item contracts', () => {
       }),
     ).toMatchObject({
       pinned: false,
+      sort: 'title_asc',
       tag: [
         '00000000-0000-4000-8000-000000000101',
         '00000000-0000-4000-8000-000000000102',
       ],
     })
     expect(listItemsQuerySchema.safeParse({ pinned: 'yes' }).success).toBe(
+      false,
+    )
+    expect(listItemsQuerySchema.safeParse({ sort: 'popular' }).success).toBe(
       false,
     )
   })

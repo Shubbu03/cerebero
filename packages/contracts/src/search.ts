@@ -34,17 +34,17 @@ export const searchQuerySchema = z
     limit: z.coerce.number().int().min(1).max(MAX_ITEM_PAGE_SIZE).default(25),
     pinned: z.enum(['true', 'false']).optional(),
     q: z.string().trim().min(1).max(MAX_SEARCH_QUERY_LENGTH),
+    scope: z.literal('tags').optional(),
     status: itemStatusSchema.optional(),
     tag: z.preprocess(
       toOptionalStringArray,
-      z.array(z.string().uuid()).max(10).optional(),
+      z.array(z.uuid()).max(10).optional(),
     ),
   })
   .strict()
   .transform((query) => ({
     ...query,
-    pinned:
-      query.pinned === undefined ? undefined : query.pinned === 'true',
+    pinned: query.pinned === undefined ? undefined : query.pinned === 'true',
   }))
 
 export const searchResponseSchema = itemPageSchema
@@ -55,6 +55,7 @@ export type SearchQuery = {
   limit: number
   pinned?: boolean | undefined
   q: string
+  scope?: 'tags' | undefined
   status?: z.infer<typeof itemStatusSchema> | undefined
   tag?: string[] | undefined
 }

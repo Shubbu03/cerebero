@@ -12,7 +12,7 @@ export const shareTokenSchema = z
 export const shareLinkViewSchema = z
   .object({
     createdAt: z.iso.datetime(),
-    itemId: z.string().uuid(),
+    itemId: z.uuid(),
   })
   .strict()
 
@@ -20,7 +20,7 @@ export const shareLinkViewSchema = z
 export const shareLinkCreatedSchema = z
   .object({
     createdAt: z.iso.datetime(),
-    itemId: z.string().uuid(),
+    itemId: z.uuid(),
     token: shareTokenSchema,
   })
   .strict()
@@ -42,7 +42,7 @@ export const publicSharedItemSchema = z
     displayTitle: z.string().min(1).max(300),
     kind: itemKindSchema,
     noteMarkdown: z.string().max(100_000).nullable(),
-    originalUrl: z.string().url().max(2_048).nullable(),
+    originalUrl: z.url().max(2_048).nullable(),
   })
   .strict()
 

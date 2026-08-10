@@ -3,7 +3,7 @@ import { z } from 'zod'
 export const MAX_TAG_NAME_LENGTH = 64
 export const MAX_TAGS_PER_ITEM = 50
 
-export const tagIdSchema = z.string().uuid()
+export const tagIdSchema = z.uuid()
 
 export const tagViewSchema = z
   .object({

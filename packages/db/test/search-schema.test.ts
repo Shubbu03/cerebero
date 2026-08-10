@@ -20,7 +20,8 @@ describe('Search database indexes', () => {
     )
 
     const documentIndex = configuration.indexes.find(
-      (tableIndex) => tableIndex.config.name === 'items_search_document_gin_idx',
+      (tableIndex) =>
+        tableIndex.config.name === 'items_search_document_gin_idx',
     )
     expect(documentIndex).toBeDefined()
   })

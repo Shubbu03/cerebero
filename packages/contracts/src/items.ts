@@ -36,9 +36,15 @@ const nullableHttpUrl = nullableTrimmedString(MAX_ITEM_URL_LENGTH).refine(
   'A valid HTTP or HTTPS URL without embedded credentials is required.',
 )
 
-export const itemIdSchema = z.string().uuid()
+export const itemIdSchema = z.uuid()
 export const itemStatusSchema = z.enum(['library', 'archived', 'trashed'])
 export const itemKindSchema = z.enum(['link', 'note'])
+export const itemListSortSchema = z.enum([
+  'created_desc',
+  'created_asc',
+  'updated_desc',
+  'title_asc',
+])
 
 export const itemViewSchema = z
   .object({
@@ -48,7 +54,7 @@ export const itemViewSchema = z
     id: itemIdSchema,
     kind: itemKindSchema,
     noteMarkdown: z.string().max(MAX_ITEM_NOTE_LENGTH).nullable(),
-    originalUrl: z.string().url().max(MAX_ITEM_URL_LENGTH).nullable(),
+    originalUrl: z.url().max(MAX_ITEM_URL_LENGTH).nullable(),
     pinnedAt: z.iso.datetime().nullable(),
     status: itemStatusSchema,
     tags: z.array(tagViewSchema),
@@ -196,10 +202,11 @@ export const listItemsQuerySchema = z
     kind: itemKindSchema.optional(),
     limit: z.coerce.number().int().min(1).max(MAX_ITEM_PAGE_SIZE).default(25),
     pinned: z.enum(['true', 'false']).optional(),
+    sort: itemListSortSchema.default('created_desc'),
     status: itemStatusSchema.default('library'),
     tag: z.preprocess(
       toOptionalStringArray,
-      z.array(z.string().uuid()).max(10).optional(),
+      z.array(z.uuid()).max(10).optional(),
     ),
   })
   .strict()
@@ -225,6 +232,7 @@ export type DuplicateItemResponse = z.infer<typeof duplicateItemResponseSchema>
 export type ItemCommand = z.infer<typeof itemCommandSchema>
 export type ItemCommandType = z.infer<typeof itemCommandTypeSchema>
 export type ItemKind = z.infer<typeof itemKindSchema>
+export type ItemListSort = z.infer<typeof itemListSortSchema>
 export type ItemPage = z.infer<typeof itemPageSchema>
 export type ItemStatus = z.infer<typeof itemStatusSchema>
 export type ItemView = z.infer<typeof itemViewSchema>
@@ -233,6 +241,7 @@ export type ListItemsQuery = {
   kind?: ItemKind | undefined
   limit: number
   pinned?: boolean | undefined
+  sort: ItemListSort
   status: ItemStatus
   tag?: string[] | undefined
 }

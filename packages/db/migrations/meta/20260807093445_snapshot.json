@@ -110,12 +110,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -162,9 +158,7 @@
         "rate_limit_key_unique": {
           "name": "rate_limit_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "key"
-          ]
+          "columns": ["key"]
         }
       },
       "policies": {},
@@ -247,12 +241,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -262,9 +252,7 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -328,9 +316,7 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -559,12 +545,8 @@
           "name": "enrichment_jobs_item_id_items_id_fk",
           "tableFrom": "enrichment_jobs",
           "tableTo": "items",
-          "columnsFrom": [
-            "item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["item_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -624,12 +606,8 @@
           "name": "enrichment_retry_rate_limits_owner_id_user_id_fk",
           "tableFrom": "enrichment_retry_rate_limits",
           "tableTo": "user",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -637,9 +615,7 @@
       "compositePrimaryKeys": {
         "enrichment_retry_rate_limits_owner_id_pk": {
           "name": "enrichment_retry_rate_limits_owner_id_pk",
-          "columns": [
-            "owner_id"
-          ]
+          "columns": ["owner_id"]
         }
       },
       "uniqueConstraints": {},
@@ -780,12 +756,8 @@
           "name": "item_enrichments_item_id_items_id_fk",
           "tableFrom": "item_enrichments",
           "tableTo": "items",
-          "columnsFrom": [
-            "item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["item_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1032,12 +1004,8 @@
           "name": "items_owner_id_user_id_fk",
           "tableFrom": "items",
           "tableTo": "user",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1156,12 +1124,8 @@
           "name": "item_tags_item_id_items_id_fk",
           "tableFrom": "item_tags",
           "tableTo": "items",
-          "columnsFrom": [
-            "item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["item_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1169,12 +1133,8 @@
           "name": "item_tags_tag_id_tags_id_fk",
           "tableFrom": "item_tags",
           "tableTo": "tags",
-          "columnsFrom": [
-            "tag_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tag_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1182,12 +1142,8 @@
           "name": "item_tags_owner_id_user_id_fk",
           "tableFrom": "item_tags",
           "tableTo": "user",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1195,10 +1151,7 @@
       "compositePrimaryKeys": {
         "item_tags_item_id_tag_id_pk": {
           "name": "item_tags_item_id_tag_id_pk",
-          "columns": [
-            "item_id",
-            "tag_id"
-          ]
+          "columns": ["item_id", "tag_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1298,12 +1251,8 @@
           "name": "tags_owner_id_user_id_fk",
           "tableFrom": "tags",
           "tableTo": "user",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1328,12 +1277,7 @@
     "public.enrichment_job_status": {
       "name": "enrichment_job_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "processing",
-        "completed",
-        "dead"
-      ]
+      "values": ["pending", "processing", "completed", "dead"]
     },
     "public.enrichment_state": {
       "name": "enrichment_state",
@@ -1349,12 +1293,7 @@
     "public.item_status": {
       "name": "item_status",
       "schema": "public",
-      "values": [
-        "inbox",
-        "library",
-        "archived",
-        "trashed"
-      ]
+      "values": ["inbox", "library", "archived", "trashed"]
     }
   },
   "schemas": {},
