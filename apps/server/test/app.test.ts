@@ -115,5 +115,57 @@ describe('operational HTTP interface', () => {
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual(authSession)
+    expect(response.headers.get('server-timing')).toMatch(
+      /auth;dur=.*handler;dur=.*total;dur=/,
+    )
+  })
+
+  it('returns stable rate-limit headers and error envelope', async () => {
+    const app = createApp({
+      checkReadiness: vi.fn().mockResolvedValue(undefined),
+      logger: createTestLogger(),
+      rateLimit: {
+        consume: vi.fn().mockResolvedValue({
+          allowed: false,
+          limit: 30,
+          remaining: 0,
+          resetAt: 60_000,
+          retryAfterSeconds: 12,
+        }),
+      },
+      trustedOrigin: 'http://localhost:5173',
+    })
+
+    const response = await app.request(
+      `/api/v1/public/shares/${'a'.repeat(40)}`,
+    )
+    const body = apiErrorSchema.parse(await response.json())
+
+    expect(response.status).toBe(429)
+    expect(body.error.code).toBe('RATE_LIMITED')
+    expect(response.headers.get('retry-after')).toBe('12')
+    expect(response.headers.get('ratelimit-limit')).toBe('30')
+    expect(response.headers.get('ratelimit-remaining')).toBe('0')
+    expect(response.headers.get('ratelimit-reset')).toBe('60')
+  })
+
+  it('does not perform a session lookup for public share resolution', async () => {
+    const getSession = vi.fn()
+    const app = createApp({
+      auth: {
+        getSession,
+        handler: vi.fn(),
+      },
+      checkReadiness: vi.fn().mockResolvedValue(undefined),
+      logger: createTestLogger(),
+      trustedOrigin: 'http://localhost:5173',
+    })
+
+    const response = await app.request(
+      `/api/v1/public/shares/${'a'.repeat(40)}`,
+    )
+
+    expect(response.status).toBe(404)
+    expect(getSession).not.toHaveBeenCalled()
   })
 })

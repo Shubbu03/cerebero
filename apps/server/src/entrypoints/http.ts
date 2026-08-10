@@ -5,6 +5,7 @@ import {
   checkDatabaseConnection,
   closeDatabaseConnection,
   createDatabase,
+  warmDatabaseConnection,
 } from '@cerebero/db'
 
 import { parseEnvironment } from '../config.js'
@@ -19,6 +20,8 @@ import { createDrizzleShareLinksRepository } from '../modules/sharing/drizzle-sh
 import { createSharingModule } from '../modules/sharing/sharing.js'
 import { createDrizzleTagsRepository } from '../modules/tags/drizzle-tags-repository.js'
 import { createTagsModule } from '../modules/tags/tags.js'
+import { createMemoryRateLimitRepository } from '../modules/rate-limit/memory-rate-limit-repository.js'
+import { createRateLimitModule } from '../modules/rate-limit/rate-limit.js'
 
 const environment = parseEnvironment(process.env)
 const logger = createLogger(environment.LOG_LEVEL)
@@ -39,6 +42,7 @@ const auth =
             }
           : {}),
         logger,
+        rateLimitStorage: 'memory',
         secret: environment.AUTH_SECRET,
         secureCookies: environment.NODE_ENV === 'production',
         webOrigin: environment.APP_ORIGIN,
@@ -70,6 +74,12 @@ const search = database
       repository: createDrizzleSearchRepository(database),
     })
   : undefined
+const rateLimit = database
+  ? createRateLimitModule({
+      repository: createMemoryRateLimitRepository(),
+    })
+  : undefined
+
 const app = createApp({
   ...(auth ? { auth } : {}),
   checkReadiness: async () => {
@@ -84,6 +94,7 @@ const app = createApp({
   ...(sharing ? { sharing } : {}),
   ...(tags ? { tags } : {}),
   logger,
+  ...(rateLimit ? { rateLimit } : {}),
   trustedOrigin: environment.APP_ORIGIN,
 })
 
@@ -92,9 +103,17 @@ const server = serve({
   port: environment.PORT,
 })
 
-logger.info('http.server.started', {
-  environment: environment.NODE_ENV,
-  port: environment.PORT,
+server.once('listening', () => {
+  logger.info('http.server.started', {
+    environment: environment.NODE_ENV,
+    port: environment.PORT,
+  })
+
+  if (database) {
+    void warmDatabaseConnection(database).catch(() => {
+      logger.warn('database.connection_warmup.failed')
+    })
+  }
 })
 
 let isShuttingDown = false

@@ -4,5 +4,6 @@ export type AppEnvironment = {
   Variables: {
     authSession: AuthenticatedSession | null
     requestId: string
+    serverTimings: string[]
   }
 }

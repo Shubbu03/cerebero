@@ -18,7 +18,9 @@ describe('Share token material', () => {
     expect(first.tokenHash).toHaveLength(64)
     expect(first.tokenHash).not.toContain(first.token)
 
-    const fixed = createShareTokenMaterial(() => Buffer.alloc(SHARE_TOKEN_BYTES, 7))
+    const fixed = createShareTokenMaterial(() =>
+      Buffer.alloc(SHARE_TOKEN_BYTES, 7),
+    )
     expect(fixed.tokenHash).toBe(hashShareToken(fixed.token))
   })
 })

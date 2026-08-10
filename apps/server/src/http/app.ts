@@ -21,12 +21,15 @@ import type { ItemsModule } from '../modules/items/item-types.js'
 import type { SearchModule } from '../modules/search/search-types.js'
 import type { SharingModule } from '../modules/sharing/share-types.js'
 import type { TagsModule } from '../modules/tags/tag-types.js'
+import type { RateLimitModule } from '../modules/rate-limit/rate-limit-types.js'
+import { requestRateLimits } from './rate-limit-policy.js'
 
 type AppOptions = {
   auth?: AuthRuntime
   checkReadiness: () => Promise<void>
   items?: ItemsModule
   logger: AppLogger
+  rateLimit?: RateLimitModule
   search?: SearchModule
   sharing?: SharingModule
   tags?: TagsModule
@@ -66,23 +69,31 @@ function errorBody(
   }
 }
 
+function timingMetric(name: string, startedAt: number): string {
+  return `${name};dur=${(performance.now() - startedAt).toFixed(1)}`
+}
+
 export function createApp(options: AppOptions): Hono<AppEnvironment> {
   const app = new Hono<AppEnvironment>()
 
   app.use('*', async (context, next) => {
     const requestId = randomUUID()
     context.set('requestId', requestId)
+    context.set('serverTimings', [])
     context.header('X-Request-Id', requestId)
     await next()
   })
 
   // Outermost for public shares so privacy headers win over global defaults.
   app.use('/api/v1/public/*', async (context, next) => {
-    await next()
-    context.header('X-Robots-Tag', 'noindex, nofollow')
-    context.header('Cache-Control', 'private, no-store')
-    context.header('Referrer-Policy', 'no-referrer')
-    context.header('Cross-Origin-Resource-Policy', 'same-site')
+    try {
+      await next()
+    } finally {
+      context.header('X-Robots-Tag', 'noindex, nofollow')
+      context.header('Cache-Control', 'private, no-store')
+      context.header('Referrer-Policy', 'no-referrer')
+      context.header('Cross-Origin-Resource-Policy', 'same-site')
+    }
   })
 
   app.use(
@@ -113,7 +124,14 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
       allowHeaders: ['Content-Type'],
       allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
       credentials: true,
-      exposeHeaders: ['Retry-After', 'X-Request-Id'],
+      exposeHeaders: [
+        'RateLimit-Limit',
+        'RateLimit-Remaining',
+        'RateLimit-Reset',
+        'Retry-After',
+        'Server-Timing',
+        'X-Request-Id',
+      ],
       maxAge: 600,
       origin: options.trustedOrigin,
     }),
@@ -123,8 +141,13 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
     const startedAt = performance.now()
     await next()
 
+    const durationMs = performance.now() - startedAt
+    const timings = context.get('serverTimings')
+    timings.push(`total;dur=${durationMs.toFixed(1)}`)
+    context.header('Server-Timing', timings.join(', '))
+
     options.logger.info('http.request.completed', {
-      durationMs: Math.round(performance.now() - startedAt),
+      durationMs: Math.round(durationMs),
       method: context.req.method,
       path: context.req.path,
       requestId: context.get('requestId'),
@@ -174,23 +197,84 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
   })
 
   app.use('/api/v1/*', async (context, next) => {
+    if (context.req.path.startsWith('/api/v1/public/')) {
+      context.set('authSession', null)
+      await next()
+      return
+    }
+
     if (!options.auth) {
       context.set('authSession', null)
       await next()
       return
     }
 
+    const startedAt = performance.now()
+    let authSession: Awaited<ReturnType<AuthRuntime['getSession']>>
     try {
-      const authSession = await options.auth.getSession(context.req.raw.headers)
-      context.set('authSession', authSession)
-      await next()
+      authSession = await options.auth.getSession(context.req.raw.headers)
     } catch {
       throw new AppError({
         code: 'SERVICE_UNAVAILABLE',
         message: 'Authentication could not be verified.',
         status: 503,
       })
+    } finally {
+      context.get('serverTimings').push(timingMetric('auth', startedAt))
     }
+
+    context.set('authSession', authSession)
+    await next()
+  })
+
+  app.use('/api/v1/*', async (context, next) => {
+    if (!options.rateLimit) {
+      await next()
+      return
+    }
+
+    const startedAt = performance.now()
+    const limits = requestRateLimits(context.req.method, context.req.path)
+    const session = context.get('authSession')
+
+    for (const limit of limits) {
+      const publicToken = context.req.path.split('/').at(-1) ?? 'unknown'
+      const subject =
+        limit.subject === 'global'
+          ? 'all-public-share-requests'
+          : limit.subject === 'public-token'
+            ? publicToken
+            : (session?.session.userId ?? 'unauthenticated')
+      const result = await options.rateLimit.consume({
+        policy: limit.policy,
+        subject,
+      })
+
+      context.header('RateLimit-Limit', String(result.limit))
+      context.header('RateLimit-Remaining', String(result.remaining))
+      context.header(
+        'RateLimit-Reset',
+        String(Math.ceil(result.resetAt / 1_000)),
+      )
+
+      if (!result.allowed) {
+        throw new AppError({
+          code: 'RATE_LIMITED',
+          message: 'Too many requests. Try again shortly.',
+          retryAfterSeconds: result.retryAfterSeconds,
+          status: 429,
+        })
+      }
+    }
+
+    context.get('serverTimings').push(timingMetric('rateLimit', startedAt))
+    await next()
+  })
+
+  app.use('/api/v1/*', async (context, next) => {
+    const startedAt = performance.now()
+    await next()
+    context.get('serverTimings').push(timingMetric('handler', startedAt))
   })
 
   app.get('/api/v1/session', (context) => {

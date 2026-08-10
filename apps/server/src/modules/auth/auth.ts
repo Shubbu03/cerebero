@@ -5,7 +5,6 @@ import * as authSchema from '@cerebero/db/schema'
 import { betterAuth } from 'better-auth/minimal'
 
 import type { AppLogger } from '../../infrastructure/logging/logger.js'
-import type { AuthEmailDelivery } from './email-delivery.js'
 
 export interface AuthRuntime {
   getSession(headers: Headers): Promise<AuthenticatedSession | null>
@@ -20,7 +19,6 @@ type GoogleProvider = {
 type AuthModuleOptions = {
   apiOrigin: string
   database: DatabaseConnection
-  emailDelivery?: AuthEmailDelivery
   google?: GoogleProvider
   logger: AppLogger
   oauthStateStorage?: 'cookie' | 'database'
@@ -30,18 +28,7 @@ type AuthModuleOptions = {
   webOrigin: string
 }
 
-function scheduleEmail(
-  send: () => Promise<void>,
-  event: 'auth.email.password_reset_failed' | 'auth.email.verification_failed',
-  logger: AppLogger,
-): void {
-  void send().catch(() => {
-    logger.error(event)
-  })
-}
-
 export function createAuthModule(options: AuthModuleOptions): AuthRuntime {
-  const emailDelivery = options.emailDelivery
   const auth = betterAuth({
     account: {
       storeStateStrategy: options.oauthStateStorage ?? 'database',
@@ -57,50 +44,10 @@ export function createAuthModule(options: AuthModuleOptions): AuthRuntime {
       provider: 'pg',
       schema: authSchema,
     }),
-    ...(emailDelivery
-      ? {
-          emailAndPassword: {
-            enabled: true,
-            maxPasswordLength: 128,
-            minPasswordLength: 12,
-            requireEmailVerification: true,
-            sendResetPassword: ({ user, url }) => {
-              scheduleEmail(
-                () =>
-                  emailDelivery.sendPasswordResetEmail({
-                    recipient: user.email,
-                    url,
-                  }),
-                'auth.email.password_reset_failed',
-                options.logger,
-              )
-              return Promise.resolve()
-            },
-          },
-          emailVerification: {
-            autoSignInAfterVerification: false,
-            sendOnSignUp: true,
-            sendVerificationEmail: ({ user, url }) => {
-              scheduleEmail(
-                () =>
-                  emailDelivery.sendVerificationEmail({
-                    recipient: user.email,
-                    url,
-                  }),
-                'auth.email.verification_failed',
-                options.logger,
-              )
-              return Promise.resolve()
-            },
-          },
-        }
-      : {}),
+    emailAndPassword: {
+      enabled: false,
+    },
     rateLimit: {
-      customRules: {
-        '/request-password-reset': { max: 3, window: 60 },
-        '/sign-in/email': { max: 5, window: 60 },
-        '/sign-up/email': { max: 3, window: 60 },
-      },
       enabled: true,
       max: 100,
       storage: options.rateLimitStorage ?? 'database',
@@ -108,11 +55,21 @@ export function createAuthModule(options: AuthModuleOptions): AuthRuntime {
     },
     secret: options.secret,
     session: {
+      cookieCache: {
+        enabled: true,
+        maxAge: 60 * 5,
+        strategy: 'compact',
+      },
       expiresIn: 60 * 60 * 24 * 7,
       freshAge: 60 * 5,
       updateAge: 60 * 60 * 24,
     },
     trustedOrigins: [options.webOrigin],
+    user: {
+      deleteUser: {
+        enabled: true,
+      },
+    },
     ...(options.google
       ? {
           socialProviders: {
