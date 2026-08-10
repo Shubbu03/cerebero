@@ -1,17 +1,14 @@
 # Cerebero
 
-Cerebero is a private personal Library for links and Markdown notes. Capture
-stores an Item directly in the Library; there is no Inbox or processing queue.
+**A private library for links and Markdown notes.** Save the context once, then
+find it again—without inboxes, filing, or a review queue.
 
-See [`plan.md`](./plan.md) for the current product and architecture decisions.
+Items can be links, notes, or both. They support tags, search, archive, trash,
+and revocable read-only share links. Authentication is Google-only.
 
-## Requirements
+## Run locally
 
-- Node.js 22 or newer
-- Bun 1.3.13
-- PostgreSQL
-
-## Local setup
+Requires Bun 1.3.13+, Node.js 22+, and PostgreSQL.
 
 ```sh
 cp apps/server/.env.example apps/server/.env
@@ -22,25 +19,16 @@ bun run db:migrate
 bun run dev
 ```
 
-The web app runs at `http://localhost:5173` and proxies API requests to the Hono
-server at `http://localhost:3000`.
+Set the same `DATABASE_URL` in `apps/server/.env` and `packages/db/.env`.
+For Google sign-in, also set `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and
+`GOOGLE_CLIENT_SECRET` in `apps/server/.env`.
 
-Configuration lives beside each consumer:
+The app is available at <http://localhost:5173>; the API runs on port 3000.
 
-- `apps/server/.env` — HTTP server, database, and authentication
-- `apps/web/.env` — optional browser configuration
-- `packages/db/.env` — Drizzle migration connection
-
-Keep the server and Drizzle `DATABASE_URL` values aligned for local work.
-
-## Verification
+## Useful commands
 
 ```sh
-bun run check
+bun run check                 # format, lint, typecheck, test, and build
+bun run db:migrate            # apply database migrations
+bun run purge-expired-trash   # delete items past the 30-day trash retention
 ```
-
-Codex does not run browser-driven verification. Use
-[`docs/manual-verification.md`](./docs/manual-verification.md) for manual UI
-checks.
-
-Docker, CI/CD, and deployment configuration are intentionally deferred.
