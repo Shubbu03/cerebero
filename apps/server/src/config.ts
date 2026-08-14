@@ -20,6 +20,10 @@ const environmentSchema = z
       (value) => (value === '' ? undefined : value),
       z.string().min(1).optional(),
     ),
+    GOOGLE_EXTENSION_CLIENT_ID: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().min(1).optional(),
+    ),
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
     NODE_ENV: z
       .enum(['development', 'test', 'production'])

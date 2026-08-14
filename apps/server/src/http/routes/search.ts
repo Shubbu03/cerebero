@@ -3,8 +3,8 @@ import { searchQuerySchema } from '@cerebero/contracts'
 import { Hono } from 'hono'
 
 import type { AppEnvironment } from '../environment.js'
+import { getPrincipalUserId } from '../authentication.js'
 import { AppError } from '../errors.js'
-import { toUserId } from '../../modules/items/item-types.js'
 import type { SearchModule } from '../../modules/search/search-types.js'
 import { SearchError } from '../../modules/search/search-types.js'
 
@@ -24,8 +24,8 @@ async function callSearch<T>(operation: () => Promise<T>): Promise<T> {
   }
 }
 
-function requireActor(session: AppEnvironment['Variables']['authSession']) {
-  if (!session) {
+function requireActor(principal: AppEnvironment['Variables']['authPrincipal']) {
+  if (!principal) {
     throw new AppError({
       code: 'UNAUTHENTICATED',
       message: 'Sign in is required.',
@@ -33,14 +33,14 @@ function requireActor(session: AppEnvironment['Variables']['authSession']) {
     })
   }
 
-  return toUserId(session.session.userId)
+  return getPrincipalUserId(principal)
 }
 
 export function createSearchRoutes(search: SearchModule): Hono<AppEnvironment> {
   const routes = new Hono<AppEnvironment>()
 
   routes.get('/', async (context) => {
-    const actor = requireActor(context.get('authSession'))
+    const actor = requireActor(context.get('authPrincipal'))
     const rawQuery = context.req.queries()
     const queryInput: Record<string, string | string[] | undefined> = {}
     for (const [key, values] of Object.entries(rawQuery)) {

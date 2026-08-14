@@ -9,7 +9,13 @@ import { defineConfig } from 'eslint/config'
 
 export default defineConfig(
   {
-    ignores: ['**/coverage/**', '**/dist/**', '**/node_modules/**'],
+    ignores: [
+      '**/.output/**',
+      '**/.wxt/**',
+      '**/coverage/**',
+      '**/dist/**',
+      '**/node_modules/**',
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked.map((config) => ({

@@ -35,17 +35,52 @@ export function PrivacyRoute() {
   return (
     <LegalPage title="Privacy">
       <p>
-        Cerebero stores the links and notes you capture in a private Library
-        owned by your Google account.
+        Cerebero stores the links, Markdown notes, Tags, and Library state you
+        choose to save in a private account connected through Google.
       </p>
       <p>
-        Authentication uses Google OAuth through Better Auth. Session cookies
-        identify you for private requests. Share Links expose only a read-only
-        projection of one Item when you create them.
+        The Chrome extension reads the current page URL and title only when you
+        open its popup or explicitly choose Save to Cerebero from Chrome&apos;s
+        page menu. It does not read page bodies, browsing history, bookmarks,
+        form data, or other tabs. Authored titles and notes are sent only when
+        you confirm Capture.
       </p>
       <p>
-        You can delete your account and owned data from Settings. We do not sell
-        personal data.
+        Extension sign-in uses Chrome Identity with Google&apos;s email-only
+        scope. A temporary Google access token is sent to the Cerebero API over
+        HTTPS for verification and is never written to extension storage. The
+        extension stores a scoped Cerebero session and basic account display
+        information in local extension storage so it can Capture after the popup
+        closes. Sign-out clears that local data and revokes the server session;
+        otherwise the session expires after thirty days.
+      </p>
+      <p>
+        A signed-out context-menu request may keep one pending page URL and
+        title locally until you sign in, review it, and confirm Capture. A newer
+        pending request replaces the older one.
+      </p>
+      <p>
+        Cerebero uses this data only to authenticate you, provide your private
+        Library, detect duplicates, perform Captures you request, and protect
+        the service. We do not sell personal data or use it for advertising. Our
+        use of information received from Google APIs follows the Chrome Web
+        Store User Data Policy, including its Limited Use requirements.
+      </p>
+      <p>
+        Share Links expose only a deliberately limited, read-only projection of
+        one Item when you create them. You can revoke them at any time.
+      </p>
+      <p>
+        You can delete your account and owned data from Settings. Uninstalling
+        the extension clears its local Chrome storage but does not delete your
+        Cerebero account. Questions can be sent to{' '}
+        <a
+          className="underline underline-offset-4"
+          href="mailto:thatcoderguyshubham@gmail.com"
+        >
+          thatcoderguyshubham@gmail.com
+        </a>
+        .
       </p>
     </LegalPage>
   )

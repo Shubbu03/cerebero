@@ -11,18 +11,19 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "build": "bun run build:packages && bun run --filter @cerebero/server build && bun run --filter @cerebero/web build",
+    "build": "bun run build:packages && bun run --filter @cerebero/server build && bun run --filter @cerebero/web build && bun run --filter @cerebero/extension build",
     "build:packages": "bun run --filter @cerebero/contracts build && bun run --filter @cerebero/db build && bun run --filter @cerebero/ui build",
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build",
     "db:check": "bun run --filter @cerebero/db db:check",
     "db:migrate": "bun run --filter @cerebero/db db:migrate",
     "dev": "bun run build:packages && concurrently --kill-others-on-fail --names server,web --prefix-colors green,blue \"bun run --filter @cerebero/server dev\" \"bun run --filter @cerebero/web dev\"",
+    "dev:extension": "bun run build:packages && bun run --filter @cerebero/extension dev",
     "purge-expired-trash": "bun run --filter @cerebero/server purge-expired-trash",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "test": "bun run build:packages && bun run --filter @cerebero/contracts test && bun run --filter @cerebero/db test && bun run --filter @cerebero/ui test && bun run --filter @cerebero/server test && bun run --filter @cerebero/web test",
-    "typecheck": "bun run --filter @cerebero/contracts typecheck && bun run --filter @cerebero/db typecheck && bun run --filter @cerebero/ui typecheck && bun run --filter @cerebero/server typecheck && bun run --filter @cerebero/web typecheck"
+    "test": "bun run build:packages && bun run --filter @cerebero/contracts test && bun run --filter @cerebero/db test && bun run --filter @cerebero/ui test && bun run --filter @cerebero/server test && bun run --filter @cerebero/web test && bun run --filter @cerebero/extension test",
+    "typecheck": "bun run --filter @cerebero/contracts typecheck && bun run --filter @cerebero/db typecheck && bun run --filter @cerebero/ui typecheck && bun run --filter @cerebero/server typecheck && bun run --filter @cerebero/web typecheck && bun run --filter @cerebero/extension typecheck"
   },
   "devDependencies": {
     "@cerebero/config": "workspace:*",

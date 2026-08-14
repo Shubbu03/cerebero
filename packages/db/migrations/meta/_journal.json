@@ -78,6 +78,13 @@
       "when": 1786195481593,
       "tag": "20260808132441_new_shiver_man",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786626009908,
+      "tag": "20260813130009_special_lionheart",
+      "breakpoints": true
     }
   ]
 }

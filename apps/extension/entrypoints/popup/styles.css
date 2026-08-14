@@ -1,0 +1,14 @@
+@import '@cerebero/ui/styles.css';
+
+@source './';
+
+html,
+body {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body {
+  width: 22.5rem;
+}

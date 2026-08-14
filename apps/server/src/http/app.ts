@@ -5,18 +5,25 @@ import type {
   ApiErrorCode,
   HealthResponse,
 } from '@cerebero/contracts'
-import { Hono } from 'hono'
+import { Hono, type MiddlewareHandler } from 'hono'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
 
+import {
+  getPrincipalUserId,
+  hasExtensionScope,
+  parseBearerToken,
+} from './authentication.js'
 import { AppError } from './errors.js'
 import type { AppEnvironment } from './environment.js'
+import { createExtensionAuthRoutes } from './routes/extension-auth.js'
 import { createItemsRoutes } from './routes/items.js'
 import { createSearchRoutes } from './routes/search.js'
 import { createPublicSharingRoutes } from './routes/sharing.js'
 import { createTagsRoutes } from './routes/tags.js'
 import type { AppLogger } from '../infrastructure/logging/logger.js'
 import type { AuthRuntime } from '../modules/auth/auth.js'
+import type { ExtensionAuthModule } from '../modules/extension-auth/extension-auth-types.js'
 import type { ItemsModule } from '../modules/items/item-types.js'
 import type { SearchModule } from '../modules/search/search-types.js'
 import type { SharingModule } from '../modules/sharing/share-types.js'
@@ -27,6 +34,7 @@ import { requestRateLimits } from './rate-limit-policy.js'
 type AppOptions = {
   auth?: AuthRuntime
   checkReadiness: () => Promise<void>
+  extensionAuth?: ExtensionAuthModule
   items?: ItemsModule
   logger: AppLogger
   rateLimit?: RateLimitModule
@@ -38,12 +46,13 @@ type AppOptions = {
 
 const statusByErrorCode: Record<
   ApiErrorCode,
-  400 | 401 | 404 | 409 | 413 | 415 | 429 | 500 | 503
+  400 | 401 | 403 | 404 | 409 | 413 | 415 | 429 | 500 | 503
 > = {
   AUTH_UNAVAILABLE: 503,
   DUPLICATE_ITEM: 409,
   DUPLICATE_TAG: 409,
   EDIT_CONFLICT: 409,
+  FORBIDDEN: 403,
   INTERNAL_ERROR: 500,
   INVALID_REQUEST: 400,
   INVALID_ITEM_STATE: 409,
@@ -121,7 +130,7 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
   app.use(
     '/api/*',
     cors({
-      allowHeaders: ['Content-Type'],
+      allowHeaders: ['Authorization', 'Content-Type'],
       allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
       credentials: true,
       exposeHeaders: [
@@ -198,21 +207,36 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
 
   app.use('/api/v1/*', async (context, next) => {
     if (context.req.path.startsWith('/api/v1/public/')) {
-      context.set('authSession', null)
+      context.set('authPrincipal', null)
       await next()
       return
     }
 
-    if (!options.auth) {
-      context.set('authSession', null)
+    if (context.req.path === '/api/v1/extension/auth/google') {
+      context.set('authPrincipal', null)
       await next()
       return
     }
 
     const startedAt = performance.now()
-    let authSession: Awaited<ReturnType<AuthRuntime['getSession']>>
     try {
-      authSession = await options.auth.getSession(context.req.raw.headers)
+      const authorization = context.req.header('Authorization')
+      if (authorization) {
+        const token = parseBearerToken(authorization)
+        const session =
+          token && options.extensionAuth
+            ? await options.extensionAuth.authenticate(token)
+            : null
+        context.set(
+          'authPrincipal',
+          session ? { kind: 'extension', session } : null,
+        )
+      } else if (options.auth) {
+        const session = await options.auth.getSession(context.req.raw.headers)
+        context.set('authPrincipal', session ? { kind: 'web', session } : null)
+      } else {
+        context.set('authPrincipal', null)
+      }
     } catch {
       throw new AppError({
         code: 'SERVICE_UNAVAILABLE',
@@ -223,7 +247,6 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
       context.get('serverTimings').push(timingMetric('auth', startedAt))
     }
 
-    context.set('authSession', authSession)
     await next()
   })
 
@@ -235,7 +258,7 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
 
     const startedAt = performance.now()
     const limits = requestRateLimits(context.req.method, context.req.path)
-    const session = context.get('authSession')
+    const principal = context.get('authPrincipal')
 
     for (const limit of limits) {
       const publicToken = context.req.path.split('/').at(-1) ?? 'unknown'
@@ -244,7 +267,9 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
           ? 'all-public-share-requests'
           : limit.subject === 'public-token'
             ? publicToken
-            : (session?.session.userId ?? 'unauthenticated')
+            : principal
+              ? getPrincipalUserId(principal)
+              : 'unauthenticated'
       const result = await options.rateLimit.consume({
         policy: limit.policy,
         subject,
@@ -286,8 +311,8 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
       })
     }
 
-    const authSession = context.get('authSession')
-    if (!authSession) {
+    const principal = context.get('authPrincipal')
+    if (!principal) {
       throw new AppError({
         code: 'UNAUTHENTICATED',
         message: 'Sign in is required.',
@@ -295,11 +320,22 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
       })
     }
 
-    return context.json(authSession)
+    if (principal.kind !== 'web') {
+      throw new AppError({
+        code: 'FORBIDDEN',
+        message: 'This endpoint requires a Web Session.',
+        status: 403,
+      })
+    }
+
+    return context.json(principal.session)
   })
 
-  app.use('/api/v1/items*', async (context, next) => {
-    if (!options.auth) {
+  const requireItemsAccess: MiddlewareHandler<AppEnvironment> = async (
+    context,
+    next,
+  ) => {
+    if (!options.auth && !options.extensionAuth) {
       throw new AppError({
         code: 'AUTH_UNAVAILABLE',
         message: 'Authentication is not configured yet.',
@@ -307,12 +343,31 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
       })
     }
 
-    if (!context.get('authSession')) {
+    const principal = context.get('authPrincipal')
+    if (!principal) {
       throw new AppError({
         code: 'UNAUTHENTICATED',
         message: 'Sign in is required.',
         status: 401,
       })
+    }
+
+    if (principal.kind === 'extension') {
+      const requiredScope =
+        context.req.method === 'POST' && context.req.path === '/api/v1/items'
+          ? 'items:create'
+          : context.req.method === 'POST' &&
+              context.req.path === '/api/v1/items/duplicates/check'
+            ? 'items:duplicates:check'
+            : null
+
+      if (!requiredScope || !hasExtensionScope(principal, requiredScope)) {
+        throw new AppError({
+          code: 'FORBIDDEN',
+          message: 'The Extension Session cannot access this endpoint.',
+          status: 403,
+        })
+      }
     }
 
     if (!options.items) {
@@ -324,9 +379,14 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
     }
 
     await next()
-  })
+  }
+  app.use('/api/v1/items', requireItemsAccess)
+  app.use('/api/v1/items/*', requireItemsAccess)
 
-  app.use('/api/v1/tags*', async (context, next) => {
+  const requireTagsAccess: MiddlewareHandler<AppEnvironment> = async (
+    context,
+    next,
+  ) => {
     if (!options.auth) {
       throw new AppError({
         code: 'AUTH_UNAVAILABLE',
@@ -335,11 +395,20 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
       })
     }
 
-    if (!context.get('authSession')) {
+    const principal = context.get('authPrincipal')
+    if (!principal) {
       throw new AppError({
         code: 'UNAUTHENTICATED',
         message: 'Sign in is required.',
         status: 401,
+      })
+    }
+
+    if (principal.kind !== 'web') {
+      throw new AppError({
+        code: 'FORBIDDEN',
+        message: 'This endpoint requires a Web Session.',
+        status: 403,
       })
     }
 
@@ -352,7 +421,9 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
     }
 
     await next()
-  })
+  }
+  app.use('/api/v1/tags', requireTagsAccess)
+  app.use('/api/v1/tags/*', requireTagsAccess)
 
   if (options.items) {
     app.route(
@@ -365,6 +436,21 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
     app.route('/api/v1/tags', createTagsRoutes(options.tags))
   }
 
+  if (options.extensionAuth) {
+    app.route(
+      '/api/v1/extension',
+      createExtensionAuthRoutes(options.extensionAuth),
+    )
+  } else {
+    app.all('/api/v1/extension/*', () => {
+      throw new AppError({
+        code: 'AUTH_UNAVAILABLE',
+        message: 'Extension authentication is not configured yet.',
+        status: 503,
+      })
+    })
+  }
+
   if (options.sharing) {
     // Public shares are intentionally unauthenticated.
     app.route(
@@ -373,7 +459,10 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
     )
   }
 
-  app.use('/api/v1/search*', async (context, next) => {
+  const requireSearchAccess: MiddlewareHandler<AppEnvironment> = async (
+    context,
+    next,
+  ) => {
     if (!options.auth) {
       throw new AppError({
         code: 'AUTH_UNAVAILABLE',
@@ -382,11 +471,20 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
       })
     }
 
-    if (!context.get('authSession')) {
+    const principal = context.get('authPrincipal')
+    if (!principal) {
       throw new AppError({
         code: 'UNAUTHENTICATED',
         message: 'Sign in is required.',
         status: 401,
+      })
+    }
+
+    if (principal.kind !== 'web') {
+      throw new AppError({
+        code: 'FORBIDDEN',
+        message: 'This endpoint requires a Web Session.',
+        status: 403,
       })
     }
 
@@ -399,7 +497,9 @@ export function createApp(options: AppOptions): Hono<AppEnvironment> {
     }
 
     await next()
-  })
+  }
+  app.use('/api/v1/search', requireSearchAccess)
+  app.use('/api/v1/search/*', requireSearchAccess)
 
   if (options.search) {
     app.route('/api/v1/search', createSearchRoutes(options.search))

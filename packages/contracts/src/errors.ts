@@ -5,6 +5,7 @@ export const apiErrorCodeSchema = z.enum([
   'DUPLICATE_ITEM',
   'DUPLICATE_TAG',
   'EDIT_CONFLICT',
+  'FORBIDDEN',
   'INTERNAL_ERROR',
   'INVALID_REQUEST',
   'INVALID_ITEM_STATE',

@@ -97,6 +97,9 @@ describe('application rate limiting', () => {
   })
 
   it('covers expensive, public, sharing, and destructive request paths', () => {
+    expect(
+      requestRateLimits('POST', '/api/v1/extension/auth/google'),
+    ).toHaveLength(1)
     expect(requestRateLimits('POST', '/api/v1/items')).toHaveLength(1)
     expect(
       requestRateLimits('POST', '/api/v1/items/duplicates/check'),

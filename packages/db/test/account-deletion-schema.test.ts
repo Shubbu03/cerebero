@@ -4,6 +4,7 @@ import { getTableConfig } from 'drizzle-orm/pg-core'
 
 import {
   account,
+  extensionSessions,
   items,
   itemTags,
   session,
@@ -13,7 +14,15 @@ import {
 
 describe('Account deletion database boundary', () => {
   it('cascades every user-owned record from the authenticated User row', () => {
-    for (const table of [items, tags, itemTags, shareLinks, session, account]) {
+    for (const table of [
+      items,
+      tags,
+      itemTags,
+      shareLinks,
+      extensionSessions,
+      session,
+      account,
+    ]) {
       const configuration = getTableConfig(table)
       const userReference = configuration.foreignKeys.find((foreignKey) =>
         foreignKey

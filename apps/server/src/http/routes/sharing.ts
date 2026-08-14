@@ -3,8 +3,9 @@ import { itemIdSchema } from '@cerebero/contracts'
 import { Hono } from 'hono'
 
 import type { AppEnvironment } from '../environment.js'
+import { getPrincipalUserId } from '../authentication.js'
 import { AppError } from '../errors.js'
-import { toItemId, toUserId } from '../../modules/items/item-types.js'
+import { toItemId } from '../../modules/items/item-types.js'
 import type { SharingModule } from '../../modules/sharing/share-types.js'
 import { SharingError } from '../../modules/sharing/share-types.js'
 
@@ -56,8 +57,8 @@ function parseItemId(value: string) {
   return toItemId(result.data)
 }
 
-function requireActor(session: AppEnvironment['Variables']['authSession']) {
-  if (!session) {
+function requireActor(principal: AppEnvironment['Variables']['authPrincipal']) {
+  if (!principal) {
     throw new AppError({
       code: 'UNAUTHENTICATED',
       message: 'Sign in is required.',
@@ -65,7 +66,7 @@ function requireActor(session: AppEnvironment['Variables']['authSession']) {
     })
   }
 
-  return toUserId(session.session.userId)
+  return getPrincipalUserId(principal)
 }
 
 /** Owner-scoped share management nested under /api/v1/items/:itemId/share* */
@@ -75,7 +76,7 @@ export function createItemSharingRoutes(
   const routes = new Hono<AppEnvironment>()
 
   routes.get('/:itemId/share', async (context) => {
-    const actor = requireActor(context.get('authSession'))
+    const actor = requireActor(context.get('authPrincipal'))
     const itemId = parseItemId(context.req.param('itemId'))
     const status: ShareLinkStatus = await callSharing(() =>
       sharing.getStatus(actor, itemId),
@@ -84,7 +85,7 @@ export function createItemSharingRoutes(
   })
 
   routes.post('/:itemId/share', async (context) => {
-    const actor = requireActor(context.get('authSession'))
+    const actor = requireActor(context.get('authPrincipal'))
     const itemId = parseItemId(context.req.param('itemId'))
     const created: ShareLinkCreated = await callSharing(() =>
       sharing.create(actor, itemId),
@@ -93,14 +94,14 @@ export function createItemSharingRoutes(
   })
 
   routes.delete('/:itemId/share', async (context) => {
-    const actor = requireActor(context.get('authSession'))
+    const actor = requireActor(context.get('authPrincipal'))
     const itemId = parseItemId(context.req.param('itemId'))
     await callSharing(() => sharing.revoke(actor, itemId))
     return context.body(null, 204)
   })
 
   routes.post('/:itemId/share/rotate', async (context) => {
-    const actor = requireActor(context.get('authSession'))
+    const actor = requireActor(context.get('authPrincipal'))
     const itemId = parseItemId(context.req.param('itemId'))
     const rotated: ShareLinkCreated = await callSharing(() =>
       sharing.rotate(actor, itemId),

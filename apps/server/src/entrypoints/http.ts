@@ -12,6 +12,9 @@ import { parseEnvironment } from '../config.js'
 import { createApp } from '../http/app.js'
 import { createLogger } from '../infrastructure/logging/logger.js'
 import { createAuthModule } from '../modules/auth/auth.js'
+import { createDrizzleExtensionSessionsRepository } from '../modules/extension-auth/drizzle-extension-sessions-repository.js'
+import { createExtensionAuthModule } from '../modules/extension-auth/extension-auth.js'
+import { createGoogleTokenVerifier } from '../modules/extension-auth/google-token-verifier.js'
 import { createDrizzleItemsRepository } from '../modules/items/drizzle-items-repository.js'
 import { createItemsModule } from '../modules/items/items.js'
 import { createDrizzleSearchRepository } from '../modules/search/drizzle-search-repository.js'
@@ -46,6 +49,15 @@ const auth =
         secret: environment.AUTH_SECRET,
         secureCookies: environment.NODE_ENV === 'production',
         webOrigin: environment.APP_ORIGIN,
+      })
+    : undefined
+const extensionAuth =
+  database && environment.GOOGLE_EXTENSION_CLIENT_ID
+    ? createExtensionAuthModule({
+        google: createGoogleTokenVerifier({
+          clientId: environment.GOOGLE_EXTENSION_CLIENT_ID,
+        }),
+        repository: createDrizzleExtensionSessionsRepository(database),
       })
     : undefined
 
@@ -89,6 +101,7 @@ const app = createApp({
 
     await checkDatabaseConnection(database)
   },
+  ...(extensionAuth ? { extensionAuth } : {}),
   ...(items ? { items } : {}),
   ...(search ? { search } : {}),
   ...(sharing ? { sharing } : {}),

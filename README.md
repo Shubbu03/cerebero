@@ -25,10 +25,28 @@ For Google sign-in, also set `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and
 
 The app is available at <http://localhost:5173>; the API runs on port 3000.
 
+## Chrome extension
+
+The MV3 extension captures the active page through its popup or the explicit
+**Save to Cerebero** page menu action. It uses the same Google account as the
+dashboard and requests only `activeTab`, `contextMenus`, `identity`, `storage`,
+and the configured Cerebero API origin.
+
+```sh
+cp apps/extension/.env.example apps/extension/.env.local
+bun run dev:extension
+```
+
+Release metadata, permission justifications, stable-ID setup, and the manual
+Chrome checks are documented in
+[`apps/extension/RELEASE.md`](apps/extension/RELEASE.md). The public data policy
+is in [`PRIVACY.md`](PRIVACY.md).
+
 ## Useful commands
 
 ```sh
 bun run check                 # format, lint, typecheck, test, and build
 bun run db:migrate            # apply database migrations
 bun run purge-expired-trash   # delete items past the 30-day trash retention
+bun run --filter @cerebero/extension zip:bootstrap  # first Web Store draft
 ```

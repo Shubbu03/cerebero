@@ -14,6 +14,11 @@ const policies = {
     scope: 'duplicate-check',
     windowMs: oneMinute,
   },
+  extensionAuthExchange: {
+    limit: 20,
+    scope: 'extension-auth-exchange',
+    windowMs: oneMinute,
+  },
   itemActions: { limit: 60, scope: 'item-actions', windowMs: oneMinute },
   publicGlobal: {
     limit: 600,
@@ -41,6 +46,10 @@ export function requestRateLimits(
   method: string,
   path: string,
 ): RequestRateLimit[] {
+  if (method === 'POST' && path === '/api/v1/extension/auth/google') {
+    return [{ policy: policies.extensionAuthExchange, subject: 'global' }]
+  }
+
   if (method === 'POST' && path === '/api/v1/items') {
     return [{ policy: policies.capture, subject: 'user' }]
   }

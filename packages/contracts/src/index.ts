@@ -14,6 +14,17 @@ export {
 } from './errors.js'
 export { healthResponseSchema, type HealthResponse } from './health.js'
 export {
+  MAX_GOOGLE_ACCESS_TOKEN_LENGTH,
+  extensionGoogleAuthInputSchema,
+  extensionGoogleAuthResponseSchema,
+  extensionScopeSchema,
+  extensionSessionSchema,
+  type ExtensionGoogleAuthInput,
+  type ExtensionGoogleAuthResponse,
+  type ExtensionScope,
+  type ExtensionSession,
+} from './extension-auth.js'
+export {
   MAX_ITEM_NOTE_LENGTH,
   MAX_ITEM_PAGE_SIZE,
   MAX_ITEM_TITLE_LENGTH,

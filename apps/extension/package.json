@@ -1,0 +1,44 @@
+{
+  "name": "@cerebero/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "assets:generate": "bun scripts/generate-assets.ts",
+    "build": "bun run assets:generate && wxt build -b chrome && bun run verify:manifest && bun run verify:assets",
+    "build:release": "bun run assets:generate && wxt build -b chrome && bun run verify:manifest:release && bun run verify:assets",
+    "dev": "wxt -b chrome",
+    "prepare": "wxt prepare",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "verify:assets": "bun scripts/verify-assets.ts",
+    "verify:manifest": "bun scripts/verify-manifest.ts",
+    "verify:manifest:release": "bun scripts/verify-manifest.ts --release",
+    "zip": "bun run zip:bootstrap",
+    "zip:bootstrap": "bun run assets:generate && wxt zip -b chrome && bun run verify:manifest && bun run verify:assets",
+    "zip:release": "bun run assets:generate && wxt zip -b chrome && bun run verify:manifest:release && bun run verify:assets"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "19",
+    "@types/react-dom": "19",
+    "@wxt-dev/module-react": "^1.2.2",
+    "jsdom": "^30.0.1",
+    "sharp": "^0.35.3",
+    "tailwindcss": "^4.3.3",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.10",
+    "wxt": "^0.21.4"
+  },
+  "dependencies": {
+    "@cerebero/contracts": "workspace:*",
+    "@cerebero/ui": "workspace:*",
+    "@phosphor-icons/react": "^2.1.10",
+    "react": "19",
+    "react-dom": "19",
+    "xior": "^0.8.4",
+    "zod": "^4.4.3"
+  }
+}

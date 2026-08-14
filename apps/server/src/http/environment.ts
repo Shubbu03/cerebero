@@ -1,8 +1,8 @@
-import type { AuthenticatedSession } from '@cerebero/contracts'
+import type { RequestPrincipal } from './authentication.js'
 
 export type AppEnvironment = {
   Variables: {
-    authSession: AuthenticatedSession | null
+    authPrincipal: RequestPrincipal | null
     requestId: string
     serverTimings: string[]
   }

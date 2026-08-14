@@ -9,8 +9,8 @@ import { bodyLimit } from 'hono/body-limit'
 import type { z } from 'zod'
 
 import type { AppEnvironment } from '../environment.js'
+import { getPrincipalUserId } from '../authentication.js'
 import { AppError } from '../errors.js'
-import { toUserId } from '../../modules/items/item-types.js'
 import type { TagsModule } from '../../modules/tags/tag-types.js'
 import { TagsError, toTagId } from '../../modules/tags/tag-types.js'
 
@@ -105,8 +105,8 @@ function parseTagId(value: string) {
   return toTagId(result.data)
 }
 
-function requireActor(session: AppEnvironment['Variables']['authSession']) {
-  if (!session) {
+function requireActor(principal: AppEnvironment['Variables']['authPrincipal']) {
+  if (!principal) {
     throw new AppError({
       code: 'UNAUTHENTICATED',
       message: 'Sign in is required.',
@@ -114,7 +114,7 @@ function requireActor(session: AppEnvironment['Variables']['authSession']) {
     })
   }
 
-  return toUserId(session.session.userId)
+  return getPrincipalUserId(principal)
 }
 
 const limitTagBody = bodyLimit({
@@ -132,20 +132,20 @@ export function createTagsRoutes(tags: TagsModule): Hono<AppEnvironment> {
   const routes = new Hono<AppEnvironment>()
 
   routes.get('/', async (context) => {
-    const actor = requireActor(context.get('authSession'))
+    const actor = requireActor(context.get('authPrincipal'))
     const response: TagList = await callTags(() => tags.list(actor))
     return context.json(response)
   })
 
   routes.post('/', limitTagBody, async (context) => {
-    const actor = requireActor(context.get('authSession'))
+    const actor = requireActor(context.get('authPrincipal'))
     const input = await parseJson(context.req.raw, createTagInputSchema)
     const tag: TagView = await callTags(() => tags.create(actor, input))
     return context.json(tag, 201)
   })
 
   routes.patch('/:tagId', limitTagBody, async (context) => {
-    const actor = requireActor(context.get('authSession'))
+    const actor = requireActor(context.get('authPrincipal'))
     const tagId = parseTagId(context.req.param('tagId'))
     const input = await parseJson(context.req.raw, renameTagInputSchema)
     const tag: TagView = await callTags(() => tags.rename(actor, tagId, input))
@@ -153,7 +153,7 @@ export function createTagsRoutes(tags: TagsModule): Hono<AppEnvironment> {
   })
 
   routes.delete('/:tagId', async (context) => {
-    const actor = requireActor(context.get('authSession'))
+    const actor = requireActor(context.get('authPrincipal'))
     const tagId = parseTagId(context.req.param('tagId'))
     await callTags(() => tags.delete(actor, tagId))
     return context.body(null, 204)

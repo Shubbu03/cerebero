@@ -17,13 +17,10 @@ import { bodyLimit } from 'hono/body-limit'
 import type { z } from 'zod'
 
 import type { AppEnvironment } from '../environment.js'
+import { getPrincipalUserId } from '../authentication.js'
 import { AppError } from '../errors.js'
 import type { ItemsModule } from '../../modules/items/item-types.js'
-import {
-  ItemsError,
-  toItemId,
-  toUserId,
-} from '../../modules/items/item-types.js'
+import { ItemsError, toItemId } from '../../modules/items/item-types.js'
 import type { SharingModule } from '../../modules/sharing/share-types.js'
 import type { TagsModule } from '../../modules/tags/tag-types.js'
 import { TagsError, toTagId } from '../../modules/tags/tag-types.js'
@@ -170,8 +167,8 @@ function parseTagId(value: string) {
   return toTagId(result.data)
 }
 
-function requireActor(session: AppEnvironment['Variables']['authSession']) {
-  if (!session) {
+function requireActor(principal: AppEnvironment['Variables']['authPrincipal']) {
+  if (!principal) {
     throw new AppError({
       code: 'UNAUTHENTICATED',
       message: 'Sign in is required.',
@@ -179,7 +176,7 @@ function requireActor(session: AppEnvironment['Variables']['authSession']) {
     })
   }
 
-  return toUserId(session.session.userId)
+  return getPrincipalUserId(principal)
 }
 
 const limitItemBody = bodyLimit({
@@ -205,7 +202,7 @@ export function createItemsRoutes(
   }
 
   routes.post('/duplicates/check', limitItemBody, async (context) => {
-    const actor = requireActor(context.get('authSession'))
+    const actor = requireActor(context.get('authPrincipal'))
     const input = await parseJson(context.req.raw, duplicateCheckInputSchema)
     const candidates = await callItems(() =>
       items.findDuplicateLinks(actor, input.url),
@@ -215,7 +212,7 @@ export function createItemsRoutes(
   })
 
   routes.post('/', limitItemBody, async (context) => {
-    const actor = requireActor(context.get('authSession'))
+    const actor = requireActor(context.get('authPrincipal'))
     const input = await parseJson(context.req.raw, captureItemInputSchema)
     const result = await callItems(() => items.capture(actor, input))
 
@@ -235,7 +232,7 @@ export function createItemsRoutes(
   })
 
   routes.get('/', async (context) => {
-    const actor = requireActor(context.get('authSession'))
+    const actor = requireActor(context.get('authPrincipal'))
     // Prefer multi-value query maps so repeated `tag` params survive.
     const rawQuery = context.req.queries()
     const queryInput: Record<string, string | string[] | undefined> = {}
@@ -261,7 +258,7 @@ export function createItemsRoutes(
   })
 
   routes.get('/:itemId', async (context) => {
-    const actor = requireActor(context.get('authSession'))
+    const actor = requireActor(context.get('authPrincipal'))
     const item = await callItems(() =>
       items.get(actor, parseItemId(context.req.param('itemId'))),
     )
@@ -277,7 +274,7 @@ export function createItemsRoutes(
   })
 
   routes.patch('/:itemId', limitItemBody, async (context) => {
-    const actor = requireActor(context.get('authSession'))
+    const actor = requireActor(context.get('authPrincipal'))
     const itemId = parseItemId(context.req.param('itemId'))
     const input = await parseJson(context.req.raw, updateItemInputSchema)
     const item: ItemView = await callItems(() =>
@@ -287,7 +284,7 @@ export function createItemsRoutes(
   })
 
   routes.post('/:itemId/actions', limitItemBody, async (context) => {
-    const actor = requireActor(context.get('authSession'))
+    const actor = requireActor(context.get('authPrincipal'))
     const itemId = parseItemId(context.req.param('itemId'))
     const command = await parseJson(context.req.raw, itemCommandSchema)
     const item: ItemView = await callItems(() =>
@@ -302,7 +299,7 @@ export function createItemsRoutes(
 
   if (tags) {
     routes.put('/:itemId/tags/:tagId', async (context) => {
-      const actor = requireActor(context.get('authSession'))
+      const actor = requireActor(context.get('authPrincipal'))
       const itemId = parseItemId(context.req.param('itemId'))
       const tagId = parseTagId(context.req.param('tagId'))
       await callTags(() => tags.attach(actor, itemId, tagId))
@@ -319,7 +316,7 @@ export function createItemsRoutes(
     })
 
     routes.delete('/:itemId/tags/:tagId', async (context) => {
-      const actor = requireActor(context.get('authSession'))
+      const actor = requireActor(context.get('authPrincipal'))
       const itemId = parseItemId(context.req.param('itemId'))
       const tagId = parseTagId(context.req.param('tagId'))
       await callTags(() => tags.detach(actor, itemId, tagId))

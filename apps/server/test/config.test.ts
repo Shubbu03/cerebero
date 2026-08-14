@@ -8,12 +8,14 @@ describe('parseEnvironment', () => {
       parseEnvironment({
         APP_ORIGIN: 'http://localhost:5173',
         DATABASE_URL: 'postgres://localhost/cerebero',
+        GOOGLE_EXTENSION_CLIENT_ID: 'chrome-extension-client-id',
         NODE_ENV: 'test',
         PORT: '4100',
       }),
     ).toMatchObject({
       APP_ORIGIN: 'http://localhost:5173',
       API_ORIGIN: 'http://localhost:3000',
+      GOOGLE_EXTENSION_CLIENT_ID: 'chrome-extension-client-id',
       LOG_LEVEL: 'info',
       NODE_ENV: 'test',
       PORT: 4100,
@@ -41,5 +43,14 @@ describe('parseEnvironment', () => {
         GOOGLE_CLIENT_ID: 'client-id',
       }),
     ).toThrow('Google OAuth credentials must be configured together.')
+  })
+
+  it('normalizes an empty Extension OAuth client ID as unconfigured', () => {
+    expect(
+      parseEnvironment({
+        APP_ORIGIN: 'http://localhost:5173',
+        GOOGLE_EXTENSION_CLIENT_ID: '',
+      }).GOOGLE_EXTENSION_CLIENT_ID,
+    ).toBeUndefined()
   })
 })

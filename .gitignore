@@ -5,9 +5,13 @@
 .pnpm-store/
 coverage/
 dist/
+.output/
+.wxt/
 node_modules/
 *.log
 *.tsbuildinfo
 docs/
 CONTEXT.md
 plan.md
+RELEASE.md
+STORE_LISTING.md
