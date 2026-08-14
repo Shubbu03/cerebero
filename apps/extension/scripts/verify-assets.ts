@@ -17,6 +17,7 @@ const expectedAssets = [
   ['store-assets/screenshots/cerebero-store-1.jpg', 1_280, 800],
   ['store-assets/screenshots/cerebero-store-2.jpg', 1_280, 800],
   ['store-assets/screenshots/cerebero-store-3.jpg', 1_280, 800],
+  ['store-assets/screenshots/cerebero-store-4.jpg', 1_280, 800],
 ] as const
 
 await Promise.all(
