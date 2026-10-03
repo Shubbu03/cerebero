@@ -11,6 +11,8 @@ import {
 import { isXiorError } from 'xior/utils'
 
 import { apiClient } from '../../../lib/api-client'
+import { libraryItemsQueryRoot } from '../../library/data-access/library-items-query-key'
+import { searchQueryRoot } from '../../search/data-access/search-query-key'
 import { ItemQueryError } from './item-query-error'
 import { itemQueryKey } from './item-query-key'
 
@@ -33,10 +35,13 @@ export function useItemQuery(itemId: string) {
   const findCachedItem = () => {
     const listData = [
       ...queryClient.getQueriesData<InfiniteData<ItemPage>>({
-        queryKey: ['items'],
+        queryKey: libraryItemsQueryRoot,
       }),
       ...queryClient.getQueriesData<InfiniteData<ItemPage>>({
-        queryKey: ['search'],
+        queryKey: ['items', 'collection'],
+      }),
+      ...queryClient.getQueriesData<InfiniteData<ItemPage>>({
+        queryKey: searchQueryRoot,
       }),
     ]
 

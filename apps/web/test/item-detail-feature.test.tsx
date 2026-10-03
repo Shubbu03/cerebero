@@ -19,10 +19,14 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ItemDetailFeatureEntry } from '../src/features/items/item-detail-feature-entry'
+import { collectionItemsQueryKey } from '../src/features/collections/data-access/use-collection-items-query'
+import { itemQueryKey } from '../src/features/items/data-access/item-query-key'
 import {
   defaultLibraryListFilters,
   libraryItemsQueryKey,
 } from '../src/features/library/data-access/library-items-query-key'
+import { searchItemsQueryKey } from '../src/features/search/data-access/search-query-key'
+import { itemShareQueryKey } from '../src/features/sharing/data-access/share-query-key'
 
 const { getApi, patchApi, postApi, putApi, deleteApi } = vi.hoisted(() => ({
   deleteApi: vi.fn(),
@@ -71,10 +75,13 @@ function createTagList(): TagList {
   }
 }
 
-function renderItemDetail(routeItemId = itemId, cachedItem?: ItemView) {
-  const queryClient = new QueryClient({
+function renderItemDetail(
+  routeItemId = itemId,
+  cachedItem?: ItemView,
+  queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
-  })
+  }),
+) {
   const rootRoute = createRootRoute({ component: Outlet })
   const libraryRoute = createRoute({
     component: () => null,
@@ -120,6 +127,83 @@ afterEach(() => {
 })
 
 describe('Item detail feature', () => {
+  it.each([
+    ['Library', libraryItemsQueryKey(defaultLibraryListFilters)],
+    ['Archive', collectionItemsQueryKey('archived')],
+    ['Trash', collectionItemsQueryKey('trashed')],
+    ['Search', searchItemsQueryKey({ q: 'reference' })],
+  ] as const)(
+    'opens from cached %s results when detail and sharing queries already exist',
+    async (_, listQueryKey) => {
+      const item = createItem()
+      const previousItem = createItem({
+        displayTitle: 'Previously opened Item',
+        id: '33333333-3333-4333-8333-333333333333',
+      })
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      })
+      // Opening an earlier Item leaves non-list queries in the same namespace.
+      queryClient.setQueryData(itemQueryKey(previousItem.id), previousItem)
+      queryClient.setQueryData(itemShareQueryKey(previousItem.id), {
+        active: false,
+        createdAt: null,
+      })
+      queryClient.setQueryData(listQueryKey, {
+        pageParams: [null],
+        pages: [{ items: [item], nextCursor: null } satisfies ItemPage],
+      })
+      getApi.mockImplementation((path: string) => {
+        if (path === '/tags') {
+          return { data: createTagList() }
+        }
+        if (path === `/items/${item.id}/share`) {
+          return { data: { active: false, createdAt: null } }
+        }
+        throw new Error(`Unexpected request: ${path}`)
+      })
+
+      renderItemDetail(item.id, undefined, queryClient)
+
+      expect(
+        await screen.findByRole('heading', { name: item.displayTitle }),
+      ).toBeInTheDocument()
+      expect(getApi).not.toHaveBeenCalledWith(`/items/${item.id}`)
+    },
+  )
+
+  it('fetches an uncached Item when only another Item detail and sharing status are cached', async () => {
+    const item = createItem()
+    const previousItem = createItem({
+      displayTitle: 'Previously opened Item',
+      id: '33333333-3333-4333-8333-333333333333',
+    })
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    queryClient.setQueryData(itemQueryKey(previousItem.id), previousItem)
+    queryClient.setQueryData(itemShareQueryKey(previousItem.id), {
+      active: false,
+      createdAt: null,
+    })
+    getApi.mockImplementation((path: string) => {
+      if (path === '/tags') {
+        return { data: createTagList() }
+      }
+      if (path === `/items/${item.id}/share`) {
+        return { data: { active: false, createdAt: null } }
+      }
+      return { data: item }
+    })
+
+    renderItemDetail(item.id, undefined, queryClient)
+
+    expect(
+      await screen.findByRole('heading', { name: item.displayTitle }),
+    ).toBeInTheDocument()
+    expect(getApi).toHaveBeenCalledWith(`/items/${item.id}`)
+  })
+
   it('opens immediately from a cached Library Item without another item request', async () => {
     const item = createItem()
     getApi.mockImplementation((path: string) => {
