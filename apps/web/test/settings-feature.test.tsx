@@ -71,6 +71,7 @@ afterEach(cleanup)
 
 describe('Settings feature', () => {
   beforeEach(() => {
+    window.localStorage.clear()
     deleteUser.mockReset()
     signOut.mockReset()
     useSession.mockReset()
@@ -91,6 +92,32 @@ describe('Settings feature', () => {
       },
       isPending: false,
     })
+  })
+
+  it('selects and persists light, dark, and system appearance preferences', async () => {
+    renderSettings()
+
+    const system = await screen.findByRole('radio', { name: /^System/ })
+    expect(system).toBeChecked()
+
+    const dark = screen.getByRole('radio', { name: /^Dark/ })
+    fireEvent.click(dark)
+    expect(dark).toBeChecked()
+    expect(system).not.toBeChecked()
+    expect(window.localStorage.getItem('cerebero-theme')).toBe('dark')
+    expect(document.documentElement).toHaveClass('dark')
+
+    const light = screen.getByRole('radio', { name: /^Light/ })
+    fireEvent.click(light)
+    expect(light).toBeChecked()
+    expect(window.localStorage.getItem('cerebero-theme')).toBe('light')
+    expect(document.documentElement).not.toHaveClass('dark')
+
+    fireEvent.click(system)
+    expect(system).toBeChecked()
+    expect(light).not.toBeChecked()
+    expect(window.localStorage.getItem('cerebero-theme')).toBe('system')
+    expect(document.documentElement).toHaveAttribute('data-theme', 'system')
   })
 
   it('shows the Google profile and requires explicit account confirmation', async () => {
